@@ -15,7 +15,7 @@ const ok = (c: boolean, m: string) => { c ? (pass++, console.log("  ✓", m)) : 
 
 const tag = "bimp-" + Math.floor(Math.random() * 1e9).toString(36);
 const seed = Math.floor(Math.random() * 1e9);
-const phoneOf = (i: number) => `0100${String(seed).padStart(9, "0").slice(0, 6)}${String(i).padStart(2, "0")}`;
+const phoneOf = (i: number) => `010${String(seed).padStart(9, "0").slice(0, 6)}${String(i).padStart(2, "0")}`;
 const nidOf = (i: number) => String(29000000000000 + seed * 100 + i);
 
 const actorFor = (centerId: string, userId: string) => ({
@@ -332,6 +332,46 @@ async function main() {
       `SELECT count(*)::int n FROM center_student_rosters WHERE center_id=$1 AND student_id=$2`, [fx.centerA, bStudent],
     );
     ok(onA[0].n === 0, "a student imported by center B does not appear on center A's roster");
+
+    console.log("\n[12] Real exports — one child under every phone spelling an old system writes");
+    const walkIn = await withPlatformContext(async (tx) => {
+      const u = await tx.user.create({
+        data: { name: tag + "-walkin", phone: "+2" + phoneOf(80), role: "student", status: "active", isDemo: true },
+      });
+      await tx.studentProfile.create({
+        data: { userId: u.id, fullName: tag + "-walkin", phone: "+2" + phoneOf(80), entityType: "invited", inviteCode: tag.toUpperCase() + "80", familyLinkCode: tag.toUpperCase() + "F80" },
+      });
+      return u.id;
+    });
+    createdUserIds.push(walkIn);
+    const arDigits = (x: string) => x.replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[+d]);
+    const p80 = phoneOf(80);
+    for (const [label, spelled] of [
+      ["the local 01X form", p80],
+      ["Arabic-Indic digits", arDigits(p80)],
+      ["Excel's stripped leading zero", p80.slice(1)],
+      ["spaces and dashes", `${p80.slice(0, 3)} ${p80.slice(3, 7)}-${p80.slice(7)}`],
+    ] as const) {
+      const r = await importStudentCsv(A, `الاسم,الموبايل\n${tag}-walkin,${spelled}\n`, { dryRun: true });
+      ok(r.rows[0].status === "would_reuse", `a walk-in child (+20 on file) is FOUND by ${label} (got ${r.rows[0].status})`);
+    }
+    const r12 = await importStudentCsv(A, `name,phone\n${tag}-fmt1,${phoneOf(81)}\n${tag}-fmt2,+2${phoneOf(81)}\n`, { dryRun: true });
+    ok(r12.rows[1].status === "duplicate_in_file", "the same number spelled two ways inside one file is ONE child");
+    const r12b = await importStudentCsv(A, `name,phone,guardian phone\n${tag}-junk,12345,\n${tag}-gjunk,${phoneOf(82)},999\n`, { dryRun: true });
+    ok(r12b.rows[0].errorCode === "invalid_phone", "a phone that is not an Egyptian mobile refuses the row, it is not stored as text");
+    ok(r12b.rows[1].errorCode === "invalid_guardian_phone", "a junk guardian mobile refuses the row with its own reason");
+    const r12c = await importStudentCsv(A, `name,phone\n${tag}-canon,${arDigits(phoneOf(83))}\n`);
+    createdUserIds.push(r12c.rows[0].studentId!);
+    const stored = await q<{ phone: string }>(`SELECT phone FROM users WHERE id=$1`, [r12c.rows[0].studentId]);
+    ok(stored[0]?.phone === "+2" + phoneOf(83), `an imported phone is stored in the walk-in counter's +20 form (got ${stored[0]?.phone})`);
+    const r12d = await importStudentCsv(A, `name,national id\n${tag}-sci,3.08010E+13\n`, { dryRun: true });
+    ok(r12d.rows[0].errorCode === "national_id_scientific", "Excel's scientific-notation national ID gets a reason the center can act on");
+    const r12e = await importStudentCsv(A, `اسم الطالب رباعي;رقم الموبايل;الصف;المتبقي\n${tag}-semi;${phoneOf(84)};3 ثانوي;200\n`, { dryRun: true });
+    ok(r12e.rows[0].status === "would_create", "a semicolon file with free-form Arabic headers imports");
+    ok(
+      JSON.stringify(r12e.columns?.ignored) === JSON.stringify(["الصف", "المتبقي"]),
+      `columns that are NOT imported are named back to the center (got ${JSON.stringify(r12e.columns?.ignored)})`,
+    );
   } finally {
     const all = [...new Set(createdUserIds)];
     const c = await admin.connect();

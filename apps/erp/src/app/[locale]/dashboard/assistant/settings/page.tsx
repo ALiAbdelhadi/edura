@@ -1,5 +1,5 @@
 "use client";
-import { SettingsScreen } from "@/features/settings/settings-screen";
+import { AssistantSettingsScreen } from "@/features/settings/portal-settings/assistant";
 export default function Page() {
-  return <SettingsScreen />;
+  return <AssistantSettingsScreen />;
 }

@@ -114,3 +114,38 @@ describe("parseStudentCsv — whole-file failures", () => {
     expect(r.rows).toEqual([]);
   });
 });
+
+describe("parseStudentCsv — what real Egyptian exports look like", () => {
+  it("reads a semicolon file (Excel on an Arabic-locale Windows)", () => {
+    const r = rows("الاسم;الموبايل\nكريم;01012345678\n");
+    expect(r.delimiter).toBe(";");
+    expect(r.rows[0]).toMatchObject({ name: "كريم", phone: "01012345678" });
+  });
+
+  it("maps free-form Arabic headers, hamza and ta-marbuta variants included", () => {
+    const r = rows(
+      "اسم الطالب رباعي,رقم الموبايل,موبايل ولى الامر:,الرقم القومي للطالب,ايميل ولي الأمر\n" +
+        "يوسف,01012345678,01112345678,30801011234567,p@x.io\n",
+    );
+    expect(r.rows[0]).toMatchObject({
+      name: "يوسف",
+      phone: "01012345678",
+      guardianPhone: "01112345678",
+      nationalId: "30801011234567",
+      guardianEmail: "p@x.io",
+    });
+    expect(r.columns.ignored).toEqual([]);
+  });
+
+  it("never reads a group, teacher or code column as the student's name", () => {
+    const r = parseStudentCsv("اسم المجموعة,كود الطالب,اسم المدرس\nالسبت,A1,أ. محمد\n");
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatch(/Columns found: اسم المجموعة, كود الطالب, اسم المدرس/);
+  });
+
+  it("names the columns it will NOT import", () => {
+    const r = rows("الاسم,الصف,المجموعة,المتبقي\nعلي,3 ثانوي,السبت,200\n");
+    expect(r.columns.mapped).toEqual([{ field: "name", header: "الاسم" }]);
+    expect(r.columns.ignored).toEqual(["الصف", "المجموعة", "المتبقي"]);
+  });
+});

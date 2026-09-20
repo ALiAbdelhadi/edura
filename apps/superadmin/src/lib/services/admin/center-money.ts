@@ -8,6 +8,7 @@ import { superadminAsCenter } from "@/lib/authz/center-actor";
 import { recordPaymentTx, listPayments, getPayment } from "@repo/server-core/services/payments/payments";
 import { topUpWalletCashTx } from "@repo/server-core/services/wallet/cash-topup";
 import { createWalkInSubscriptionTx } from "@repo/server-core/services/subscriptions/subscriptions";
+import { assertNotBlacklisted } from "@repo/server-core/services/blacklist/blacklist";
 import {
   createExpenseTx,
   listExpenses,
@@ -113,6 +114,7 @@ export async function adminCreateWalkInSubscription(
   },
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
+  await assertNotBlacklisted(input.studentId, centerId);
   const { value, effects } = await scopedDb(acting, async (tx) => {
     const outcome = await createWalkInSubscriptionTx(tx, input as never, acting);
     const sub = outcome.value;

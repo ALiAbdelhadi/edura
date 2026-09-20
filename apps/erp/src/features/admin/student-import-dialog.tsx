@@ -11,13 +11,17 @@ import {
   DialogTitle,
 } from "@repo/ui/components/dialog";
 import { toast } from "@repo/ui/components/sonner";
-import { Download, FileUp, Upload } from "lucide-react";
+import { Download, FileDown, FileUp, Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { Badge, Num, type BadgeTone } from "./ledger";
 import {
+  decodeSpreadsheetText,
   downloadSummary,
+  downloadTemplate,
   mergeSummaries,
+  toChunks,
+  type ImportField,
   type ImportRow,
   type ImportSummary,
 } from "./student-import-result";
@@ -34,34 +38,6 @@ async function postChunk(body: {
     .post("center/students/import", { json: body, timeout: 120_000 })
     .json<{ data: ImportSummary }>();
   return json.data;
-}
-
-function toChunks(csv: string): { csv: string; lineOffset: number }[] {
-  const lines: string[] = [];
-  let current = "";
-  let inQuotes = false;
-  for (const ch of csv.replace(/^﻿/, "")) {
-    if (ch === '"') inQuotes = !inQuotes;
-    if (ch === "\n" && !inQuotes) {
-      lines.push(current.replace(/\r$/, ""));
-      current = "";
-      continue;
-    }
-    current += ch;
-  }
-  if (current.trim()) lines.push(current.replace(/\r$/, ""));
-
-  const [header, ...dataLines] = lines;
-  if (header === undefined) return [];
-  const rows = dataLines.filter((l) => l.trim() !== "");
-  const chunks: { csv: string; lineOffset: number }[] = [];
-  for (let i = 0; i < rows.length; i += CHUNK_ROWS) {
-    chunks.push({
-      csv: [header, ...rows.slice(i, i + CHUNK_ROWS)].join("\n"),
-      lineOffset: i,
-    });
-  }
-  return chunks;
 }
 
 const STATUS_TONE: Record<ImportRow["status"], BadgeTone> = {
@@ -110,13 +86,16 @@ export function StudentImportDialog({
     setFileName(file.name);
     const reader = new FileReader();
     reader.onerror = () => toast.error(t("adminHome.students_importFailedToRead"));
-    reader.onload = () => setCsv(String(reader.result ?? ""));
-    reader.readAsText(file, "utf-8");
+    reader.onload = () => {
+      const buf = reader.result;
+      setCsv(buf instanceof ArrayBuffer ? decodeSpreadsheetText(buf) : "");
+    };
+    reader.readAsArrayBuffer(file);
   }
 
   async function send(dryRun: boolean) {
     if (!csv || busy) return;
-    const chunks = toChunks(csv);
+    const chunks = toChunks(csv, CHUNK_ROWS);
     if (chunks.length === 0) {
       toast.error(t("adminHome.students_importFailedToast"));
       return;
@@ -162,12 +141,27 @@ export function StudentImportDialog({
         return t("adminHome.students_importErrNameRequired");
       case "invalid_national_id":
         return t("adminHome.students_importErrNationalId");
+      case "national_id_scientific":
+        return t("adminHome.students_importErrNationalIdScientific");
+      case "invalid_phone":
+        return t("adminHome.students_importErrPhone");
+      case "invalid_guardian_phone":
+        return t("adminHome.students_importErrGuardianPhone");
       case "already_exists":
         return t("adminHome.students_importErrAlreadyExists");
       default:
         return row.error ?? "";
     }
   }
+
+  const FIELD_LABEL: Record<ImportField, string> = {
+    name: t("adminHome.students_importFieldName"),
+    phone: t("adminHome.students_importFieldPhone"),
+    nationalId: t("adminHome.students_importFieldNationalId"),
+    guardianName: t("adminHome.students_importFieldGuardianName"),
+    guardianPhone: t("adminHome.students_importFieldGuardianPhone"),
+    guardianEmail: t("adminHome.students_importFieldGuardianEmail"),
+  };
 
   function statusLabel(row: ImportRow): string {
     switch (row.status) {
@@ -219,9 +213,18 @@ export function StudentImportDialog({
               <FileUp className="size-4" />
               {t("adminHome.students_importPickFile")}
             </Button>
-            <span className="truncate text-[13px] text-(--ink-3)">
+            <span className="min-w-0 flex-1 truncate text-[13px] text-(--ink-3)">
               {fileName ?? t("adminHome.students_importNoFile")}
             </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={downloadTemplate}
+              data-testid="student-import-template"
+            >
+              <FileDown className="size-4" />
+              {t("adminHome.students_importTemplate")}
+            </Button>
           </div>
           {result && (
             <div className="space-y-3">
@@ -245,6 +248,26 @@ export function StudentImportDialog({
                 />
                 <Tally label={t("adminHome.students_importFailed")} value={result.failed} tone="failed" />
               </div>
+              {result.columns && (
+                <div
+                  className="space-y-1 rounded-(--radius-step-md) border border-(--rule) px-3 py-2 text-[12.5px] leading-relaxed"
+                  data-testid="student-import-columns"
+                >
+                  <p>
+                    <span className="text-(--ink-3)">{t("adminHome.students_importColumnsRead")} </span>
+                    {result.columns.mapped
+                      .map((c) => `${FIELD_LABEL[c.field]} ← «${c.header}»`)
+                      .join(" · ")}
+                  </p>
+                  {result.columns.ignored.length > 0 && (
+                    <p className="text-(--amber)">
+                      {t("adminHome.students_importColumnsIgnored", {
+                        columns: result.columns.ignored.map((h) => `«${h}»`).join(" · "),
+                      })}
+                    </p>
+                  )}
+                </div>
+              )}
               <p className="text-[12.5px] leading-relaxed text-(--ink-3)">
                 {t("adminHome.students_importReuseNote")}
               </p>

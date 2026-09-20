@@ -1,3 +1,3 @@
 "use client";
-import { SettingsScreen } from "@/features/settings/settings-screen";
-export default function Page() { return <SettingsScreen />; }
+import { StudentSettingsScreen } from "@/features/settings/portal-settings/student";
+export default function Page() { return <StudentSettingsScreen />; }

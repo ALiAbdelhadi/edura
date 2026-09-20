@@ -37,7 +37,13 @@ async function main() {
     const stu = await tx.user.create({ data: { name: `${tag}-stu`, role: "student", email: `${tag}-s@x.io`, status: "active" } });
     await tx.studentProfile.create({ data: { userId: stu.id, fullName: `${tag}-stu`, familyLinkCode: (tag + rid() + "00").slice(0, 18) } });
     await tx.centerStudentRoster.create({ data: { centerId: center.id, studentId: stu.id } });
-    const today = new Date(); today.setUTCHours(0, 0, 0, 0);
+    // UTC midnight of the PLATFORM (Cairo) day, not of the UTC day. Between
+    // 00:00 and 03:00 Cairo the two are different dates, and `new Date()` with
+    // setUTCHours(0) then dates "today's" session on YESTERDAY's Cairo day —
+    // which the window correctly refuses, failing this suite for three hours a
+    // night. The day boundary for money is Cairo everywhere (see
+    // docs/decisions/money-day-boundary.md); the fixture now says so too.
+    const today = new Date(`${todayKey()}T00:00:00.000Z`);
     const mk = (d: Date) => tx.session.create({ data: { courseId: course.id, teacherId: teacher.id, originalDate: d, date: d, startTime: "10:00", endTime: "11:00", status: "scheduled" } });
     const sToday = await mk(today);
     const sDay29 = await mk(new Date(today.getTime() + 29 * DAY));

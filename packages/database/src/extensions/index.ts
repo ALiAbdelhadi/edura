@@ -286,6 +286,29 @@ async function assertSafeRole(client: {
   return roleCheck;
 }
 
+// Start the one-time role check NOW, while no transaction can be holding a
+// connection yet, instead of lazily from inside the first operation.
+//
+// WHY: the check runs on the root client, i.e. on its own pooled connection, and
+// every operation awaits it -- including operations already INSIDE an interactive
+// transaction. On a cold process, if `pool max` transactions begin together, each
+// holds a connection while waiting for a check that needs one more: nothing moves
+// until the 20 s transaction timeout. Measured 2026-09-20 on apps/realtime, whose
+// first query per socket is inside a transaction: 400 sockets arriving at 200/s on
+// a fresh server -> every socket waited ~19 s and 10 transactions died with P2028,
+// 6 runs out of 6 (docs/reports/load-test-2026-09-20.md). The ERP only escaped it
+// because its first query per request happens to be a non-transactional session read.
+//
+// The guarantee is unchanged: every operation still awaits the same promise, so
+// nothing is served before the role is known, and an unsafe role still refuses
+// every query. Only the moment the check STARTS moves -- to before the race.
+export function primeRoleGuard(client: Parameters<typeof assertSafeRole>[0]): void {
+  // The rejection still reaches every awaiting operation through the shared
+  // promise; this catch only keeps the priming call itself from being an
+  // unhandled rejection.
+  assertSafeRole(client).catch(() => {});
+}
+
 export const roleGuardExtension = Prisma.defineExtension((client) =>
   client.$extends({
     name: "edura-role-guard",

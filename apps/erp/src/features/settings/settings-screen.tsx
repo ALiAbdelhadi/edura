@@ -2,19 +2,12 @@
 
 import { PageHeader } from "@/components/kit/page-header";
 import { Spinner } from "@/components/kit/spinner";
-import { AttendanceModeCard } from "@/features/settings/attendance-mode-card";
-import { CenterProfileCard } from "@/features/settings/center-profile-card";
-import { ChildrenGuardianCards } from "@/features/settings/children-guardian-cards";
 import { DataRightsCard } from "@/features/settings/data-rights-card";
 import { EmailCard } from "@/features/settings/email-card";
-import { GuardianContactCard } from "@/features/settings/guardian-contact-card";
 import { OnboardingProfileCard } from "@/features/settings/onboarding-profile-card";
 import { PasswordCard } from "@/features/settings/password-card";
-import { ProfileImageCard } from "@/features/settings/profile-image-card";
-import { PublicHandleCard } from "@/features/settings/public-handle-card";
 import { SessionsCard } from "@/features/settings/sessions-card";
 import { TwoFactorCard } from "@/features/settings/two-factor-card";
-import { StudentIdSettingsCard } from "@/features/student/student-id-settings-card";
 import { asKey } from "@/lib/i18n/keys";
 import { usePushSubscription } from "@/lib/pwa/use-push-subscription";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -337,7 +330,27 @@ function PushNotificationsCard() {
   );
 }
 
-export function SettingsScreen() {
+// The subset of `GET /me` a role card may read.
+export type SettingsMe = {
+  role?: string;
+  staffRole?: string | null;
+  name?: string | null;
+};
+
+// WHY THE ROLE CARDS ARE PASSED IN rather than imported here: this screen is
+// mounted by all six portals, so anything it imports statically reaches all six --
+// and each portal is sent the translations of everything its code can reach
+// (src/lib/i18n/portal-namespaces.ts). Importing the teacher's attendance card
+// here put 24 KB of teacher strings on every student's page. Each portal's
+// wrapper in ./portal-settings/ supplies only its own cards; the order on screen
+// is unchanged because roles are mutually exclusive and the slot sits exactly
+// where the role-gated block used to.
+export type SettingsRoleCards = {
+  profile?: (me: SettingsMe | undefined) => ReactNode[];
+  family?: (me: SettingsMe | undefined) => ReactNode[];
+};
+
+export function SettingsScreen({ roleCards }: { roleCards?: SettingsRoleCards } = {}) {
   const t = useTranslations();
   const queryStrings = useQueryStrings();
   const locale = useLocale();
@@ -415,12 +428,12 @@ export function SettingsScreen() {
     }
   };
 
+  const hasFamilyGroup = Boolean(roleCards?.family);
+
   useEffect(() => {
     const sections = [
       "profile",
-      ...(me?.role === "student" || me?.role === "parent"
-        ? ["family"]
-        : []),
+      ...(hasFamilyGroup ? ["family"] : []),
       "security",
       "notifications",
       "privacy",
@@ -455,7 +468,7 @@ export function SettingsScreen() {
     elements.forEach((element) => observer.observe(element));
 
     return () => observer.disconnect();
-  }, [me]);
+  }, [me, hasFamilyGroup]);
 
   if (query.isLoading) {
     return <SkeletonRows rows={5} className="max-w-280" />;
@@ -474,8 +487,6 @@ export function SettingsScreen() {
     );
   }
 
-  const hasFamilyGroup =
-    me?.role === "student" || me?.role === "parent";
 
   const navigation: SettingsNavItem[] = [
     {
@@ -616,44 +627,11 @@ export function SettingsScreen() {
               description={t("shared.settingsSectionProfileDesc")}
             >
               <div className="flex flex-col divide-y divide-rule">
-                {me?.role === "teacher" || me?.role === "assistant" ? (
-                  <div className="p-5 empty:hidden flex flex-col">
-                    <AttendanceModeCard />
+                {(roleCards?.profile?.(me) ?? []).map((card, i) => (
+                  <div key={i} className="p-5 empty:hidden flex flex-col">
+                    {card}
                   </div>
-                ) : null}
-                {me?.role === "teacher" ? (
-                  <div className="p-5 empty:hidden flex flex-col">
-                    <ProfileImageCard
-                      variant="teacherPhoto"
-                      name={me?.name}
-                    />
-                  </div>
-                ) : null}
-                {me?.role === "center_admin" ||
-                  (me?.role === "center_staff" &&
-                    me?.staffRole === "manager") ? (
-                  <div className="p-5 empty:hidden flex flex-col">
-                    <ProfileImageCard
-                      variant="centerLogo"
-                      name={me?.name}
-                    />
-                  </div>
-                ) : null}
-                {me?.role === "center_admin" ? (
-                  <div className="p-5 empty:hidden flex flex-col">
-                    <CenterProfileCard />
-                  </div>
-                ) : null}
-                {me?.role === "center_admin" || me?.role === "teacher" ? (
-                  <div className="p-5 empty:hidden flex flex-col">
-                    <PublicHandleCard />
-                  </div>
-                ) : null}
-                {me?.role === "student" ? (
-                  <div className="p-5 empty:hidden flex flex-col">
-                    <StudentIdSettingsCard />
-                  </div>
-                ) : null}
+                ))}
                 <div className="p-5 empty:hidden flex flex-col">
                   <OnboardingProfileCard />
                 </div>
@@ -797,12 +775,7 @@ export function SettingsScreen() {
                 description={t("shared.settingsSectionFamilyDesc")}
               >
                 <div className="flex flex-col gap-6 p-5 empty:hidden">
-                  {me?.role === "student" ? (
-                    <GuardianContactCard />
-                  ) : null}
-                  {me?.role === "parent" ? (
-                    <ChildrenGuardianCards />
-                  ) : null}
+                  {roleCards?.family?.(me)}
                 </div>
               </SettingsSection>
             ) : null}

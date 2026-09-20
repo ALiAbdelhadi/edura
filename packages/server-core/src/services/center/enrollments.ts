@@ -49,10 +49,28 @@ export async function listCenterEnrollments(
   });
 }
 
+// Runs in its own platform-context transactions, so it must be called BEFORE the
+// caller opens the transaction it hands to `enrollStudentTx`. Inside one, each
+// request would hold a pool connection while waiting for another -- the pool
+// deadlock measured on the walk-in path (docs/reports/load-test-2026-09-20.md).
+export async function assertEnrollmentNotBlacklisted(input: {
+  studentId: string;
+  courseId: string;
+}): Promise<void> {
+  const course0 = await platformDb((db) =>
+    db.course.findUnique({
+      where: { id: input.courseId },
+      select: { centerId: true, teacherId: true },
+    }),
+  ).catch(() => null);
+  if (course0) await assertNotBlacklisted(input.studentId, course0.centerId, course0.teacherId);
+}
+
 export async function enrollStudent(
   acting: SessionUser,
   input: { studentId: string; courseId: string },
 ) {
+  await assertEnrollmentNotBlacklisted(input);
   const { value, effects } = await scopedDb(acting, (tx) =>
     enrollStudentTx(tx, acting, input),
   );
@@ -66,11 +84,6 @@ export async function enrollStudentTx(
   input: { studentId: string; courseId: string },
 ): Promise<WithEffects<Awaited<ReturnType<TenantTx["enrollment"]["create"]>>>> {
   const { studentId, courseId } = input;
-
-  const course0 = await platformDb((db) =>
-    db.course.findUnique({ where: { id: courseId }, select: { centerId: true, teacherId: true } }),
-  ).catch(() => null);
-  if (course0) await assertNotBlacklisted(studentId, course0.centerId, course0.teacherId);
 
   const { enrollment, courseTitle } = await (async () => {
     let course;

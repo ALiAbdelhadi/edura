@@ -14,6 +14,7 @@ import { runEffects } from "@repo/server-core/db/effects";
 import { writeAdminAudit } from "@/lib/services/admin/admin-audit";
 import {
   listCenterEnrollments,
+  assertEnrollmentNotBlacklisted,
   enrollStudentTx,
   unenrollStudentTx,
   listEnrollmentRequests,
@@ -220,6 +221,7 @@ export async function adminEnrollStudent(
   input: { studentId: string; courseId: string },
 ) {
   const { acting } = await superadminAsCenter(actor, centerId);
+  await assertEnrollmentNotBlacklisted(input);
   const { value, effects } = await scopedDb(acting, async (tx) => {
     const outcome = await enrollStudentTx(tx, acting, input);
     await writeAdminAudit(tx, actor, {

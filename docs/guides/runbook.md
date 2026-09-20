@@ -71,7 +71,7 @@ The demo instance is pre-seeded with **Nile Educational Academy** (أكاديم�
 
 ### Prerequisites
 
-- Bun 1.3.12 (`curl -fsSL https://bun.sh/install | bash`)
+- Bun 1.4.2 (`curl -fsSL https://bun.sh/install | bash`)
 - A Neon Postgres branch (or any Postgres 16+ reachable over TLS)
 
 ### Install
@@ -756,7 +756,7 @@ These endpoints exist and work but have no UI:
   publish = ".next"
 
 [build.environment]
-  BUN_VERSION = "1.3.12"
+  BUN_VERSION = "1.4.2"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

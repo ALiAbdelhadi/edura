@@ -116,6 +116,8 @@ export const AR_MESSAGES: Record<string, string> = {
   "Monthly plan is not enabled for this course": "الاشتراك الشهري غير مفعّل لهذه المجموعة",
   "Name is required": "الاسم مطلوب",
   "National ID must be 14 digits": "الرقم القومي يجب أن يكون 14 رقمًا",
+  "National ID must be 14 digits — Excel turned it into scientific notation; format the column as Text and export again":
+    "الرقم القومي اتحوّل في Excel لصيغة علمية (مثل 3.08E+13) — اجعل تنسيق العمود «نص» (Text) وصدّر الملف من جديد",
   "No active affiliation with this teacher": "لا يوجد ارتباط نشط بهذا المدرّس",
   "No available balance to pay out": "لا يوجد رصيد متاح للسحب",
   "No offline records provided": "لا توجد سجلات غير متصلة لمزامنتها",
@@ -753,6 +755,21 @@ export const AR_PATTERNS: ArPattern[] = [
     sample: "Student abc is not enrolled in this course",
   },
   {
+    re: /^Invalid Egyptian mobile number: (.+)$/,
+    ar: (m) => `رقم موبايل مصري غير صحيح: ${m[1]}`,
+    sample: "Invalid Egyptian mobile number: 12345",
+  },
+  {
+    re: /^Invalid guardian mobile number: (.+)$/,
+    ar: (m) => `رقم موبايل ولي الأمر غير صحيح: ${m[1]}`,
+    sample: "Invalid guardian mobile number: 12345",
+  },
+  {
+    re: /^No recognised name column\. .*Columns found: (.*)$/,
+    ar: (m) => `لم نجد عمودًا للاسم. لازم يكون في الملف صف عناوين فيه عمود للاسم (مثل «الاسم» أو «اسم الطالب»). الأعمدة الموجودة: ${m[1]}`,
+    sample: "No recognised name column. The file needs a header row with a name column (e.g. \"name\" or \"الاسم\"). Columns found: كود, موبايل",
+  },
+  {
     re: /^This file has (\d+) rows; the limit is (\d+) per import\. Split it and import each part\.$/,
     ar: (m) =>
       `الملف يحتوي على ${m[1]} صفًا والحد الأقصى ${m[2]} لكل استيراد. قسِّمه واستورد كل جزء على حدة.`,
@@ -846,6 +863,8 @@ export const AR_TEMPLATE_SOURCES: string[] = [
   "Score must be between 0 and ${grade.maxScore}",
   "Student ${entry.studentId} is not enrolled in this course",
   "This file has ${rows.length} rows; the limit is ${MAX_IMPORT_ROWS} per import. Split it and import each part.",
+  "Invalid Egyptian mobile number: ${raw}",
+  "Invalid guardian mobile number: ${raw}",
   "This teacher is owed ${(profile.walletBalance / 100).toFixed(2)} EGP — you cannot settle more than that",
   "Top-up must be between ${MIN_TOPUP / 100} and ${MAX_TOPUP / 100} EGP",
   "Your hall's per-student share may not exceed the platform maximum of ${ceiling.bp / 100}%",

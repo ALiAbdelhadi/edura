@@ -12,6 +12,7 @@ import {
   immutableExtension,
   auditLogExtension,
   roleGuardExtension,
+  primeRoleGuard,
 } from "./extensions/index";
 
 hardenNeonWebSockets();
@@ -48,6 +49,7 @@ function createPrisma() {
     // (or names it in `select`). One unselected query can no longer serialise it.
     omit: { user: { passwordHash: true } },
   });
+  primeRoleGuard(base as unknown as Parameters<typeof primeRoleGuard>[0]);
   return base
     .$extends(sessionRevocationExtension)
     .$extends(softDeleteExtension)

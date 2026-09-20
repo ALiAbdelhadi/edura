@@ -1,8 +1,6 @@
 import { prisma } from "@repo/database";
-import {
-  canSignIn,
-  resolveLoginCenterId,
-} from "@repo/server-core/auth/login-policy";
+import { canSignIn } from "@repo/server-core/auth/login-policy";
+import { resolveLoginCenterId } from "@repo/server-core/auth/login-center";
 import { recordAuthEvent } from "@repo/server-core/services/auth/auth-audit";
 import {
   DUMMY_HASH,

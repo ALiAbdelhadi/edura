@@ -8,7 +8,8 @@ import {
   findStudentByKeys,
   normalizeNationalId,
 } from "../external-teachers/manual-students";
-import { parseStudentCsv, type StudentCsvRow } from "./student-csv";
+import { parseStudentCsv, type StudentCsvColumns, type StudentCsvRow } from "./student-csv";
+import { normalizeEgyptPhone } from "../whatsapp/phone";
 
 export const MAX_IMPORT_ROWS = 1000;
 
@@ -29,7 +30,17 @@ export type ImportRowResult = {
   matchedOn?: "phone" | "national_id";
   onOurRoster?: boolean;
   duplicateOfLine?: number;
-  errorCode?: "name_required" | "invalid_national_id" | "already_exists";
+  // The row's own phone / national ID after normalisation, echoed so a client
+  // uploading in chunks can spot the same child across two chunks. Nothing here
+  // the caller did not send.
+  keys?: string[];
+  errorCode?:
+    | "name_required"
+    | "invalid_national_id"
+    | "national_id_scientific"
+    | "invalid_phone"
+    | "invalid_guardian_phone"
+    | "already_exists";
   error?: string;
 };
 
@@ -41,6 +52,7 @@ export type ImportSummary = {
   duplicatesInFile: number;
   failed: number;
   rows: ImportRowResult[];
+  columns?: StudentCsvColumns;
 };
 
 type ImportActor = { acting: SessionUser; actorId: string; onBehalfOf?: string | null };
@@ -60,8 +72,26 @@ function norm(v: string | null | undefined): string | null {
   return t ? t : null;
 }
 
+// The one spelling every imported phone is stored in: +201XXXXXXXXX, the same form
+// the walk-in counter writes. Arabic-Indic digits, spaces, dashes and the leading
+// zero Excel strips from a number column all resolve to it. A value that is not an
+// Egyptian mobile refuses the row rather than storing text nobody can dial or match.
+function canonicalPhone(v: string | null, which: "phone" | "guardian"): string | null {
+  const raw = norm(v);
+  if (!raw) return null;
+  try {
+    return normalizeEgyptPhone(raw);
+  } catch {
+    if (which === "phone") throw new BusinessRuleError(`Invalid Egyptian mobile number: ${raw}`);
+    throw new BusinessRuleError(`Invalid guardian mobile number: ${raw}`);
+  }
+}
+
 function classifyRowError(message: string): ImportRowResult["errorCode"] {
   if (/name is required/i.test(message)) return "name_required";
+  if (/scientific notation/i.test(message)) return "national_id_scientific";
+  if (/invalid egyptian mobile/i.test(message)) return "invalid_phone";
+  if (/invalid guardian mobile/i.test(message)) return "invalid_guardian_phone";
   if (/14 digits/i.test(message)) return "invalid_national_id";
   if (/already exists/i.test(message)) return "already_exists";
   return undefined;
@@ -76,7 +106,8 @@ export async function importStudentCsv(
   if (!parsed.ok) throw new BusinessRuleError(parsed.error);
   const offset = opts.lineOffset ?? 0;
   const rows = offset ? parsed.rows.map((r) => ({ ...r, line: r.line + offset })) : parsed.rows;
-  return importStudents(actor, rows, opts);
+  const summary = await importStudents(actor, rows, opts);
+  return { ...summary, columns: parsed.columns };
 }
 
 export async function importStudents(
@@ -110,9 +141,11 @@ export async function importStudents(
     try {
       if (!name) throw new BusinessRuleError("Name is required");
 
-      const phone = norm(row.phone);
+      const phone = canonicalPhone(row.phone, "phone");
+      const guardianPhone = canonicalPhone(row.guardianPhone, "guardian");
       const nationalId = normalizeNationalId(row.nationalId);
 
+      const keys = [phone, nationalId].filter((k): k is string => !!k);
       const dupLine =
         (nationalId ? seenNationalId.get(nationalId) : undefined) ??
         (phone ? seenPhone.get(phone) : undefined);
@@ -123,16 +156,22 @@ export async function importStudents(
           name,
           status: "duplicate_in_file",
           duplicateOfLine: dupLine,
+          keys,
         });
         continue;
       }
       if (nationalId) seenNationalId.set(nationalId, row.line);
       if (phone) seenPhone.set(phone, row.line);
 
-      const outcome = await importOneRow(actor, centerId, { name, phone, nationalId, row }, dryRun);
+      const outcome = await importOneRow(
+        actor,
+        centerId,
+        { name, phone, nationalId, row: { ...row, phone, guardianPhone } },
+        dryRun,
+      );
       if (outcome.status === "created" || outcome.status === "would_create") created++;
       else reused++;
-      results.push(outcome);
+      results.push({ ...outcome, keys });
     } catch (err) {
       failed++;
       const message = err instanceof Error ? err.message : "Unknown error";

@@ -18,6 +18,13 @@
  * "the IP" for every per-IP limiter. So on Vercel, production must say which it
  * trusts: `TRUSTED_CLIENT_IP_HEADER` (recommended: `x-vercel-forwarded-for`) or an
  * explicit `TRUSTED_PROXY_HOPS`.
+ *
+ * 2026-09-20: `TRUSTED_PROXY_HOPS=1` satisfies this guard but is only CORRECT
+ * while the edge appends to XFF — an assumption this code cannot verify from the
+ * inside. `trustedClientIp` therefore reads a platform-set header FIRST (the
+ * configured one, else `x-vercel-forwarded-for` when `VERCEL` is set) and only
+ * falls back to XFF arithmetic, so the hop count is no longer what stands between
+ * a rotated header and a rotated rate-limit bucket.
  */
 export function assertSharedRateLimitStore(
   env: NodeJS.ProcessEnv = process.env,

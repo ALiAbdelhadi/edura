@@ -3,6 +3,7 @@ import { requirePortal } from "@/lib/auth/portal-gate";
 import { AnalyticsIdentity } from "@/lib/observability/analytics-identity";
 import { ForbiddenError } from "@/lib/errors/classes";
 import { getStaffMe } from "@/lib/services/center/staff";
+import { PortalIntl } from "@/components/i18n/portal-intl";
 import PortalChrome from "./portal-chrome";
 
 export default async function StaffLayout({
@@ -24,11 +25,11 @@ export default async function StaffLayout({
   }
 
   return (
-    <>
+    <PortalIntl portal="staff">
       <AnalyticsIdentity
         session={{ id: actor.id, role: actor.role, centerId: actor.centerId ?? null }}
       />
       <PortalChrome staffRole={staffRole}>{children}</PortalChrome>
-    </>
+    </PortalIntl>
   );
 }

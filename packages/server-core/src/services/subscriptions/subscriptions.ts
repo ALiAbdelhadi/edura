@@ -809,6 +809,8 @@ export async function createWalkInSubscription(
   const method: CounterMethod = input.paymentMethod ?? "cash";
   if (user.role !== "center_admin" || !user.centerId) throw new ForbiddenError();
 
+  await assertNotBlacklisted(input.studentId, user.centerId);
+
   const { value, effects } = await scopedDb(user, (tx) =>
     createWalkInSubscriptionTx(tx, input, user),
   );
@@ -831,7 +833,14 @@ export async function createWalkInSubscriptionTx(
   const method: CounterMethod = input.paymentMethod ?? "cash";
   if (user.role !== "center_admin" || !user.centerId) throw new ForbiddenError();
 
-  await assertNotBlacklisted(input.studentId, user.centerId);
+  // The blacklist check is the CALLER's job, before it opens `tx`.
+  // `assertNotBlacklisted` runs in its own platform-context transaction (a
+  // tenant-scoped one cannot see platform-level entries under RLS), so calling it
+  // from in here holds one pool connection while waiting for a second. With N
+  // connections, N concurrent cash payments then wait on each other until
+  // maxWait expires: measured 2026-09-20, 90 concurrent requests on a pool of 10
+  // -> 0 accepted, 450 x P2028, every request 31-60 s
+  // (docs/reports/load-test-2026-09-20.md).
 
   const { sub, receiptNumber } = await (async () => {
     const course = await tx.course.findFirst({

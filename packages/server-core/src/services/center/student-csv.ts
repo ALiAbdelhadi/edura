@@ -16,8 +16,15 @@ export type StudentCsvRow = {
   guardianEmail: string | null;
 };
 
+export type StudentCsvColumns = {
+  mapped: { field: StudentCsvField; header: string }[];
+  ignored: string[];
+};
+
+export type StudentCsvDelimiter = "," | "\t" | ";";
+
 export type StudentCsvParseResult =
-  | { ok: true; rows: StudentCsvRow[]; delimiter: "," | "\t" }
+  | { ok: true; rows: StudentCsvRow[]; delimiter: StudentCsvDelimiter; columns: StudentCsvColumns }
   | { ok: false; error: string };
 
 const HEADER_ALIASES: Record<StudentCsvField, string[]> = {
@@ -29,16 +36,65 @@ const HEADER_ALIASES: Record<StudentCsvField, string[]> = {
   guardianEmail: ["guardian email", "parent email", "email", "بريد ولي الأمر", "ايميل ولي الأمر", "الايميل", "البريد"],
 };
 
+// Folds the spelling differences an Egyptian spreadsheet actually carries —
+// hamza forms, ta marbuta, alef maqsura, tatweel, diacritics, punctuation —
+// so "رقم موبايل ولي الأمر:" and "رقم موبايل ولى الامر" compare equal.
 function canon(h: string): string {
-  return h.trim().toLowerCase().replace(/\s+/g, " ");
+  return h
+    .replace(/[\u064B-\u0652\u0670\u0640]/g, "")
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ة/g, "ه")
+    .replace(/[_\-.:*#()\[\]/\\]+/g, " ")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
 }
+
+const ALIAS_INDEX: Map<string, StudentCsvField> = (() => {
+  const m = new Map<string, StudentCsvField>();
+  for (const field of Object.keys(HEADER_ALIASES) as StudentCsvField[]) {
+    for (const a of HEADER_ALIASES[field]) m.set(canon(a), field);
+  }
+  return m;
+})();
+
+const has = (c: string, words: string[]) => words.some((w) => c.includes(w));
+
+const GUARDIAN_WORDS = ["ولي", "الاب", "الام", "والد", "parent", "guardian", "father", "mother"];
+const PHONE_WORDS = ["موبايل", "موبيل", "هاتف", "تليفون", "تلفون", "جوال", "محمول", "واتس", "phone", "mobile", "tel", "whatsapp", "cell"];
+const EMAIL_WORDS = ["email", "e mail", "mail", "ايميل", "بريد"];
+const NID_WORDS = ["قومي", "national", "nid", "بطاقه"];
+const NAME_WORDS = ["اسم", "name"];
+// A header naming a group, teacher, subject or school is never the student's name.
+const NOT_A_NAME = ["مجموع", "مدرس", "معلم", "ماده", "مدرسه", "صف", "كورس", "مركز", "سنتر", "group", "teacher", "subject", "school", "course", "class", "center", "centre", "user"];
 
 function matchField(header: string): StudentCsvField | null {
   const c = canon(header);
-  for (const field of Object.keys(HEADER_ALIASES) as StudentCsvField[]) {
-    if (HEADER_ALIASES[field].includes(c)) return field;
-  }
+  if (!c) return null;
+  const exact = ALIAS_INDEX.get(c);
+  if (exact) return exact;
+
+  const guardian = has(c, GUARDIAN_WORDS);
+  if (has(c, EMAIL_WORDS)) return "guardianEmail";
+  if (guardian && has(c, PHONE_WORDS)) return "guardianPhone";
+  if (guardian && !has(c, NOT_A_NAME)) return "guardianName";
+  if (has(c, NID_WORDS)) return "nationalId";
+  if (has(c, PHONE_WORDS)) return "phone";
+  if (has(c, NAME_WORDS) && !has(c, NOT_A_NAME)) return "name";
   return null;
+}
+
+function detectDelimiter(firstLine: string): StudentCsvDelimiter {
+  const unquoted = firstLine.replace(/"[^"]*"/g, "");
+  const counts: [StudentCsvDelimiter, number][] = [
+    [",", (unquoted.match(/,/g) ?? []).length],
+    ["\t", (unquoted.match(/\t/g) ?? []).length],
+    [";", (unquoted.match(/;/g) ?? []).length],
+  ];
+  let best = counts[0];
+  for (const c of counts) if (c[1] > best[1]) best = c;
+  return best[0];
 }
 
 function tokenize(text: string, delimiter: string): string[][] {
@@ -113,17 +169,23 @@ export function parseStudentCsv(input: string): StudentCsvParseResult {
   if (!text.trim()) return { ok: false, error: "The file is empty" };
 
   const firstLine = text.slice(0, text.search(/[\r\n]|$/));
-  const delimiter: "," | "\t" =
-    (firstLine.match(/\t/g)?.length ?? 0) > (firstLine.match(/,/g)?.length ?? 0) ? "\t" : ",";
+  const delimiter = detectDelimiter(firstLine);
 
   const records = tokenize(text, delimiter);
   if (records.length === 0) return { ok: false, error: "The file is empty" };
 
   const headerCells = records[0];
   const colIndex: Partial<Record<StudentCsvField, number>> = {};
+  const columns: StudentCsvColumns = { mapped: [], ignored: [] };
   headerCells.forEach((h, idx) => {
-    const f = matchField(h);
-    if (f && colIndex[f] === undefined) colIndex[f] = idx;
+    const header = h.trim();
+    const f = matchField(header);
+    if (f && colIndex[f] === undefined) {
+      colIndex[f] = idx;
+      columns.mapped.push({ field: f, header });
+    } else if (header) {
+      columns.ignored.push(header);
+    }
   });
 
   if (colIndex.name === undefined) {
@@ -131,7 +193,8 @@ export function parseStudentCsv(input: string): StudentCsvParseResult {
       ok: false,
       error:
         "No recognised name column. The file needs a header row with a name column " +
-        "(e.g. \"name\" or \"الاسم\").",
+        "(e.g. \"name\" or \"الاسم\"). Columns found: " +
+        (headerCells.map((h) => h.trim()).filter(Boolean).join(", ") || "none"),
     };
   }
 
@@ -151,5 +214,5 @@ export function parseStudentCsv(input: string): StudentCsvParseResult {
     });
   }
 
-  return { ok: true, rows, delimiter };
+  return { ok: true, rows, delimiter, columns };
 }

@@ -6,6 +6,7 @@ import type { SessionUser } from "../../auth/types";
 import { generateFamilyCode, generateInviteCode } from "../../utils/random";
 import { maskName, maskPhone } from "../students/disclosure";
 import { assertManagedExternalTeacher, writeExternalTeacherAudit } from "./external-teachers";
+import { egyptPhoneVariants, toLatinDigits } from "../whatsapp/phone";
 
 function centerOf(acting: SessionUser): string {
   if (!acting.centerId) throw new ForbiddenError("Actor has no center scope");
@@ -20,7 +21,12 @@ function norm(value: string | null | undefined): string | null {
 export function normalizeNationalId(value: string | null | undefined): string | null {
   const v = norm(value);
   if (!v) return null;
-  const digits = v.replace(/\D/g, "");
+  if (/^\d(\.\d+)?e\+?\d+$/i.test(v)) {
+    throw new BusinessRuleError(
+      "National ID must be 14 digits — Excel turned it into scientific notation; format the column as Text and export again",
+    );
+  }
+  const digits = toLatinDigits(v).replace(/\D/g, "");
   if (digits.length !== 14) {
     throw new BusinessRuleError("National ID must be 14 digits");
   }
@@ -160,8 +166,13 @@ export async function findStudentByKeys(
   }
 
   if (keys.phone) {
+    const variants = egyptPhoneVariants(keys.phone);
     const u = await tx.user.findFirst({
-      where: { phone: keys.phone, role: "student", deletedAt: null },
+      where: {
+        phone: variants.length ? { in: variants } : keys.phone,
+        role: "student",
+        deletedAt: null,
+      },
       select: { id: true, name: true, phone: true },
     });
     if (u) {

@@ -100,6 +100,31 @@ the launch path (DB separation, remaining fixes, hosting) is in progress.
 - `packages/database` tooling is explicitly ALLOWED to keep Node/tsx
   (Ali's decision, 2026-07-31). No Node install instructions, `engines.node`,
   or Node references may appear anywhere user-facing; `engines` declare Bun only.
+- **THE MINIMUM BUN IS 1.4.0, AND THAT IS A RUNTIME REQUIREMENT, NOT HOUSEKEEPING
+  (2026-09-20).** On **Bun 1.3.12** `bun --bun next start` served **500 on every
+  route** of a clean Next 16.3.5 build: `TypeError: Expected CommonJS module to
+  have a function wrapper`, thrown out of `.next/server/middleware.js`. Narrowed
+  to one file — `require("next/dist/compiled/next-server/app-page.runtime.prod.js")`
+  fails in isolation under that Bun, while `app-route`, `pages` and `server`
+  runtimes all load. It is a Bun bug, fixed upstream: the same require, the same
+  build and the same start script all pass on **Bun 1.4.2**, where
+  `/ar/login` and `/api/health` return 200 and an invalid-credentials sign-in
+  returns **401, not 500** — the 2026-07-31 proof, re-run.
+  So `packageManager` is `bun@1.4.2`, `engines.bun` is `>=1.4.0`, all nine
+  `bun-version:` pins in `.github/workflows/*.yml` are 1.4.2, and `bun.lock` was
+  byte-identical after `bun install --frozen-lockfile` on the new Bun.
+  **THE BUG DOES NOT REACH VERCEL, AND A NOTE HERE CLAIMING OTHERWISE WAS WRONG
+  FOR A FEW HOURS ON 2026-09-20.** Vercel runs `bun run build` (through
+  `scripts/vercel-build.sh`) and then serves the build OUTPUT on its own Node
+  runtime — `next start` is never executed there, so the app-page-runtime require
+  never happens. What the bug does hit: every local `bun run start`, and any
+  self-hosted or container deploy that runs the `start` script. `apps/realtime`
+  on Railway is `bun src/server.ts` — no Next runtime, unaffected (re-checked
+  that day). The `BUN_VERSION = "1.4.2"` line in the runbook sits inside a
+  **Netlify** snippet that is stale legacy; Netlify is not used.
+  Vercel picks its OWN Bun for install/build and we do not pin it — the evidence
+  is in `vercel-build.sh`, which forgives a Bun 1.3.14 teardown segfault we never
+  installed locally.
 
 ## The DB suites run against a LOCAL Postgres (decided 2026-09-06, Ali)
 
@@ -1374,6 +1399,19 @@ Missing any of these fails closed (refuse to boot / hard error) — by design.
 - `SUPERADMIN_BASE_URL` — on **apps/erp only**: where "end view-as" returns the
   browser. Falls back to localhost in development.
 
+- `TRUSTED_CLIENT_IP_HEADER` / `TRUSTED_PROXY_HOPS` — how the client IP is read.
+  On Vercel in production, `assertSharedRateLimitStore` REFUSES to boot unless one
+  of them is set (L-12). **[2026-09-20] The code no longer depends on getting the
+  hop count right.** `trustedClientIp` reads a platform-set header first — the
+  configured one, else `x-vercel-forwarded-for` when `VERCEL` is set — and only
+  then does XFF arithmetic, because `TRUSTED_PROXY_HOPS=1` (what production sets)
+  is correct ONLY while the edge appends to `x-forwarded-for`, which nothing
+  inside the app can verify. It also now returns an IP or `"unknown"` and nothing
+  else: the value lands in a Redis key, `audit_logs.ip_address` and
+  `contact_submissions.ip`, so an unparseable header used to mean an unbounded key
+  and free text in an audit column. Proof:
+  `apps/erp/tests/unit/m3-rate-limit.test.ts` — three of its cases fail against the
+  previous implementation.
 - `REDIS_URL` — the shared rate-limit store. **Required in production since
   2026-08-29 (M-C)**: without it the limiter falls back to a per-process in-memory
   bucket, and on serverless every concurrent lambda holds its own, so the login caps

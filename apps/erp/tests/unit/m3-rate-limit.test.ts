@@ -40,6 +40,54 @@ describe("M3 — trustedClientIp (spoof-resistant)", () => {
     expect(ip).toBe("198.51.100.42");
   });
 
+  it("on Vercel the platform header wins over a client-supplied XFF (L-12 follow-up)", () => {
+    vi.stubEnv("VERCEL", "1");
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "1");
+    // The attacker sends only what a client can send. If the edge forwards it
+    // unchanged, XFF arithmetic reads the attacker's value; the platform header
+    // is read first precisely so that it cannot.
+    const a = trustedClientIp(
+      hdr({ "x-vercel-forwarded-for": "203.0.113.7", "x-forwarded-for": "9.9.9.9" }),
+    );
+    const b = trustedClientIp(
+      hdr({ "x-vercel-forwarded-for": "203.0.113.7", "x-forwarded-for": "6.6.6.6" }),
+    );
+    expect(a).toBe("203.0.113.7");
+    expect(a).toBe(b); // rotating the forgeable header does not rotate the key
+  });
+
+  it("off Vercel the platform header is ignored — it proves nothing there", () => {
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "1");
+    expect(
+      trustedClientIp(hdr({ "x-vercel-forwarded-for": "203.0.113.7", "x-forwarded-for": "9.9.9.9" })),
+    ).toBe("9.9.9.9");
+  });
+
+  it("a configured header that is absent or junk does not fall through to a forgeable one", () => {
+    vi.stubEnv("TRUSTED_CLIENT_IP_HEADER", "cf-connecting-ip");
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "1");
+    expect(trustedClientIp(hdr({ "cf-connecting-ip": "203.0.113.7" }))).toBe("203.0.113.7");
+    // absent -> XFF is still the documented last resort
+    expect(trustedClientIp(hdr({ "x-forwarded-for": "198.51.100.4" }))).toBe("198.51.100.4");
+  });
+
+  it("only an IP is returned — the value reaches a Redis key and an audit column", () => {
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "1");
+    expect(trustedClientIp(hdr({ "x-forwarded-for": "not-an-ip" }))).toBe("unknown");
+    expect(trustedClientIp(hdr({ "x-forwarded-for": "<script>alert(1)</script>" }))).toBe("unknown");
+    expect(trustedClientIp(hdr({ "x-forwarded-for": "999.1.1.1" }))).toBe("unknown");
+    expect(trustedClientIp(hdr({ "x-forwarded-for": "x".repeat(5000) }))).toBe("unknown");
+    // a port is stripped, not treated as a different client
+    expect(trustedClientIp(hdr({ "x-forwarded-for": "203.0.113.7:51234" }))).toBe("203.0.113.7");
+    expect(trustedClientIp(hdr({ "x-forwarded-for": "[2001:db8::1]:443" }))).toBe("2001:db8::1");
+    expect(trustedClientIp(hdr({ "x-forwarded-for": "2001:DB8::1" }))).toBe("2001:db8::1");
+  });
+
+  it("an unparseable value at the TRUSTED position never falls back to an attacker-controlled one", () => {
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "1");
+    expect(trustedClientIp(hdr({ "x-forwarded-for": "9.9.9.9, junk" }))).toBe("unknown");
+  });
+
   it("no XFF -> 'unknown'", () => {
     vi.stubEnv("TRUSTED_PROXY_HOPS", "1");
     expect(trustedClientIp(hdr({}))).toBe("unknown");

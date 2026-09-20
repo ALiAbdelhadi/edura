@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>إيديورا — ملخص الجاهزية والتحمّل والتكلفة</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Values mirror packages/ui/src/styles/globals.css (the "Classical Ledger" tokens). */
+  :root {
+    --ink: #201f1d; --ink-2: #605d5d; --ink-3: #6b6867;
+    --rule: rgba(32,31,29,.16); --rule-2: rgba(32,31,29,.07);
+    --indigo: #1a2f73; --indigo-soft: #eaecf6;
+    --teal: #0a7a6f; --teal-soft: #e2f2f0;
+    --amber: #a35a06; --amber-soft: #fbf0dd;
+    --red: #a81d1d; --red-soft: #fbe9e7;
+    --display: "Amiri", "Geeza Pro", serif;
+    --body: "IBM Plex Sans Arabic", "Tajawal", "Geeza Pro", sans-serif;
+  }
+  @page { size: A4; margin: 16mm 15mm 17mm; }
+  * { box-sizing: border-box; }
+  html { font-size: 10.4pt; }
+  body { margin: 0; font-family: var(--body); color: var(--ink); line-height: 1.75; font-variant-numeric: tabular-nums lining-nums; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { break-after: page; }
+  .page:last-child { break-after: auto; }
+  h1, h2, .num { font-family: var(--display); }
+
+  header.mast { border-bottom: 2px solid var(--ink); padding-bottom: 5mm; margin-bottom: 7mm; display: flex; justify-content: space-between; align-items: flex-end; gap: 8mm; }
+  header.mast h1 { font-size: 27pt; line-height: 1.25; margin: 0; font-weight: 700; }
+  header.mast .kicker { font-size: 9pt; letter-spacing: .02em; color: var(--ink-2); margin-bottom: 1.5mm; }
+  header.mast .meta { font-size: 8.6pt; color: var(--ink-2); text-align: left; line-height: 1.6; white-space: nowrap; }
+
+  .run { display: flex; justify-content: space-between; font-size: 8pt; color: var(--ink-3); border-bottom: 1px solid var(--rule); padding-bottom: 2mm; margin-bottom: 6mm; }
+
+  h2 { font-size: 17pt; margin: 0 0 1mm; font-weight: 700; line-height: 1.4; }
+  h2 .n { color: var(--indigo); margin-inline-end: 2mm; }
+  .lede { color: var(--ink-2); margin: 0 0 4mm; font-size: 9.8pt; }
+  section { margin-bottom: 6.5mm; }
+
+  /* the verdict band */
+  .verdict { background: var(--indigo); color: #fff; padding: 5.5mm 6mm; margin-bottom: 7mm; display: grid; grid-template-columns: auto 1fr; gap: 6mm; align-items: center; }
+  .verdict .big { font-family: var(--display); font-size: 30pt; font-weight: 700; line-height: 1; }
+  .verdict p { margin: 0; font-size: 10.4pt; line-height: 1.7; }
+  .verdict b { font-weight: 600; }
+
+  /* headline numbers: a ruled ledger row, not cards */
+  .figures { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); margin-bottom: 7mm; }
+  .figures > div { padding: 4mm 3.5mm 3.5mm; border-inline-start: 1px solid var(--rule); }
+  .figures > div:first-child { border-inline-start: 0; padding-inline-start: 0; }
+  .num { font-size: 25pt; font-weight: 700; line-height: 1.1; color: var(--indigo); direction: ltr; unicode-bidi: isolate; display: block; text-align: right; }
+  .num small { font-family: var(--body); font-size: 9pt; font-weight: 500; color: var(--ink-2); margin-inline-start: 1mm; }
+  .figures .what { font-size: 8.8pt; color: var(--ink); margin-top: 1.5mm; line-height: 1.55; }
+  .figures .how { font-size: 7.6pt; color: var(--ink-3); margin-top: 1mm; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 9.4pt; }
+  th { text-align: right; font-weight: 600; font-size: 8.4pt; color: var(--ink-2); border-bottom: 1px solid var(--ink); padding: 0 2.5mm 2mm; vertical-align: bottom; }
+  td { padding: 2.4mm 2.5mm; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th:first-child, td:first-child { padding-inline-start: 0; }
+  td.k { font-weight: 600; white-space: nowrap; }
+  td.v, th.v { text-align: left; white-space: nowrap; font-weight: 600; }
+  td.v.good { color: var(--teal); } td.v.bad { color: var(--red); }
+  tr.total td { border-bottom: 0; border-top: 1px solid var(--ink); font-weight: 600; }
+
+  .tag { display: inline-block; font-size: 7.8pt; font-weight: 600; padding: .3mm 2.2mm; border-radius: 2px; white-space: nowrap; }
+  .tag.ok { background: var(--teal-soft); color: var(--teal); }
+  .tag.warn { background: var(--amber-soft); color: var(--amber); }
+  .tag.no { background: var(--red-soft); color: var(--red); }
+  .tag.est { background: var(--indigo-soft); color: var(--indigo); }
+
+  .note { border-inline-start: 3px solid var(--amber); background: var(--amber-soft); padding: 2.6mm 4mm; font-size: 9.1pt; margin-top: 3.2mm; line-height: 1.7; }
+  .note.info { border-color: var(--indigo); background: var(--indigo-soft); }
+  .note b { font-weight: 600; }
+
+  ol.steps { margin: 0; padding: 0; list-style: none; counter-reset: s; }
+  ol.steps li { counter-increment: s; display: grid; grid-template-columns: 9mm 1fr auto; gap: 3mm; padding: 2.6mm 0; border-bottom: 1px solid var(--rule); align-items: baseline; }
+  ol.steps li::before { content: counter(s); font-family: var(--display); font-size: 15pt; font-weight: 700; color: var(--indigo); line-height: 1; }
+  ol.steps .who { font-size: 8.2pt; color: var(--ink-2); white-space: nowrap; }
+  ol.steps b { font-weight: 600; }
+
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; }
+  dl { margin: 0; font-size: 9pt; }
+  dt { font-weight: 600; margin-top: 2.2mm; } dd { margin: 0; color: var(--ink-2); }
+  footer { margin-top: 6mm; padding-top: 3mm; border-top: 1px solid var(--rule); font-size: 7.8pt; color: var(--ink-3); line-height: 1.6; }
+  .ltr { direction: ltr; unicode-bidi: isolate; display: inline-block; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<!-- ================================================================ page 1 -->
+<div class="page">
+  <header class="mast">
+    <div>
+      <div class="kicker">إيديورا · تقرير اختبار التحمّل</div>
+      <h1>هل النظام جاهز، يستحمل كام،<br>وهيكلّف كام؟</h1>
+    </div>
+    <div class="meta"><span class="ltr">20</span> سبتمبر <span class="ltr">2026</span><br>ملخص لصاحب القرار ومطوّر الأعمال</div>
+  </header>
+
+  <div class="verdict">
+    <div class="big">جاهز</div>
+    <p><b>النظام جاهز للإطلاق بالدفع الكاش من اليوم.</b> الدفع بالفيزا والمحافظ (Paymob) ما زال يحتاج ربطًا فعليًا، وهو مرحلة ثانية وليس شرطًا للبدء. وجدنا ثلاثة أعطال لا تظهر إلا وقت الزحمة، وتم إصلاحها والتأكد منها — لكنها <b>لن تعمل عند المستخدمين إلا بعد نشرها</b>.</p>
+  </div>
+
+  <div class="figures">
+    <div><span class="num">20</span><div class="what">مركزًا كبيرًا (<span class="ltr">1,000</span> طالب) في ذروتهم معًا — تكفيهم نسخة واحدة من الموقع</div><div class="how">محسوب من القياس</div></div>
+    <div><span class="num">10,000</span><div class="what">مستخدم متصل بالشات في نفس اللحظة، بدون خطأ واحد</div><div class="how">مقاس · <span class="ltr">392 MB</span> ذاكرة</div></div>
+    <div><span class="num">17,815</span><div class="what">عملية دفع كاش حقيقية تحت الضغط — ولا واحدة احتُسبت مرتين</div><div class="how">مقاس · الدفاتر <span class="ltr">9</span> من <span class="ltr">9</span></div></div>
+    <div><span class="num">50–100<small>$</small></span><div class="what">التكلفة الشهرية المتوقعة عند الإطلاق (حتى <span class="ltr">10</span> مراكز)</div><div class="how">تقديري</div></div>
+  </div>
+
+  <section>
+    <h2><span class="n"><span class="ltr">١</span></span>الجاهزية بند ببند</h2>
+    <table>
+      <tr><th>البند</th><th>الحالة</th><th>التفصيل</th></tr>
+      <tr><td class="k">تحمّل الموقع</td><td><span class="tag ok">جاهز</span></td><td>أضعاف ما يحتاجه أي إطلاق أولي، وبدون أي خطأ تحت الضغط</td></tr>
+      <tr><td class="k">تحمّل الشات</td><td><span class="tag ok">جاهز</span></td><td><span class="ltr">10,000</span> متصل و1,<span class="ltr">600</span> رسالة في الثانية على سيرفر واحد صغير</td></tr>
+      <tr><td class="k">الدفع كاش عند الكاونتر</td><td><span class="tag ok">جاهز</span></td><td>يعمل بالكامل ومُختبر تحت الضغط</td></tr>
+      <tr><td class="k">سلامة الفلوس</td><td><span class="tag ok">مثبتة</span></td><td>لا خصم مرتين حتى عند إرسال نفس العملية ثلاث مرات في نفس اللحظة</td></tr>
+      <tr><td class="k">الدفع أونلاين (Paymob)</td><td><span class="tag warn">مرحلة <span class="ltr">2</span></span></td><td>الأساس مبني، والربط الفعلي مع Paymob لم يتم بعد</td></tr>
+      <tr><td class="k">واتساب</td><td><span class="tag warn">تجريبي</span></td><td>لا يوجد رقم أعمال موثّق — الدعوات بالإيميل حاليًا</td></tr>
+      <tr><td class="k">القياس على البيئة الحقيقية</td><td><span class="tag no">لم يتم</span></td><td>كل الأرقام من جهاز محلي — مطلوب قياس واحد قبل أول مركز</td></tr>
+    </table>
+  </section>
+
+  <footer>كيف تقرأ الأرقام: «مقاس» = قِيس فعلًا على جهازنا. «تقديري» = مبني على افتراض مذكور بجانبه. كل الاختبارات تمت محليًا؛ لم يُوجَّه أي ضغط إلى Vercel أو Neon أو Railway.</footer>
+</div>
+
+<!-- ================================================================ page 2 -->
+<div class="page">
+  <div class="run"><span>إيديورا · ملخص اختبار التحمّل</span><span><span class="ltr">٢</span> / <span class="ltr">٤</span></span></div>
+
+  <section>
+    <h2><span class="n"><span class="ltr">٢</span></span>الأعطال التي وُجدت وأُصلحت</h2>
+    <p class="lede">الثلاثة لا تظهر في الاستخدام العادي ولا في الاختبارات العادية — تظهر فقط وقت الزحمة، وهو بالضبط وقت الذروة قبل الحصص.</p>
+    <table>
+      <tr><th style="width:31%">العطل</th><th>ماذا كان يحدث</th><th class="v">قبل</th><th class="v">بعد</th></tr>
+      <tr>
+        <td class="k">الكاونتر «يعلّق» بالكامل<br><span class="tag no">الأخطر</span></td>
+        <td>إذا سجّل <span class="ltr">10</span> موظفين دفع كاش في نفس اللحظة، يتوقف النظام عند <b>الجميع</b>. اختبرناه بـ <span class="ltr">90</span> عملية دفع معًا.</td>
+        <td class="v bad"><span class="ltr">0</span> نجح<br><span class="ltr">31–60</span> ثانية</td><td class="v good"><span class="ltr">162</span> نجح<br><span class="ltr">0.11</span> ثانية</td>
+      </tr>
+      <tr>
+        <td class="k">الشات يتجمّد بعد كل تحديث</td>
+        <td>كل مرة يُحدَّث فيها سيرفر الشات والناس متصلة. تكرر <span class="ltr">6</span> مرات من <span class="ltr">6</span> قبل الإصلاح، و0 من <span class="ltr">6</span> بعده.</td>
+        <td class="v bad"><span class="ltr">19</span> ثانية<br><span class="ltr">10</span> اتصالات تفشل</td><td class="v good"><span class="ltr">0.002</span> ثانية<br><span class="ltr">0</span> فشل</td>
+      </tr>
+      <tr>
+        <td class="k">الصفحات ثقيلة بلا سبب</td>
+        <td>كل صفحة كانت ترسل نصوص كل البوابات (الطالب يستلم نصوص المدرّس وصاحب المركز). الآن كل بوابة تستلم نصوصها فقط.</td>
+        <td class="v bad"><span class="ltr">93 KB</span></td><td class="v good"><span class="ltr">63 KB</span><br><span class="ltr">−33%</span></td>
+      </tr>
+    </table>
+    <div class="note"><b>ملاحظة لم تُصلَح:</b> إذا انقطع النت لحظة الدفع عند الكاونتر، قد يرى الموظف «فشل» بينما الدفع سُجِّل فعلًا. لا يحدث خصم مرتين (النظام يرفض المحاولة الثانية)، لكن الرسالة مربكة. حدث هذا <span class="ltr">29</span> مرة أثناء العطل الأول. الحل صغير ومقترح.</div>
+  </section>
+
+  <section>
+    <h2><span class="n"><span class="ltr">٣</span></span>الموقع يستحمل كام؟</h2>
+    <p class="lede">الأرقام لـ<b>نسخة واحدة</b> (معالج واحد). Vercel يشغّل نسخًا إضافية تلقائيًا وقت الزحمة، فهذه ليست سقف النظام. عند تجاوز الحد، الموقع <b>يبطّأ ولا يقع</b>: صفر أخطاء في كل الاختبارات النهائية.</p>
+    <table>
+      <tr><th>المستخدم</th><th class="v">طلب/ثانية براحة</th><th class="v">زمن الاستجابة</th><th>يعني كم شخصًا في نفس اللحظة <span class="tag est">تقديري</span></th></tr>
+      <tr><td class="k">ولي الأمر</td><td class="v"><span class="ltr">419</span></td><td class="v"><span class="ltr">0.47</span> ث</td><td>حوالي <span class="ltr">3,100</span> ولي أمر</td></tr>
+      <tr><td class="k">الطالب</td><td class="v"><span class="ltr">334</span></td><td class="v"><span class="ltr">0.32</span> ث</td><td><span class="ltr">1,500 – 3,000</span> طالب يتصفّح</td></tr>
+      <tr><td class="k">المدرّس</td><td class="v"><span class="ltr">182</span></td><td class="v"><span class="ltr">0.03</span> ث</td><td>حوالي <span class="ltr">700</span> مدرّس</td></tr>
+      <tr><td class="k">موظف الكاونتر</td><td class="v"><span class="ltr">159</span></td><td class="v"><span class="ltr">0.02</span> ث</td><td>كاونترات <span class="ltr">100</span> مركز بأقصى سرعة</td></tr>
+      <tr><td class="k">المحاسب / مدير المنصة</td><td class="v"><span class="ltr">118 – 138</span></td><td class="v"><span class="ltr">0.03 – 0.33</span> ث</td><td>أكبر بكثير من أي فريق عمل</td></tr>
+      <tr><td class="k">صاحب المركز</td><td class="v"><span class="ltr">95</span></td><td class="v"><span class="ltr">0.36</span> ث</td><td>حوالي <span class="ltr">450</span> صاحب مركز</td></tr>
+    </table>
+    <div class="note info"><b>بلغة البيزنس:</b> مركز كبير (<span class="ltr">1,000</span> طالب) في أسوأ نصف ساعة عنده — كل الطلاب يسجّلون حضورهم وآخرون يتصفّحون — ينتج حوالي <b><span class="ltr">8</span> طلبات في الثانية</b>. أي أن نسخة واحدة تكفي <b>حوالي <span class="ltr">20</span> مركزًا كبيرًا في ذروتهم معًا</b>.</div>
+  </section>
+</div>
+
+<!-- ================================================================ page 3 -->
+<div class="page">
+  <div class="run"><span>إيديورا · ملخص اختبار التحمّل</span><span><span class="ltr">٣</span> / <span class="ltr">٤</span></span></div>
+
+  <section>
+    <h2><span class="n"><span class="ltr">٤</span></span>سيرفر الشات (WebSocket) يستحمل كام؟</h2>
+    <table>
+      <tr><th style="width:44%">الاختبار</th><th>النتيجة <span class="tag ok">مقاس</span></th></tr>
+      <tr><td class="k"><span class="ltr">10,000</span> مستخدم متصل في نفس اللحظة</td><td>الكل اتصل · <span class="ltr">0</span> أخطاء · <span class="ltr">0</span> انقطاع · <b><span class="ltr">392 MB</span></b> ذاكرة · المعالج <span class="ltr">2–5%</span></td></tr>
+      <tr><td class="k">الـ <span class="ltr">10,000</span> يعيدون الاتصال في نفس الثانية</td><td>عاد الجميع خلال <b><span class="ltr">3.6</span> ثانية</b> · <span class="ltr">0</span> أخطاء</td></tr>
+      <tr><td class="k">سرعة الرسائل</td><td><b><span class="ltr">1,600</span> رسالة في الثانية</b>، وكل رسالة تصل في أقل من <span class="ltr">0.01</span> ثانية</td></tr>
+      <tr><td class="k">فوق <span class="ltr">1,600</span> رسالة/ثانية</td><td>يبطّأ ولا يُضيّع ولا يُكرّر: كل رسالة = سطر واحد بالضبط</td></tr>
+    </table>
+    <div class="note info"><b>للتخيّل:</b> <span class="ltr">1,600</span> رسالة في الثانية ≈ <b><span class="ltr">32,000</span> شخص يكتبون في نفس اللحظة</b>. مئة مركز مزدحم تحتاج أقل من <span class="ltr">20</span> رسالة في الثانية — أي <span class="ltr">80</span> ضعف الاحتياج. لذلك <b>الذاكرة هي ما يحدد حجم سيرفر الشات لا السرعة</b>: حوالي <span class="ltr">190 MB</span> أساسًا + <span class="ltr">35 MB</span> لكل <span class="ltr">1,000</span> متصل.</div>
+    <div class="note"><b>حد يجب معرفته:</b> سيرفر الشات لا يمكن تشغيل نسختين منه حاليًا، لأن «من متصل الآن» محفوظ في ذاكرة السيرفر نفسه. نسخة واحدة تكفي المرحلتين الأولى والثانية؛ وقبل المرحلة الثالثة يلزم بناء ربط بين النسخ.</div>
+  </section>
+
+  <section>
+    <h2><span class="n"><span class="ltr">٥</span></span>في ماذا سنشترك؟</h2>
+    <p class="lede">لا تشترِ سيرفرًا ثابتًا. الخدمات الحالية تكبر وحدها وتدفع على قدر الاستخدام — أرخص وأأمن في البداية.</p>
+    <table>
+      <tr><th>الجزء</th><th>الخدمة</th><th>الحجم عند الإطلاق</th><th>المنطقة</th></tr>
+      <tr><td class="k">سيرفر الموقع</td><td>Vercel — باقة Pro <span style="color:var(--ink-3)">(المجانية ممنوعة تجاريًا)</span></td><td>يكبر تلقائيًا</td><td>فرانكفورت</td></tr>
+      <tr><td class="k">قاعدة البيانات</td><td>Neon — باقة مدفوعة صغيرة + نسخ احتياطي</td><td>ربع إلى <span class="ltr">1</span> معالج</td><td>فرانكفورت <span style="color:var(--ink-3)">(حالية)</span></td></tr>
+      <tr><td class="k">سيرفر الشات</td><td>Railway — سيرفر دائم التشغيل</td><td><span class="ltr">512 MB</span> · نصف معالج <span style="color:var(--ink-3)">≈ <span class="ltr">5,000</span> متصل</span></td><td>أوروبا</td></tr>
+      <tr><td class="k">الحماية من التخمين</td><td>Upstash Redis — حسابك الحالي</td><td>المجاني كافٍ</td><td>أوروبا</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2><span class="n"><span class="ltr">٦</span></span>التكلفة حسب المرحلة <span class="tag est">تقديري</span></h2>
+    <table>
+      <tr><th>المرحلة</th><th>الحجم</th><th class="v">ذروة الموقع</th><th>سيرفر الشات</th><th class="v">شهريًا</th></tr>
+      <tr><td class="k"><span class="ltr">1</span> · الإطلاق</td><td><span class="ltr">1–10</span> مراكز · حتى <span class="ltr">10</span> آلاف طالب</td><td class="v"><span class="ltr">~80</span> طلب/ث</td><td><span class="ltr">512 MB</span></td><td class="v"><span class="ltr">50 – 100 $</span></td></tr>
+      <tr><td class="k"><span class="ltr">2</span> · النمو</td><td><span class="ltr">10–100</span> مركز · حتى <span class="ltr">100</span> ألف طالب</td><td class="v"><span class="ltr">~800</span> طلب/ث</td><td><span class="ltr">1 GB</span> · معالج واحد</td><td class="v"><span class="ltr">300 – 700 $</span></td></tr>
+      <tr><td class="k"><span class="ltr">3</span> · قيادة السوق</td><td><span class="ltr">1,000</span> مركز · مليون طالب</td><td class="v"><span class="ltr">~8,000</span> طلب/ث</td><td><span class="ltr">2–4</span> سيرفرات بعد بناء الربط</td><td class="v"><span class="ltr">3,000 – 6,000 $</span></td></tr>
+    </table>
+    <footer style="margin-top:3mm">الأسعار من الذاكرة وليست عروضًا رسمية — تُراجَع من مواقع الشركات قبل أي قرار. أكبر بند تكلفة مع النمو هو نقل البيانات لا المعالجات، ولذلك كان تصغير الصفحات بنسبة <span class="ltr">33%</span> أول توفير فعلي.</footer>
+  </section>
+</div>
+
+<!-- ================================================================ page 4 -->
+<div class="page">
+  <div class="run"><span>إيديورا · ملخص اختبار التحمّل</span><span><span class="ltr">٤</span> / <span class="ltr">٤</span></span></div>
+
+  <section>
+    <h2><span class="n"><span class="ltr">٧</span></span>الخطوات القادمة بالترتيب</h2>
+    <ol class="steps">
+      <li><div><b>نشر إصلاحات اليوم</b> (commit ثم deploy) — بدون ذلك تبقى الأعطال الثلاثة عند المستخدمين.</div><span class="who">صاحب المشروع · الآن</span></li>
+      <li><div><b>التأكد أن Vercel وRailway في أوروبا.</b> قاعدة البيانات في فرانكفورت؛ لو كان سيرفر الشات في أمريكا فكل رسالة تعبر المحيط <span class="ltr">8</span> مرات.</div><span class="who">لوحة التحكم · <span class="ltr">5</span> دقائق</span></li>
+      <li><div><b>قياس السرعة على البيئة الحقيقية</b> بطلبات عادية (ليس اختبار ضغط). هذا أكبر مجهول متبقٍ.</div><span class="who">قبل أول مركز</span></li>
+      <li><div><b>رقم مميّز لكل عملية دفع عند الكاونتر</b> حتى لا تظهر «فشل» لدفع نجح.</div><span class="who">تطوير · صغير</span></li>
+      <li><div><b>ضبط <span class="ltr">4</span> استعلامات تبطؤ مع نمو البيانات</b> لا مع الزحمة (بحث الكاونتر، لوحة صاحب المركز، لوحة المدرّس، حفظ الدرجات).</div><span class="who">تطوير · قبل المرحلة <span class="ltr">2</span></span></li>
+      <li><div><b>الربط الفعلي مع Paymob</b> للدفع أونلاين.</div><span class="who">تطوير · كبير</span></li>
+      <li><div><b>ربط نسخ الشات عبر Redis.</b></div><span class="who">قبل المرحلة <span class="ltr">3</span> فقط</span></li>
+    </ol>
+  </section>
+
+  <div class="two">
+    <section>
+      <h2><span class="n"><span class="ltr">٨</span></span>ما لم يُختبر</h2>
+      <table>
+        <tr><td class="k">البيئة الحقيقية</td><td>كل القياسات محلية بلا شبكة. على Neon كل عملية رحلة شبكة، فالأرقام الفعلية ستكون أبطأ.</td></tr>
+        <tr><td class="k">مسارات الفلوس الأخرى</td><td>الدفع أونلاين، المحفظة، تسوية الحصص، مستحقات المدرّسين، الاسترداد.</td></tr>
+        <tr><td class="k">في الشات</td><td>«يكتب الآن»، «تمت القراءة»، إشعارات غير المتصل، المجموعات.</td></tr>
+        <tr><td class="k">المدة والحجم</td><td>أطول اختبار <span class="ltr">10</span> دقائق؛ البيانات <span class="ltr">20</span> مركزًا و20 ألف طالب.</td></tr>
+      </table>
+    </section>
+    <section>
+      <h2><span class="n"><span class="ltr">٩</span></span>مصطلحات في سطر</h2>
+      <dl>
+        <dt>طلب (request)</dt><dd>كل مرة يطلب فيها المتصفح شيئًا من السيرفر. فتح صفحة واحدة ≈ <span class="ltr">3</span> إلى <span class="ltr">5</span> طلبات.</dd>
+        <dt>نسخة (instance)</dt><dd>نسخة شغّالة من الموقع على معالج واحد. Vercel يضيف نسخًا وحده وقت الزحمة.</dd>
+        <dt>WebSocket</dt><dd>اتصال مفتوح طوال الوقت لتصل الرسالة فورًا — لذلك يحتاج سيرفرًا دائم التشغيل.</dd>
+        <dt>الحجم المضغوط</dt><dd>ما ينتقل فعلًا عبر الإنترنت — وهو ما تُحاسَب عليه.</dd>
+      </dl>
+    </section>
+  </div>
+
+  <div class="note info" style="margin-top:2mm"><b>عن رقم المليون طلب في الثانية:</b> هو أربعة أضعاف ما ينتجه <b>كل طلاب مصر وأولياء أمورهم</b> لو استخدموا النظام في نفس الثانية، وتكلفته <span class="ltr">2</span> إلى <span class="ltr">5</span> ملايين دولار شهريًا. الهدف المنطقي — <span class="ltr">1,000</span> مركز — أقل منه <span class="ltr">125</span> مرة، ويمكن بلوغه بالمعمارية الحالية.</div>
+
+  <footer>التفاصيل التقنية الكاملة (الجداول، الأدلة، أسماء الملفات): <span class="ltr">docs/reports/load-test-2026-09-20.md</span> · أدوات الاختبار: <span class="ltr">tests/load/</span></footer>
+</div>
+
+</body>
+</html>
