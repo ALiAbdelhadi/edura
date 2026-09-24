@@ -1,4 +1,8 @@
-import { mailProvider, sendMail, verifyMailConnection } from "@repo/server-core/mail/send";
+import {
+  mailProvider,
+  sendMail,
+  verifyMailConnection,
+} from "@repo/server-core/mail/send";
 import { passwordResetEmail } from "@repo/server-core/mail/templates";
 import { appBaseUrl } from "@repo/server-core/http/app-url";
 
@@ -15,8 +19,12 @@ async function main() {
   console.log("");
 
   if (mailProvider() === "console") {
-    console.log("⚠️  Provider is 'console' — emails are logged, never delivered.");
-    console.log("   Set MAIL_PROVIDER=smtp plus SMTP_* in apps/www/.env.local.");
+    console.log(
+      "⚠️  Provider is 'console' — emails are logged, never delivered.",
+    );
+    console.log(
+      "   Set MAIL_PROVIDER=smtp plus SMTP_* in apps/www/.env.local.",
+    );
     process.exit(1);
   }
 
