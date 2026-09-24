@@ -52,6 +52,7 @@ import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
 import { EmptyState } from "@/components/kit/empty-state";
 import { ConfirmDialog } from "@/components/kit/confirm-dialog";
 import { Spinner, PageSpinner } from "@/components/kit/spinner";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 
 const MATERIAL_TYPE_VALUES = ["lecture", "homework", "exam", "other"] as const;
 
@@ -85,6 +86,7 @@ export function TeacherMaterialsScreen() {
 
   const { query: coursesQuery, result: coursesResult } = useList({
     resource: "courses",
+    queryOptions: QUERY_FRESHNESS.list,
   });
   const { query: materialsQuery, result: materialsResult } = useList({
     resource: "materials",
@@ -97,6 +99,7 @@ export function TeacherMaterialsScreen() {
           },
         ]
       : [],
+    queryOptions: QUERY_FRESHNESS.list,
   });
   const { mutate: deleteMaterial } = useDelete();
 

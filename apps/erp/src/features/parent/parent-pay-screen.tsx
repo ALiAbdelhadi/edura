@@ -39,6 +39,7 @@ import {
 } from "@/features/subscriptions/subscription-state";
 import { SubscriptionStateChip } from "@/features/subscriptions/subscription-state-chip";
 import { cn } from "@repo/ui/lib/utils";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 
 type CatalogSubject = {
   id: string;
@@ -103,6 +104,7 @@ function SubjectCourses({
       ...(browseAll ? [{ field: "scope", operator: "eq" as const, value: "all" }] : []),
     ],
     pagination: { mode: "off" },
+    queryOptions: QUERY_FRESHNESS.discovery,
   });
 
   const [sessionChoice, setSessionChoice] = useState<Record<string, string>>({});
@@ -266,7 +268,7 @@ export function ParentPayScreen() {
           { field: "studentId", operator: "eq", value: childId ?? "" },
         ],
     pagination: { mode: "off" },
-    queryOptions: { enabled: browseAll || Boolean(childId) },
+    queryOptions: { ...QUERY_FRESHNESS.reference, enabled: browseAll || Boolean(childId) },
   });
 
   const { query: subsQuery, result: subsRes } = useCustom({

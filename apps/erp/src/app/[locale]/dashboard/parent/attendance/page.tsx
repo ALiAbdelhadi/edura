@@ -1,17 +1,16 @@
 "use client";
 
-import React from "react";
-import { UsersRound } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { Button } from "@repo/ui/components/button";
-import { SkeletonRows } from "@repo/ui/components/ledger";
+import { EmptyState } from "@/components/kit/empty-state";
+import { PageHeader } from "@/components/kit/page-header";
+import { useChildSelector } from "@/components/ui/child-selector";
 import { AttendanceScreen } from "@/features/attendance/attendance-screen";
 import { ChildTodayLine } from "@/features/parent/child-today-line";
 import { ParentRecentAttendance } from "@/features/parent/parent-recent-attendance";
-import { useChildSelector } from "@/components/ui/child-selector";
-import { EmptyState } from "@/components/kit/empty-state";
-import { PageHeader } from "@/components/kit/page-header";
 import { Link } from "@/i18n/navigation";
+import { Button } from "@repo/ui/components/button";
+import { SkeletonRows } from "@repo/ui/components/ledger";
+import { UsersRound } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export default function Page() {
   const t = useTranslations();

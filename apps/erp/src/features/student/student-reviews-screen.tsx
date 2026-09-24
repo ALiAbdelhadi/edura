@@ -39,6 +39,7 @@ import {
 import { QuerySection } from "@repo/ui/components/query-section";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { asArray } from "@/lib/refine/as-array";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 
 function StarRating({
   value,
@@ -106,10 +107,12 @@ export function StudentReviewsScreen() {
   const { query: eligibleQuery, result: eligibleResult } = useCustom({
     url: "reviews/eligible",
     method: "get",
+    queryOptions: QUERY_FRESHNESS.list,
   });
   const { query: reviewsQuery, result: reviewsResult } = useList({
     resource: "reviews",
     pagination: { pageSize: 20, currentPage: 1 },
+    queryOptions: QUERY_FRESHNESS.list,
   });
   const { mutate: createReview, mutation: createMutation } = useCreate();
   const { mutate: updateReview, mutation: updateMutation } = useUpdate();

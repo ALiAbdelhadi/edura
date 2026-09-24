@@ -44,13 +44,14 @@ import {
   type BadgeTone,
   type Column,
 } from "./ledger";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 
 type Teacher = Record<string, any>;
 
 export function AdminTeachersScreen() {
   const t = useTranslations();
   const queryStrings = useQueryStrings();
-  const { query, result } = useList({ resource: "teachers" });
+  const { query, result } = useList({ resource: "teachers", queryOptions: QUERY_FRESHNESS.list });
   const { mutate: deleteTeacher, mutation: deleteMutation } = useDelete();
   const { mutate: inviteTeacher, mutation: inviteMutation } = useCustomMutation();
 

@@ -1,9 +1,9 @@
-import { redirect } from "next/navigation";
-import { requirePortal } from "@/lib/auth/portal-gate";
-import { AnalyticsIdentity } from "@/lib/observability/analytics-identity";
-import { ForbiddenError } from "@/lib/errors/classes";
-import { getStaffMe } from "@/lib/services/center/staff";
 import { PortalIntl } from "@/components/i18n/portal-intl";
+import { requirePortal } from "@/lib/auth/portal-gate";
+import { ForbiddenError } from "@/lib/errors/classes";
+import { AnalyticsIdentity } from "@/lib/observability/analytics-identity";
+import { getStaffMe } from "@/lib/services/center/staff";
+import { redirect } from "next/navigation";
 import PortalChrome from "./portal-chrome";
 
 export default async function StaffLayout({

@@ -4,56 +4,10 @@ import { SessionIntegrityGuard } from "@/components/providers/session-integrity-
 import { ThemeModeProvider } from "@/components/providers/theme-mode-provider";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { isRtlLocale } from "@/i18n/routing";
-import { authProvider, dataProvider } from "@/lib/refine";
-import { useSonnerNotificationProvider } from "@/lib/refine/notification-provider";
-import { reactQueryClientConfig } from "@/lib/refine/query-client";
-import { useAppRouterProvider } from "@/lib/refine/router-provider";
-import { Refine } from "@refinedev/core";
 import { DirectionProvider } from "@repo/ui/components/direction-provider";
 import { Toaster } from "@repo/ui/components/sonner";
 import { useLocale } from "next-intl";
 import React, { Suspense } from "react";
-
-const resources = [
-  { name: "students", meta: { label: "Students" } },
-  { name: "teachers", meta: { label: "Teachers" } },
-  { name: "courses", meta: { label: "Classes" } },
-  { name: "grades", meta: { label: "Grades" } },
-  { name: "payments", meta: { label: "Fees" } },
-  { name: "sessions", meta: { label: "Sessions" } },
-  { name: "enrollments", meta: { label: "Enrollments" } },
-  { name: "expenses", meta: { label: "Expenses" } },
-  { name: "rooms", meta: { label: "Rooms" } },
-  { name: "reports", meta: { label: "Reports" } },
-  { name: "me-children", meta: { label: "Children" } },
-  { name: "me-attendance", meta: { label: "Attendance" } },
-  { name: "dashboards-student", meta: { label: "Dashboard" } },
-  { name: "dashboards-teacher", meta: { label: "Dashboard" } },
-  { name: "dashboards-admin", meta: { label: "Dashboard" } },
-];
-
-function RefineProvider({ children }: { children: React.ReactNode }) {
-  const routerProvider = useAppRouterProvider();
-
-  return (
-    <Refine
-      dataProvider={dataProvider}
-      authProvider={authProvider}
-      notificationProvider={useSonnerNotificationProvider}
-      routerProvider={routerProvider}
-      resources={resources}
-      options={{
-        syncWithLocation: true,
-        warnWhenUnsavedChanges: true,
-        disableTelemetry: true,
-        projectId: "edura",
-        reactQuery: { clientConfig: reactQueryClientConfig },
-      }}
-    >
-      {children}
-    </Refine>
-  );
-}
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   const locale = useLocale();
@@ -61,9 +15,10 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <ThemeModeProvider>
       <DirectionProvider dir={dir}>
-        <Suspense fallback={null}>
-          <RefineProvider>{children}</RefineProvider>
-        </Suspense>
+        {/* Kept from when RefineProvider lived here: six public pages
+            (login, register, claim, confirm-email, reset-password,
+            invite/accept) call useSearchParams and rely on this boundary. */}
+        <Suspense fallback={null}>{children}</Suspense>
         <Toaster
           dir={dir}
           position={dir === "rtl" ? "bottom-left" : "bottom-right"}

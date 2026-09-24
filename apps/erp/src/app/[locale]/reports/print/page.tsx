@@ -1,6 +1,6 @@
 import { AutoPrint } from "@/features/admin/report-print-sheet";
-import { authorizeCenterActor, ACCOUNTANT, MANAGER } from "@/lib/authz/center-actor";
 import { getSessionUser } from "@/lib/auth/session";
+import { ACCOUNTANT, MANAGER, authorizeCenterActor } from "@/lib/authz/center-actor";
 import { AppError } from "@/lib/errors/classes";
 import {
   buildReportExport,

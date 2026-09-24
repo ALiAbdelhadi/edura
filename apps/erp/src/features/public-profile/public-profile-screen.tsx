@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
+import { CenterAmenities } from "@/features/public-profile/center-amenities";
 
 // The tenant's public face. Server-rendered, session-less, and the ONLY
 // thing a tenant subdomain serves (src/proxy.ts). Every action on it hands
@@ -293,6 +294,14 @@ export async function PublicProfileScreen({
                       </p>
                     </div>
                   ) : null}
+                </div>
+              ) : null}
+              {isCenter && profile.amenities.length ? (
+                <div>
+                  <Eyebrow>{t("amenities")}</Eyebrow>
+                  <div className="mt-4">
+                    <CenterAmenities amenities={profile.amenities} locale={locale} />
+                  </div>
                 </div>
               ) : null}
 

@@ -1,9 +1,8 @@
+import { ScanResultView } from "@/features/student/scan-result-view";
+import { getSessionUser } from "@/lib/auth/session";
+import { resolveStudentScan } from "@repo/server-core/services/students/student-scan";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-
-import { getSessionUser } from "@/lib/auth/session";
-import { ScanResultView } from "@/features/student/scan-result-view";
-import { resolveStudentScan } from "@repo/server-core/services/students/student-scan";
 
 export const dynamic = "force-dynamic";
 

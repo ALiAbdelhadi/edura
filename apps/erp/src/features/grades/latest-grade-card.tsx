@@ -8,6 +8,7 @@ import { useList } from "@refinedev/core";
 import { DirectionalIcon } from "@repo/ui/components/directional-icon";
 import { ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 
 const CHIP_TONE = {
   success: "teal",
@@ -40,6 +41,7 @@ export function LatestGradeCard({
           ],
         }
       : {}),
+    queryOptions: QUERY_FRESHNESS.list,
   });
 
   const latest = latestGrade((result?.data ?? []) as GradeRow[]);

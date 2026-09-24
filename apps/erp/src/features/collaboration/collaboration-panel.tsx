@@ -9,7 +9,7 @@ import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { StatusBadge } from "@/components/kit/status-badge";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { asArray } from "@/lib/refine/as-array";
-import { amenityLabel } from "@/lib/rooms/amenities";
+import { amenityLabel, hasAllAmenities, orderAmenities } from "@/lib/rooms/amenities";
 import { useCustom, useCustomMutation, useList } from "@refinedev/core";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
@@ -58,6 +58,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 
 const STATUS_TONE: Record<string, "success" | "danger" | "warning" | "neutral"> = {
   accepted: "success",
@@ -103,7 +104,7 @@ type StageGroup = { key: string; nameAr: string; nameEn: string; grades: GradeOp
 export function CollaborationPanel({ role }: { role: "teacher" | "center" }) {
   const t = useTranslations();
   const { formatEGP, formatDate, formatClockRange, locale } = useFormatters();
-  const { query, result } = useCustom({ url: "collaboration-requests", method: "get" });
+  const { query, result } = useCustom({ url: "collaboration-requests", method: "get", queryOptions: QUERY_FRESHNESS.list });
   const { mutateAsync: act } = useCustomMutation();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -450,6 +451,7 @@ function CreateCollabDialog({
   const [gradeId, setGradeId] = useState("");
   const [trackId, setTrackId] = useState("");
   const [roomId, setRoomId] = useState("");
+  const [amenityFilter, setAmenityFilter] = useState<string[]>([]);
   const [days, setDays] = useState<number[]>([]);
   const [startTime, setStartTime] = useState("16:00");
   const [endTime, setEndTime] = useState("18:00");
@@ -474,7 +476,7 @@ function CreateCollabDialog({
         ...(role === "teacher" ? { includeEmpty: "1" } : {}),
       },
     },
-    queryOptions: { enabled: open },
+    queryOptions: { ...QUERY_FRESHNESS.discovery, enabled: open },
   });
   const targets = asArray<any>(targetsRes?.data);
 
@@ -482,14 +484,14 @@ function CreateCollabDialog({
     url: "catalog/subjects",
     method: "get",
     config: { query: { all: "1" } },
-    queryOptions: { enabled: open },
+    queryOptions: { ...QUERY_FRESHNESS.reference, enabled: open },
   });
   const subjects = asArray<any>(subjectsRes?.data);
 
   const { query: treeQuery, result: treeRes } = useCustom({
     url: "catalog/tree",
     method: "get",
-    queryOptions: { enabled: open },
+    queryOptions: { ...QUERY_FRESHNESS.reference, enabled: open },
   });
   const stageGroups: StageGroup[] = useMemo(() => {
     const out: StageGroup[] = [];
@@ -523,7 +525,7 @@ function CreateCollabDialog({
   const { query: roomsQuery, result: roomsRes } = useList({
     resource: "rooms",
     pagination: { mode: "off" },
-    queryOptions: { enabled: open && role === "center" },
+    queryOptions: { ...QUERY_FRESHNESS.list, enabled: open && role === "center" },
   });
   const rooms = (roomsRes?.data ?? []) as any[];
 
@@ -533,6 +535,22 @@ function CreateCollabDialog({
     queryOptions: { enabled: open && role === "teacher" && !!targetId },
   });
   const centerRooms = ((centerRoomsRes as any)?.data?.rooms ?? []) as any[];
+  const centerAmenities = orderAmenities(
+    centerRooms.flatMap((r) => (r.facilities ?? []) as string[]),
+  );
+  const visibleCenterRooms = amenityFilter.length
+    ? centerRooms.filter((r) => hasAllAmenities(r.facilities, amenityFilter))
+    : centerRooms;
+  // Picking an amenity the chosen hall lacks drops the choice rather than
+  // leaving a selection the teacher can no longer see.
+  const toggleAmenityFilter = (key: string) => {
+    const next = amenityFilter.includes(key)
+      ? amenityFilter.filter((k) => k !== key)
+      : [...amenityFilter, key];
+    setAmenityFilter(next);
+    const picked = centerRooms.find((r) => r.id === roomId);
+    if (picked && !hasAllAmenities(picked.facilities, next)) setRoomId("");
+  };
 
   const { query: mySubjectsQuery, result: mySubjectsRes } = useCustom({
     url: "me/subjects",
@@ -561,6 +579,7 @@ function CreateCollabDialog({
 
   useEffect(() => {
     setRoomId("");
+    setAmenityFilter([]);
   }, [targetId]);
 
   const pickedRoom =
@@ -596,6 +615,7 @@ function CreateCollabDialog({
     setGradeId("");
     setTrackId("");
     setRoomId("");
+    setAmenityFilter([]);
     setDays([]);
     setStartTime("16:00");
     setEndTime("18:00");
@@ -773,11 +793,74 @@ function CreateCollabDialog({
           {role === "teacher" && targetId ? (
             <div>
               <div className="mb-1 text-sm font-medium">{t("shared.collab.chooseHall")}</div>
+              {centerRooms.length > 1 && centerAmenities.length > 0 ? (
+                <div
+                  role="group"
+                  aria-label={t("shared.collab.amenityFilter")}
+                  className="mb-3 space-y-1.5 rounded-lg border border-dashed p-2"
+                >
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-xs font-medium">{t("shared.collab.amenityFilter")}</span>
+                    {amenityFilter.length ? (
+                      <span className="text-xs text-muted-foreground" aria-live="polite">
+                        {t("shared.collab.amenityFilterCount", {
+                          shown: visibleCenterRooms.length,
+                          total: centerRooms.length,
+                        })}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{t("shared.collab.amenityFilterHint")}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {centerAmenities.map((a) => {
+                      const on = amenityFilter.includes(a);
+                      return (
+                        <Button
+                          key={a}
+                          type="button"
+                          size="sm"
+                          variant={on ? "default" : "outline"}
+                          aria-pressed={on}
+                          onClick={() => toggleAmenityFilter(a)}
+                          className="min-h-11 sm:min-h-8"
+                        >
+                          {on ? <Check className="size-3" /> : null}
+                          {amenityLabel(a, locale)}
+                        </Button>
+                      );
+                    })}
+                    {amenityFilter.length ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setAmenityFilter([])}
+                        className="min-h-11 sm:min-h-8"
+                      >
+                        {t("shared.collab.amenityFilterClear")}
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
               {centerRooms.length === 0 ? (
                 <p className="text-sm text-muted-foreground">{t("shared.collab.noHallsAtCenter")}</p>
+              ) : visibleCenterRooms.length === 0 ? (
+                <div className="rounded-lg border border-dashed p-4 text-center">
+                  <p className="text-sm text-muted-foreground">{t("shared.collab.amenityFilterNoMatch")}</p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setAmenityFilter([])}
+                    className="mt-2 min-h-11 sm:min-h-8"
+                  >
+                    {t("shared.collab.amenityFilterClear")}
+                  </Button>
+                </div>
               ) : (
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {centerRooms.map((r) => {
+                  {visibleCenterRooms.map((r) => {
                     const selected = roomId === r.id;
                     return (
                       <button
@@ -830,8 +913,12 @@ function CreateCollabDialog({
                           ) : null}
                           {r.facilities?.length ? (
                             <div className="flex flex-wrap gap-1">
-                              {r.facilities.slice(0, 4).map((f: string) => (
-                                <Badge key={f} variant="secondary" className="text-[10px]">
+                              {orderAmenities(r.facilities as string[]).map((f) => (
+                                <Badge
+                                  key={f}
+                                  variant={amenityFilter.includes(f) ? "default" : "secondary"}
+                                  className="text-[10px]"
+                                >
                                   {amenityLabel(f, locale)}
                                 </Badge>
                               ))}

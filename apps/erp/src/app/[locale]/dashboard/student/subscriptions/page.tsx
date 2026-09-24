@@ -1,7 +1,7 @@
 "use client";
 
-import { useTranslations } from "next-intl";
 import { SubscriptionsScreen } from "@/features/subscriptions/subscriptions-screen";
+import { useTranslations } from "next-intl";
 
 export default function StudentSubscriptionsPage() {
   const t = useTranslations();

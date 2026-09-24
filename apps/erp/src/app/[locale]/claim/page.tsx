@@ -126,7 +126,6 @@ function ClaimInner() {
               {fixedEmail ? t("claim.staffBody") : t("claim.credentialsBody")}
             </p>
           </div>
-
           <div className="space-y-3">
             <div className="flex flex-col gap-2">
               <Label htmlFor="claim-email" style={{ color: "var(--ink-2)" }}>
@@ -137,7 +136,7 @@ function ClaimInner() {
                   id="claim-email"
                   type="email"
                   dir="ltr"
-                  className="font-[family-name:var(--ledger-mono)]"
+                  className="font-(family-name:--ledger-mono)"
                   value={fixedEmail}
                   readOnly
                   disabled
@@ -147,7 +146,7 @@ function ClaimInner() {
                   id="claim-email"
                   type="email"
                   dir="ltr"
-                  className="font-[family-name:var(--ledger-mono)]"
+                  className="font-(family-name:--ledger-mono)"
                   placeholder={t("claim.emailPlaceholder")}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}

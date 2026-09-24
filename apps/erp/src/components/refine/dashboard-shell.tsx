@@ -15,6 +15,7 @@ import {
 } from "@repo/ui/components/app-shell";
 import { useLocale, useTranslations } from "next-intl";
 import React from "react";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 
 const NAV_KEY: Record<string, string> = {
   Overview: "nav.overview",
@@ -131,7 +132,7 @@ function useNavBadges(hrefs: Set<string>): Record<string, number> {
   const { result } = useList({
     resource: "enrollment-requests",
     filters: [{ field: "status", operator: "eq" as const, value: "pending" }],
-    queryOptions: { enabled: Boolean(enrollmentRequestsHref) },
+    queryOptions: { ...QUERY_FRESHNESS.list, enabled: Boolean(enrollmentRequestsHref) },
   });
 
   return React.useMemo(() => {

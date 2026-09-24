@@ -633,7 +633,7 @@ function CenterDetailDialog({ centerId, open, onOpenChange }: { centerId: string
                         <div className="flex flex-wrap gap-1">
                           {room.facilities.map((f: string) => (
                             <Badge key={f} variant="secondary">
-                              {amenityLabel(f)}
+                              {amenityLabel(f, locale)}
                             </Badge>
                           ))}
                         </div>

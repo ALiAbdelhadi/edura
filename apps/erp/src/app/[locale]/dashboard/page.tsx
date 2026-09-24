@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
 import { resolvePortalEntry } from "@/lib/auth/portal-gate";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 

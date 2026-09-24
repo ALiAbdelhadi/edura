@@ -33,6 +33,7 @@ import {
 } from "@/features/student/discovery-filters";
 import { stateBySubject, type SubscriptionRow } from "@/features/subscriptions/subscription-state";
 import { SubscriptionStateChip } from "@/features/subscriptions/subscription-state-chip";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 
 type CatalogSubject = { id: string; code: string; nameAr: string; nameEn: string };
 
@@ -83,6 +84,7 @@ function SubjectCourses({
       ...discoveryQueryFilters(filters),
     ],
     pagination: { mode: "off" },
+    queryOptions: QUERY_FRESHNESS.discovery,
   });
 
   if (query.isLoading) {
@@ -193,6 +195,7 @@ export function StudentSubjectsScreen() {
         : { field: "mine", operator: "eq", value: "1" },
     ],
     pagination: { mode: "off" },
+    queryOptions: QUERY_FRESHNESS.reference,
   });
 
   const { result: subsResult } = useCustom({ url: "me/subscriptions", method: "get" });

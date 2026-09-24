@@ -1,17 +1,18 @@
-export const CATALOG_CACHE_TAG = "catalog";
+import { PUBLIC_DATA_TAGS } from "@repo/server-core/cache/public-data";
+
+export const CATALOG_CACHE_TAG = PUBLIC_DATA_TAGS.catalog;
 
 export const CATALOG_CACHE_LIFE = { stale: 60, revalidate: 60, expire: 300 };
 
-// There is deliberately NO revalidator for this tag, and the 300s expire above
-// is the real freshness guarantee for the catalog in this app.
+// The catalog is written only by apps/superadmin. A back-office write reaches
+// this cache through the audit listener in apps/superadmin
+// (lib/cache/erp-revalidate.ts), which posts the affected datasets to this app's
+// /api/v1/internal/revalidate over INTERNAL_API_SECRET — closing
+// docs/follow-ups.md #8.
 //
-// A `revalidateCatalogCache()` calling `revalidateTag` stood here and nothing
-// ever called it — because nothing in this app CAN. The catalog is written only
-// by apps/superadmin (`/api/v1/admin/catalog/**`), and `revalidateTag`
-// invalidates the cache of the process that runs it, so a back-office edit can
-// never reach the ERP's. Closing that gap needs an internal revalidate endpoint
-// here, called by the back office over INTERNAL_API_SECRET the way chat-notify
-// is — a caching mechanism, which CLAUDE.md defers to the post-launch rendering
-// and caching pass. Until then a catalog edit shows up in the ERP within five
-// minutes, which is acceptable for reference data that changes a few times a
-// year. Accepted on purpose (docs/follow-ups.md #8), not forgotten.
+// That makes an edit appear SOONER; it does not replace the bound. With the
+// default per-process handler, one revalidation clears only the instance that
+// received it, so `revalidate` (60s) stays the guarantee everywhere. Readers use
+// "use cache: remote": where the platform provides a shared handler it is one
+// cache across instances and a revalidation clears it for all; where it does
+// not, Next falls back to the same in-memory handler as plain "use cache".

@@ -1,20 +1,51 @@
-export const ROOM_AMENITIES = [
-  { key: "ac", en: "Air conditioning", ar: "تكييف" },
-  { key: "whiteboard", en: "Whiteboard", ar: "سبورة" },
-  { key: "smart_board", en: "Smart board", ar: "سبورة ذكية" },
-  { key: "projector", en: "Projector", ar: "بروجيكتور" },
-  { key: "speakers", en: "Sound system / speakers", ar: "نظام صوتي / سماعات" },
-  { key: "wifi", en: "Wi-Fi", ar: "واي فاي" },
-  { key: "seating", en: "Comfortable seating", ar: "مقاعد مريحة" },
-] as const;
+import {
+  Accessibility,
+  AirVent,
+  Armchair,
+  Cctv,
+  Fan,
+  Lightbulb,
+  Mic,
+  MonitorPlay,
+  PlugZap,
+  Presentation,
+  Projector,
+  Speaker,
+  Sparkles,
+  Tv,
+  Wifi,
+  type LucideIcon,
+} from "lucide-react";
+import type { AmenityKey } from "@repo/database/room-amenities";
 
-export type AmenityKey = (typeof ROOM_AMENITIES)[number]["key"];
+export {
+  AMENITY_KEYS,
+  ROOM_AMENITIES,
+  amenityLabel,
+  hasAllAmenities,
+  isAmenityKey,
+  orderAmenities,
+  type AmenityKey,
+} from "@repo/database/room-amenities";
 
-const BY_KEY = new Map(ROOM_AMENITIES.map((a) => [a.key, a]));
-export const AMENITY_KEYS = new Set<string>(ROOM_AMENITIES.map((a) => a.key));
+const ICONS: Record<AmenityKey, LucideIcon> = {
+  ac: AirVent,
+  whiteboard: Presentation,
+  smart_board: MonitorPlay,
+  projector: Projector,
+  speakers: Speaker,
+  wifi: Wifi,
+  seating: Armchair,
+  screen: Tv,
+  microphone: Mic,
+  fans: Fan,
+  lighting: Lightbulb,
+  power_outlets: PlugZap,
+  cctv: Cctv,
+  accessible: Accessibility,
+};
 
-export function amenityLabel(value: string, locale: string): string {
-  const a = BY_KEY.get(value as AmenityKey);
-  if (!a) return value;
-  return locale === "ar" ? a.ar : a.en;
+// A centre's own free-text extra has no catalogue icon; it gets a neutral one.
+export function amenityIcon(value: string): LucideIcon {
+  return ICONS[value as AmenityKey] ?? Sparkles;
 }

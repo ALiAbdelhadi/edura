@@ -1,19 +1,11 @@
-import { healthResponse } from "@repo/server-core/http/health";
-import { bearerEquals, secretEquals } from "@repo/server-core/auth/secret-compare";
 import { checkRateLimit, trustedClientIp } from "@/lib/rate-limit/token-bucket";
+import { bearerEquals, secretEquals } from "@repo/server-core/auth/secret-compare";
+import { healthResponse } from "@repo/server-core/http/health";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-/**
- * SECURITY_AUDIT.md M-10. `?deep=mail` opens an SMTP handshake with the mail
- * credentials on every call. Unauthenticated and unlimited, that was a cheap
- * way to get the SMTP account rate-limited or locked — the same account that
- * delivers password resets — and an oracle for the mail configuration. The
- * deep probe now needs the cron secret (the one machine caller that has a
- * reason to ask); without it the request gets the ordinary shallow answer, not
- * an error, so uptime monitors that never sent `deep` see no change.
- */
+
 function deepAllowed(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false;

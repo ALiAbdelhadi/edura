@@ -1,11 +1,12 @@
 import { headers } from "next/headers";
+import { cache } from "react";
 import type { Role } from "@repo/database";
 import { isSessionAmbiguous } from "@repo/server-core/auth/session-cookies";
 import { isViewAsExpired } from "@repo/server-core/auth/view-as-token";
 import type { SessionUser } from "@repo/server-core/auth/types";
 import { AuthError, SessionConflictError } from "@/lib/errors/classes";
 import { tagSentryUser } from "@/lib/observability/sentry-user";
-import { auth } from "./auth";
+import { readAuthSession } from "./read-session";
 import { SESSION_COOKIE_PREFIX } from "./cookie-prefix";
 
 export type { SessionUser };
@@ -30,12 +31,19 @@ async function requestIsAmbiguous(): Promise<boolean> {
 }
 
 export async function getSessionUser(): Promise<SessionUser | null> {
+  // The override stays OUTSIDE the memoised body: a test that swaps it mid-run
+  // must take effect immediately, and memoising it would pin the first answer
+  // for the rest of the request.
   if (testOverride) return await testOverride();
+  return resolveSessionUser();
+}
+
+const resolveSessionUser = cache(async (): Promise<SessionUser | null> => {
   if (await requestIsAmbiguous()) {
     tagSentryUser(null);
     return null;
   }
-  const res = await auth.api.getSession({ headers: await headers() });
+  const res = await readAuthSession();
   if (!res?.user?.id) {
     tagSentryUser(null);
     return null;
@@ -70,7 +78,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   };
   tagSentryUser(sessionUser);
   return sessionUser;
-}
+});
 
 export async function requireSession(): Promise<SessionUser> {
   const user = await getSessionUser();

@@ -2,16 +2,12 @@ import { PublicProfileScreen } from "@/features/public-profile/public-profile-sc
 import { routing } from "@/i18n/routing";
 import type { Locale } from "@/lib/i18n";
 import { publicProfilePath } from "@/lib/public-site/host";
-import { resolvePublicProfile } from "@/lib/services/public-handles/public-profiles";
+import { publicProfileForRequest } from "@/lib/services/public-handles/public-profile-for-request";
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
-
-// /p/<handle> — and, once PUBLIC_ROOT_DOMAIN exists, <handle>.<root> is
-// rewritten here by src/proxy.ts. The path form stays canonical for search
-// engines until the wildcard DNS is real.
 
 type Params = { locale: string; handle: string };
 
@@ -21,7 +17,7 @@ export async function generateMetadata({
   params: Promise<Params>;
 }): Promise<Metadata> {
   const { locale, handle } = await params;
-  const profile = await resolvePublicProfile(handle);
+  const profile = await publicProfileForRequest(handle);
   if (!profile) return { robots: { index: false, follow: false } };
 
   const t = await getTranslations({ locale: locale as Locale, namespace: "publicProfile" });
@@ -53,7 +49,7 @@ export async function generateMetadata({
 export default async function PublicProfilePage({ params }: { params: Promise<Params> }) {
   const { locale, handle } = await params;
   setRequestLocale(locale as Locale);
-  const profile = await resolvePublicProfile(handle);
+  const profile = await publicProfileForRequest(handle);
   if (!profile) notFound();
   return <PublicProfileScreen profile={profile} locale={locale as Locale} />;
 }

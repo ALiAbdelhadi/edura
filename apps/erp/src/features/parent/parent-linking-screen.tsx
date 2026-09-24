@@ -40,6 +40,7 @@ import { useFormatters } from "@/lib/i18n/use-formatters";
 import { Figure, SectionHead, SkeletonRows } from "./ledger-kit";
 import { LoadError } from "@repo/ui/components/ledger";
 import { useQueryStrings } from "@repo/ui/components/query-section";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 
 const STATUS_CHIP: Record<string, string> = {
   pending: "bg-amber-soft text-amber",
@@ -64,6 +65,7 @@ export function ParentLinkingScreen() {
 
   const { query: linksQuery, result: linksResult } = useList({
     resource: "parent-links",
+    queryOptions: QUERY_FRESHNESS.list,
   });
   const { mutate: createLink, mutation: createMutation } = useCreate();
   const { mutate: approveMut, mutation: approveMutation } = useCustomMutation();

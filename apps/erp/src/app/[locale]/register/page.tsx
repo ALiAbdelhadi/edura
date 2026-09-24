@@ -4,6 +4,7 @@ import { AuthShell } from "@/components/kit/auth-shell";
 import { PasswordInput } from "@/components/kit/password-input";
 import { LedgerButton, ledgerTrackTight } from "@/components/ledger";
 import { Link } from "@/i18n/navigation";
+import { api } from "@/lib/api/client";
 import { authClient } from "@/lib/auth/client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { EGYPT_PHONE_RE } from "@repo/server-core/validation/common";
@@ -17,7 +18,6 @@ import {
 } from "@repo/ui/components/form";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
-import { api } from "@/lib/api/client";
 import {
   Building2,
   Clock,
@@ -80,12 +80,12 @@ function readApiError(err: unknown): ApiError | undefined {
   const parsed =
     typeof data === "string"
       ? (() => {
-          try {
-            return JSON.parse(data) as unknown;
-          } catch {
-            return undefined;
-          }
-        })()
+        try {
+          return JSON.parse(data) as unknown;
+        } catch {
+          return undefined;
+        }
+      })()
       : data;
   if (parsed && typeof parsed === "object" && "error" in parsed) {
     return (parsed as { error?: ApiError }).error;
@@ -187,21 +187,21 @@ export default function RegisterPage() {
       const payload =
         role === "center_admin"
           ? {
-              centerName: values.centerName?.trim() || values.name.trim(),
-              adminName: values.name.trim(),
-              email,
-              password: values.password,
-              phone: values.phone?.trim() || undefined,
-              address: values.address?.trim() || undefined,
-              locale,
-            }
+            centerName: values.centerName?.trim() || values.name.trim(),
+            adminName: values.name.trim(),
+            email,
+            password: values.password,
+            phone: values.phone?.trim() || undefined,
+            address: values.address?.trim() || undefined,
+            locale,
+          }
           : {
-              name: values.name.trim(),
-              email,
-              password: values.password,
-              phone: values.phone?.trim() || undefined,
-              locale,
-            };
+            name: values.name.trim(),
+            email,
+            password: values.password,
+            phone: values.phone?.trim() || undefined,
+            locale,
+          };
 
       const created = await api
         .post(endpoint, { json: payload })

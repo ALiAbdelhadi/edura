@@ -6,6 +6,7 @@ import {
   removeCenterLogo,
   setCenterLogo,
 } from "@/lib/services/media/profile-images";
+import { invalidatesPublicData } from "@/lib/cache/public-data";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export const GET = centerStaff(
   { allow: MANAGER },
 );
 
-export const POST = centerStaff(
+const handlePost = centerStaff(
   async (req, _ctx, { acting: user }) => {
     let form: FormData;
     try {
@@ -30,7 +31,10 @@ export const POST = centerStaff(
   { allow: MANAGER },
 );
 
-export const DELETE = centerStaff(
+const handleDelete = centerStaff(
   async (_req, _ctx, { acting: user }) => ok(await removeCenterLogo(user)),
   { allow: MANAGER },
 );
+
+export const POST = invalidatesPublicData(handlePost);
+export const DELETE = invalidatesPublicData(handleDelete);

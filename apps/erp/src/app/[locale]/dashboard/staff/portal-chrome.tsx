@@ -1,9 +1,7 @@
-"use client";
-
-import React from "react";
 import DashboardShell from "@/components/refine/dashboard-shell";
-import { plexMono, LedgerPortalScope } from "@/features/admin/ledger";
+import { LedgerPortalScope, plexMono } from "@/features/admin/ledger";
 import "@/features/admin/ledger/ledger.css";
+import React from "react";
 
 export type StaffRole = "receptionist" | "manager" | "center_accountant";
 

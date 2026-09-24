@@ -1,5 +1,3 @@
-"use client";
-
 import type { Locale } from "@repo/ui/lib/format";
 import { clockParts } from "@repo/ui/lib/format";
 import { cn } from "@repo/ui/lib/utils";

@@ -1,10 +1,9 @@
-import { runAfter } from "@/lib/http/after";
 import { platformDb } from "@/lib/db/scope";
 import { withErrors } from "@/lib/errors/http";
+import { runAfter } from "@/lib/http/after";
 import { ok } from "@/lib/http/envelope";
-import { withRateLimit } from "@/lib/rate-limit/middleware";
-import { ANALYTICS_EVENTS } from "@repo/observability";
 import { captureServerEvent } from "@/lib/observability/posthog-server";
+import { withRateLimit } from "@/lib/rate-limit/middleware";
 import { registerCenter } from "@/lib/services/auth/register";
 import {
   emailSchema,
@@ -14,6 +13,7 @@ import {
   phoneSchema,
 } from "@/lib/validation/common";
 import { parseJson } from "@/lib/validation/zod";
+import { ANALYTICS_EVENTS } from "@repo/observability";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";

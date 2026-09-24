@@ -1,5 +1,3 @@
-"use client";
-
 import { Sheet, ledgerMono, ledgerShellScope } from "@/components/ledger";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { GraduationCap } from "lucide-react";

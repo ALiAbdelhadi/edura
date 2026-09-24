@@ -1,7 +1,5 @@
-"use client";
-
-import { use } from "react";
 import { StudentIdScreen } from "@/features/student/student-id-screen";
+import { use } from "react";
 
 export default function Page({
   params,

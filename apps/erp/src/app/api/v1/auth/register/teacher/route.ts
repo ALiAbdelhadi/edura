@@ -1,19 +1,19 @@
-import { z } from "zod";
+import { withErrors } from "@/lib/errors/http";
 import { runAfter } from "@/lib/http/after";
-import { parseJson } from "@/lib/validation/zod";
+import { ok } from "@/lib/http/envelope";
+import { captureServerEvent } from "@/lib/observability/posthog-server";
+import { withRateLimit } from "@/lib/rate-limit/middleware";
+import { registerTeacher } from "@/lib/services/auth/register";
 import {
   emailSchema,
+  localeSchema,
+  nameSchema,
   passwordSchema,
   phoneSchema,
-  nameSchema,
-  localeSchema,
 } from "@/lib/validation/common";
-import { withErrors } from "@/lib/errors/http";
-import { withRateLimit } from "@/lib/rate-limit/middleware";
-import { ok } from "@/lib/http/envelope";
+import { parseJson } from "@/lib/validation/zod";
 import { ANALYTICS_EVENTS } from "@repo/observability";
-import { captureServerEvent } from "@/lib/observability/posthog-server";
-import { registerTeacher } from "@/lib/services/auth/register";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 

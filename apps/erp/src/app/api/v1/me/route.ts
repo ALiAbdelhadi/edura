@@ -8,6 +8,7 @@ import { ConflictError, NotFoundError } from "@/lib/errors/classes";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { phoneSchema } from "@/lib/validation/common";
+import { invalidatesPublicData } from "@/lib/cache/public-data";
 
 export const dynamic = "force-dynamic";
 
@@ -75,7 +76,7 @@ const patchSchema = z.object({
   locale: z.enum(["ar", "en"]).optional(),
 });
 
-export const PATCH = withErrors(async (req) => {
+const handlePatch = withErrors(async (req) => {
   const session = await requireSession();
   const body = await parseJson(req, patchSchema);
 
@@ -138,3 +139,5 @@ export const PATCH = withErrors(async (req) => {
     },
   });
 });
+
+export const PATCH = invalidatesPublicData(handlePatch);

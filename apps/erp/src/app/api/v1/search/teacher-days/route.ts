@@ -3,10 +3,8 @@ import { withRateLimit } from "@/lib/rate-limit/middleware";
 import { ok } from "@/lib/http/envelope";
 import { getSessionUser } from "@/lib/auth/session";
 import { platformDb } from "@/lib/db/scope";
-import {
-  searchTeachersByDay,
-  type StudentCatalogScope,
-} from "@/lib/services/discovery/discovery";
+import { type StudentCatalogScope } from "@/lib/services/discovery/discovery";
+import { searchTeachersByDayCached } from "@/lib/services/discovery/discovery-cache";
 import { assertApprovedChild } from "@/lib/services/wallet/parent-wallet";
 
 export const dynamic = "force-dynamic";
@@ -54,7 +52,7 @@ export const GET = withRateLimit(
       }
     }
 
-    const result = await searchTeachersByDay(filters, studentScope);
+    const result = await searchTeachersByDayCached(filters, studentScope);
     return ok(result.teachers, {
       meta: { page: result.page, limit: result.limit, total: result.total },
     });

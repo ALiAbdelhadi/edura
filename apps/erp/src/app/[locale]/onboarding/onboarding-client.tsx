@@ -1,6 +1,13 @@
 "use client";
 
 import {
+  LedgerButton,
+  Sheet,
+  ledgerMono,
+  ledgerScope,
+  ledgerShellScope,
+} from "@/components/ledger";
+import {
   CenterWizard,
   type CenterState,
 } from "@/features/onboarding/center-wizard";
@@ -16,13 +23,6 @@ import type { CatalogSystem } from "@/features/onboarding/types";
 import { api } from "@/lib/api/client";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import {
-  LedgerButton,
-  Sheet,
-  ledgerMono,
-  ledgerScope,
-  ledgerShellScope,
-} from "@/components/ledger";
 
 export type OnboardingTokenState = "ok" | "expired" | "invalid" | "mismatch";
 

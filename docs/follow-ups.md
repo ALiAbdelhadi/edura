@@ -361,6 +361,18 @@ admin of a centre, are both product decisions rather than cleanup.
 > the post-launch rendering pass. So the 300s expire is now the stated freshness
 > guarantee for the catalog in the ERP — a decision, which is what the entry below
 > asked for, rather than an accident.
+>
+> **[2026-09-21] CLOSED — the mechanism this names now exists.** Back-office
+> writes reach the ERP's caches through a listener on `writeAdminAudit`
+> (`apps/superadmin/src/lib/cache/erp-revalidate.ts`, registered in
+> `apps/superadmin/instrumentation.ts`), which posts the affected datasets to
+> `POST /api/v1/internal/revalidate` over `INTERNAL_API_SECRET` after the write
+> commits. Hooking the audit writer rather than the catalog routes is deliberate:
+> the catalog service in server-core writes its audits directly, not through the
+> superadmin shim. The catalog readers moved to `"use cache: remote"`, and
+> `CATALOG_CACHE_TAG` now comes from `@repo/server-core/cache/public-data`, the
+> one vocabulary both apps use. The bound is 60s (`revalidate`), and invalidation
+> makes an edit sooner — see docs/plans/post-launch-caching-plan.md.
 
 **Found:** 2026-09-12, same `knip` run as #7. Of 75 exports it flagged, 60 were
 false positives (used through a deep import rather than the barrel) and most of

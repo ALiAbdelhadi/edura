@@ -1,7 +1,5 @@
-"use client";
-
 import DashboardShell from "@/components/refine/dashboard-shell";
-import { plexMono, LedgerPortalScope } from "@/features/admin/ledger";
+import { LedgerPortalScope, plexMono } from "@/features/admin/ledger";
 import "@/features/admin/ledger/ledger.css";
 
 const navGroups = [

@@ -3,9 +3,12 @@
 Education platform for the Egyptian market (K-12 private lessons / teaching centers).
 
 ## Apps & Roles
-- `www` app (existing): four roles — Center, Teacher, Parent, Student.
-- `admin` app (separate, to be built): Super Admin only — full control over every
-  entity in the database. No superadmin functionality may ever exist in the www app.
+- `erp` app (`apps/erp`, formerly `apps/www`): four roles — Center, Teacher, Parent, Student.
+- `superadmin` app (`apps/superadmin`, built): Super Admin + Accountant only — full
+  control over every entity in the database. No superadmin functionality may ever
+  exist in the erp app.
+
+(`apps/www` is now the marketing/landing site.)
 
 ## Core Domain Rules
 - Onboarding: each student selects an academic year + detailed track (شعبة).
@@ -164,7 +167,7 @@ never the bottleneck.
   database that skips it fails exactly those three suites and nothing else,
   which is a confusing signature to debug from scratch.
 - **`bun run test:db:local` in either app** runs everything that CAN run
-  locally. Six suites are excluded, in two groups, and the second group is the
+  locally. Seven suites are excluded, in two groups, and the second group is the
   interesting one:
   - *needs a demo seed / Cloudinary* — `catalog-onboarding`,
     `c01-lesson-settlement`, `h03-seed-uuid-flows`, `profile-images` (erp),
@@ -176,9 +179,9 @@ never the bottleneck.
     the 20-second interactive-transaction ceiling. On a local database the
     pre-fix path finishes in 172 ms, the regression cannot be reproduced, and
     the proof collapses (16 passed / 12 failed). **Run it against Neon**:
-    `bun run db:neon:env && bun run test:db --only c02-payout-generation`.
+    `(cd packages/database && bun run db:neon:env) && (cd apps/superadmin && bun run test:db --only c02-payout-generation)`.
     It passes there — 28/28, 136.8s.
-  - **A SEVENTH SUITE EXCLUDES ITSELF, AND REPORTS PASS WHILE DOING IT
+  - **AN EIGHTH SUITE EXCLUDES ITSELF, AND REPORTS PASS WHILE DOING IT
     (found 2026-09-12).** `apps/erp/tests/db/tx-retry-boundary.test.ts` opens
     with `if (process.env.DATABASE_DRIVER === "pg")`, prints
     `tx-retry-boundary: SKIPPED — DATABASE_DRIVER=pg`, and calls
@@ -192,8 +195,8 @@ never the bottleneck.
     was written to stop — a skipped DB suite passing as green — arriving by a
     different route, because the suite exits 0 itself rather than being skipped
     by the runner.
-    To actually exercise it: `bun run db:neon:env && bun run test:db --only
-    tx-retry-boundary`. It is the ONLY self-skipping suite; the runner's closing
+    To actually exercise it: `(cd packages/database && bun run db:neon:env) && (cd apps/erp && bun run test:db
+    --only tx-retry-boundary)`. It is the ONLY self-skipping suite; the runner's closing
     `printed no "N passed, M failed" line` note is what surfaces it, so read
     that note rather than the PASS column. (`h1-payout-race.test.ts` also prints
     no count line but is sound — it sets `process.exitCode` from the proof.)
@@ -206,7 +209,7 @@ never the bottleneck.
 The section below is the previous arrangement, kept because its reasoning about
 labels and the guard still governs.
 
-## The DB suites run against DEV (decided 2026-08-03, Ali)
+## The DB suites run against DEV (decided 2026-08-03, Ali) — SUPERSEDED 2026-08-31 / 2026-09-06
 
 The `test` Neon branch was unreachable — `ep-shiny-waterfall-as6cxn8n` refused
 BOTH roles, and the other endpoint on disk (`ep-dry-shape-asv1ah7y`) was an
@@ -224,6 +227,9 @@ to point the suites at **dev** rather than rebuild the test branch.
   The widening is a single opt-in read in `db-guard.ts`:
   `EDURA_ALLOW_DB_ENVS=dev`.
   **[local, corrected 2026-08-28] IT LIVES IN `.env.local`, NOT `.env.test`.**
+  **[superseded 2026-08-31: `.env.test` is back in both apps and `packages/database`,
+  and `EDURA_ALLOW_DB_ENVS` was REMOVED from every `.env.local` — see the 2026-08-30
+  block in Environment state.]**
   There is no `.env.test` anywhere any more — commits `1c28f86` and `67fdf90`
   left each package with exactly two env files, `.env.local` and
   `.env.production`, both gitignored — and `test:db` launches the suites with
@@ -256,8 +262,8 @@ to point the suites at **dev** rather than rebuild the test branch.
   (27 assertions, real money paths) left **one extra `audit_logs` row** and
   nothing else. `audit_logs` is append-only, so such rows accumulate slowly and
   permanently. Run `bun run test:db:sweep` if fixtures ever do pile up.
-- CI needs `TEST_DATABASE_URL` / `TEST_DIRECT_URL` / `TEST_ADMIN_URL` repointed
-  at the DEV branch for this to take effect there.
+- [VOID — never needed: CI provisions its own throwaway `edura-env:test` Postgres
+  per run (see the CI bullet above); no workflow reads `TEST_*_URL`.]
 
 ## Conventions
 
@@ -346,7 +352,7 @@ to point the suites at **dev** rather than rebuild the test branch.
   ledger, wallets, or finance tables unless the feature being built IS a money
   feature and I've approved its plan — and even then, flag it `is_demo` and
   keep it purgeable. This demo data is for my preview only and gets wiped
-  before launch (Step 10 style).
+  before launch (Step 9 style).
 - Secrets only via env vars (e.g. PAYMOB_*, WHATSAPP_*). Never hardcode.
 - Destructive operations use soft-delete; all superadmin writes go to an audit log.
 - Prefer incremental, migration-safe schema changes.
@@ -361,7 +367,7 @@ The implementation roadmap is the 10-step order in
 Work stops after each step for review before the next begins.
 
 > **TERMINOLOGY WARNING:** in this codebase `dashboard/admin` is the **CENTER**
-> portal (role `center_admin`) — it stays in www, untouched. The app being
+> portal (role `center_admin`) — it stays in apps/erp, untouched. The app being
 > extracted is the SUPER ADMIN platform portal (`dashboard/superadmin` +
 > `/api/v1/admin/**`). The new app is named **`apps/superadmin`** — NOT
 > `apps/admin` — to avoid confusion with the center portal.
@@ -370,9 +376,11 @@ Work stops after each step for review before the next begins.
    `super_admin` (full platform control — everything from `dashboard/superadmin`
    + `/api/v1/admin/**`) and `accountant` (`/dashboard/finance` +
    `/api/v1/finance/**` as a restricted portal; finance screens ONLY, enforced at
-   the API layer, not just navigation). Its NextAuth `authorize()` accepts only
-   those two roles. Own subdomain + own cookie names, fully separated from www
-   sessions. www keeps only: center, teacher, parent, student, assistant.
+   the API layer, not just navigation). Its sign-in door (NextAuth
+   `authorize()` then; better-auth + `login-policy.ts` since 2026-08-01)
+   accepts only those two roles. Own subdomain + own cookie names, fully
+   separated from erp sessions. apps/erp keeps only: center, teacher, parent,
+   student, assistant.
    Superadmin live chat is dropped for now (broadcast notifications only).
 2. **Subscriptions & pricing**: both payment plans supported — MONTHLY (one
    month, manual renewal by paying again, online or cash; no auto-charge) and
@@ -571,7 +579,8 @@ governs. Violating one of these is never a local change.
 > **[dev, local test AND production, 2026-09-12] MIGRATIONS 80 AND 81 —
 > `20260911120000_public_handles` and `20260912120000_users_revoke_delete`;
 > verify-db 33/33 on all three, `expected-db-shape.json` at 81 (tables
-> unchanged at 84).** 81 is `REVOKE DELETE ON users FROM edura_app` (new check
+> 83 → 84: migration 80 adds `public_handles`, 81 adds none).** 81 is
+> `REVOKE DELETE ON users FROM edura_app` (new check
 > `append-only: users`, DB-04 of the 2026-09-11 audit). Production
 > (`ep-mute-rice-b2s8gg42`) took BOTH on 2026-09-12: `migrate status` listed
 > exactly those two pending, and 80 was the public-handles table that had sat on
@@ -827,6 +836,8 @@ governs. Violating one of these is never a local change.
 > **Use `npx tsx` / `npx prisma` for anything that is not dev. Never
 > `bun run db:*`.** `migrate deploy` run the wrong way applies to dev while
 > printing that it is production.
+> [2026-09-24: `scripts/*.ts` now REFUSE on a host mismatch (`load-env.ts`);
+> `prisma.config.ts` has no such check, so the prisma half stands.]
 
 > Per the Conventions rule above, every claim here names its environment.
 > `packages/database/scripts/verify-db.ts` is read-only and safe against any
@@ -840,7 +851,7 @@ governs. Violating one of these is never a local change.
 > EDURA_ENV=production npx prisma migrate deploy   # from packages/database
 > ```
 >
-> `prisma.config.ts` loads `.env.${EDURA_ENV}` (defaulting to `.env`, which is
+> `prisma.config.ts` loads `.env.${EDURA_ENV}` (defaulting to `.env.local`, which is
 > dev) and passes the resulting `DIRECT_URL` as the datasource. Sourcing
 > `.env.production` into the shell first does NOT work: measured 2026-08-20,
 > `set -a; . ./.env.production; npx prisma migrate status` reported it was
@@ -851,7 +862,8 @@ governs. Violating one of these is never a local change.
 >
 > So: read the `Datasource "db": … at "<host>"` line prisma prints on EVERY
 > invocation and check the endpoint before trusting anything below it.
-> Production is `ep-solitary-river-…`; dev is `ep-withered-field-b23csnyq`
+> Production is `ep-mute-rice-b2s8gg42` (was `ep-solitary-river-…` until the
+> 2026-08-30 rebuild); dev is `ep-withered-field-b23csnyq`
 > (corrected 2026-08-30 — the dev branch was recreated; the `ep-patient-scene-…`
 > named in the 2026-08-20 incident above is the OLD dev host, kept only as the
 > record of what was measured that day).
@@ -970,7 +982,10 @@ governs. Violating one of these is never a local change.
   restore-proof step still fails on the known B2 key gap — blocker #5).
   Diagnosis note for future FK work: ON DELETE RESTRICT reports SQLSTATE
   23001, NOT 23503 — the first cleanup run failed exactly there.
-- **[test] THERE IS NO TEST DATABASE, LOCALLY.** The three `.env.local` files
+- **[SUPERSEDED 2026-08-31 / 2026-09-06 — `.env.test` exists again in both apps and
+  `packages/database`, and the suites run against a local `edura_test` Postgres; see
+  "The DB suites run against a LOCAL Postgres" at the top.]**
+  **[test] THERE IS NO TEST DATABASE, LOCALLY.** The three `.env.local` files
   point at DEV and `db-guard` reports them as `labelled 'dev'` — the 2026-08-03
   decision still holding, not a gap. Do NOT read any `[test]` line in a decision
   doc as work pending. (This sentence named `.env.test` until 2026-08-28; those
@@ -998,7 +1013,8 @@ governs. Violating one of these is never a local change.
   A4 goes red again, for the reason the withdrawn note described.
   A4 is also **not hermetic**: it asserts a refusal that only happens while a
   globally-scoped value is ABSENT, and the superadmin UI can set that value.
-- **`expected-db-shape.json` is at 72 [dev, test AND production, 2026-09-05].**
+- **`expected-db-shape.json` was at 72 [dev, test AND production, 2026-09-05] —
+  HISTORY, now 81; see the top of this section.**
   Migration 72 is `20260905120000_dedupe_guards_c5` — four partial unique
   indexes: one active blacklist entry per (target) at platform level, per
   (target, center) at center level, per (target, imposer) at teacher level, and
@@ -1043,19 +1059,20 @@ governs. Violating one of these is never a local change.
   was pinned at 53 and trailing — it is not, and acting on that sentence would
   mean re-baselining a file that is already correct. A shape mismatch reported
   today is a real mismatch: investigate it, do not re-baseline it away.
-- **[production Vercel, 2026-08-19] `STUDENT_QR_SECRET` IS GONE.** The
-  2026-08-09 entry recorded it as set on BOTH `edura-www` and `edura-superadmin`
+- **[production Vercel, 2026-08-19] `STUDENT_QR_SECRET` IS GONE.**
+  A 2026-08-09 entry (since removed from this file) recorded it as set on BOTH `edura-www` and `edura-superadmin`
   with the SAME value. Those projects were deleted (see the entry below), and
   the value lived ONLY on the dashboard — it is not in `.env.production` and not
   in the repo. It must be generated fresh and set, identically, on the ERP and
   superadmin projects. **[2026-08-19] A fresh one has now been generated and
   written to `.env.production`**, and carried identically into `.env-erp` and
   `.env-superadmin`. `qrSecret()`
-  (`packages/server-core/src/services/students/student-qr.ts:91`) THROWS in
+  (`packages/server-core/src/services/students/student-qr.ts:15`) THROWS in
   production when it is unset; there is deliberately no fallback. Takes effect
   only on REDEPLOY, since Vercel bakes env at build time.
-- **[production, 2026-08-19] THE VERCEL PROJECTS WERE DELETED — NOTHING IS
-  DEPLOYED.** All three hosts return `x-vercel-error: DEPLOYMENT_NOT_FOUND`
+- **[production, 2026-08-19 — HISTORY: the projects were recreated;
+  edura-erp.vercel.app answered on 2026-09-06, see below] THE VERCEL PROJECTS WERE
+  DELETED — NOTHING IS DEPLOYED.** All three hosts return `x-vercel-error: DEPLOYMENT_NOT_FOUND`
   (measured 2026-08-19). Ali is recreating them; the full rebuild sheet —
   root dirs, the `turbo run build` exit-127 trap, and the per-project env
   matrix — is [vercel-project-recreate](docs/runbooks/vercel-project-recreate.md).
@@ -1072,8 +1089,8 @@ governs. Violating one of these is never a local change.
 - **[production, CORRECTED 2026-08-19] THE INTENDED HOSTS ARE THE VERCEL ONES.**
   `edura-erp.vercel.app`, `edura-www.vercel.app`, `edura-superadmin.vercel.app`.
   **`app.edura.eg` is NOT in use** — it has no DNS record and Ali does not use
-  it. Do not put it in code, config or docs. The 2026-08-09 entry recorded
-  `APP_BASE_URL` as pinned to `app.edura.eg`; that value emits links to a host
+  it. Do not put it in code, config or docs. A 2026-08-09 entry (since removed
+  from this file) recorded `APP_BASE_URL` as pinned to `app.edura.eg`; that value emits links to a host
   that does not resolve, and the local `.env.production` has been corrected to
   `https://edura-erp.vercel.app` for all four of `NEXTAUTH_URL`, `APP_BASE_URL`,
   `APP_ORIGIN` and `APP_INTERNAL_URL`.
@@ -1082,8 +1099,9 @@ governs. Violating one of these is never a local change.
   editing the file changes nothing a user sees.
   A claim/invite link belongs to the **ERP** host, not `edura-www`: it lands a
   student inside the app. `NEXTAUTH_URL` in that shared file is the ERP's —
-  apps/erp, apps/superadmin and apps/realtime all symlink one `.env.production`,
-  and superadmin signs in at its own host, so it must override it per project.
+  the per-project env sheets (root `.env-erp` / `.env-superadmin` /
+  `.env-realtime`) are derived from the root `.env.production`, and superadmin
+  signs in at its own host, so it must override it per project.
 - **[2026-08-19] A DUPLICATE `appBaseUrl()` MADE `APP_BASE_URL` A NO-OP ON THE
   INVITE PATH.** `services/invites/invite-token.ts` defined its own copy that
   read `NEXTAUTH_URL` and fell back to `http://localhost:3002`, never consulting
@@ -1151,7 +1169,7 @@ point, not the changelog.
 | [report-export](docs/decisions/report-export.md) | Report export — CSV and the print route |
 | [weekly-center-digest](docs/decisions/weekly-center-digest.md) | The owner's Monday email; idempotency as an audit row |
 | [guardian-email-verification](docs/decisions/guardian-email-verification.md) | Proving a guardian address without minting a session |
-| [showcase-is-public-site](docs/decisions/showcase-is-public-site.md) | showcase = the public site, www = the app |
+| [showcase-is-public-site](docs/decisions/showcase-is-public-site.md) | showcase = the public site, www = the app (HISTORY — apps/showcase deleted 2026-08-18; www is now the marketing site, apps/erp is the app) |
 | [global-search](docs/decisions/global-search.md) | The ⌘K palette finds records, in both apps |
 | [sidebar-ia](docs/decisions/sidebar-ia.md) | Sidebar information architecture across all 8 portals |
 | [typescript-7-next-16](docs/decisions/typescript-7-next-16.md) | TypeScript 7 + Next.js 16.3 upgrade (two TypeScripts on purpose) |
@@ -1203,7 +1221,8 @@ docs/security/security-audit.md for the full report and severities.
   must be explicit; PAYMOB_HMAC_SECRET required, no fallback; mock-complete
   404s in prod; timingSafeEqual HMAC compare).
 - **C2 + H5** — login rate-limiting + dummy-hash constant-time compare in BOTH
-  apps' NextAuth authorize() (closes brute-force + email enumeration).
+  apps' sign-in path (NextAuth authorize() at the time; better-auth since
+  2026-08-01) (closes brute-force + email enumeration).
 - **H1** — payout-request TOCTOU: `SELECT … FOR UPDATE` on the beneficiary in
   teacher/center wallet + generatePayouts.
 - **H2** — payout-settlement floor: conditional decrement (updateMany where
@@ -1211,7 +1230,10 @@ docs/security/security-audit.md for the full report and severities.
   **[dev, verified 2026-07-26]** DONE — `centers_wallet_balance_nonneg` is
   `convalidated = true`, zero negative rows, minimum balance 0. The legacy
   -2600 row is gone (the Step 9 wipe removed it) and the constraint was
-  validated afterwards. **[production, verified 2026-07-26]** the constraint
+  validated afterwards.
+  **[superseded — VALIDATED at the 2026-07-31 production bootstrap; verify-db
+  asserts `convalidated` since 2026-08-20.]**
+  **[production, verified 2026-07-26]** the constraint
   exists but is still `NOT VALID` — validating it there is part of the
   production bootstrap, not a leftover from the wipe. The note that previously
   stood here ("NOT VALID — one legacy -2600 row left; VALIDATE after") read as a
@@ -1223,16 +1245,22 @@ docs/security/security-audit.md for the full report and severities.
   (allows Cloudinary img, the realtime socket connect-src on www, Paymob
   frame-src on www; self-hosted fonts). CSP still needs tightening to a
   nonce-based script-src before flipping to enforce.
+  **[superseded 2026-09-06 — M-09 made script-src nonce-based and the CSP ENFORCES
+  by default in both apps; `CSP_MODE=report-only` is the opt-out. See
+  `lib/security/csp.ts`.]**
 - **M1** — webhook claim + settlement in ONE transaction (self-heals on
   redelivery; no charged-but-empty intent); idempotent replay preserved.
 - **M2** — split the shared secret: REALTIME_JWT_SECRET + INTERNAL_API_SECRET
   are dedicated + required in prod (fail closed); NEXTAUTH_SECRET fallback is
   dev-only.
 
-**REMAINING (in priority order):**
+**REMAINING at the time (in priority order) — [2026-09-24] every item below is
+marked Done except M3 (awaiting review) and Step 10:**
 - **M3** — shared-store (Redis) rate limiter + trusted client-IP hop.
   *Implemented + proven, awaiting review* (adds REDIS_URL / TRUSTED_PROXY_HOPS /
-  TRUSTED_CLIENT_IP_HEADER; falls back to in-memory when REDIS_URL unset).
+  TRUSTED_CLIENT_IP_HEADER; falls back to in-memory when REDIS_URL unset —
+  outside production only; since 2026-08-29 production refuses to boot
+  without it, see `REDIS_URL` below).
 - **M4** — *Done (verified 2026-08-26):* `toErrorResponse` in the shared kernel
   (`packages/server-core/src/errors/http.ts`, both apps' `@/lib/errors/http`
   re-export it) logs the real error server-side in every environment and
@@ -1244,13 +1272,14 @@ docs/security/security-audit.md for the full report and severities.
   *Done (2026-07-20):* `authorized()` returns false when CRON_SECRET is unset
   in EVERY env (no `NODE_ENV` bypass); `GET = POST` alias removed so the
   data-mutating jobs are POST-only (plain GET → 405). Proof in
-  apps/www/tests/unit/m7-cron-auth.test.ts.
+  apps/erp/tests/unit/m7-cron-auth.test.ts.
 - **Dependency overrides** — root `package.json` `overrides`, to clear
   dev/build-time advisories in transitive tooling.
   **[2026-08-27] READ THIS BEFORE WRITING AN OVERRIDE. The mechanism this bullet
   described for a month does not exist.**
 
-  **`bun` (1.3.12) SILENTLY IGNORES `"pkg@major"` OVERRIDE KEYS.** Not a warning,
+  **`bun` (measured on 1.3.12; not re-measured on 1.4.2 — assume it still holds)
+  SILENTLY IGNORES `"pkg@major"` OVERRIDE KEYS.** Not a warning,
   not an error — the key is accepted, written into `bun.lock`'s overrides block,
   and never applied. It also ignores npm-style nested overrides
   (`{"eslint": {"brace-expansion": "…"}}`). **Only a flat, unversioned key
@@ -1297,7 +1326,8 @@ docs/security/security-audit.md for the full report and severities.
   anything.** Its real effect is now unverified. Leave it for the moment, but
   treat re-checking it as its own small task, not as settled fact.
 
-  **[2026-08-28] SUPERSEDED — that sentence is no longer true.** It said no
+  **[2026-08-28] SUPERSEDED — a since-removed sentence here is no longer
+  true.** It said no
   security-sensitive runtime dep had been bumped. On 2026-08-28 `node_modules`,
   every `.next`/`.turbo` and `bun.lock` were deleted and reinstalled from
   scratch, and re-resolution moved four of them inside the ranges package.json
@@ -1340,13 +1370,18 @@ docs/security/security-audit.md for the full report and severities.
   against dev), and `apps/erp/tests/unit/m8-no-raw-unsafe.test.ts` scans
   apps + packages so `$queryRawUnsafe` / `$executeRawUnsafe` can never
   reappear without a red test.
-- Then **Step 10** — final cleanup pass (batch the remaining L-findings; flip
-  the CSP to enforce; VALIDATE the centers wallet CHECK after the Step 9 wipe).
+- Then **Step 10** — final cleanup pass (batch the remaining L-findings).
+  [2026-09-24: "flip the CSP to enforce" was done by M-09; the centers wallet CHECK
+  is VALIDATED on every environment and verify-db asserts it.]
 
 ### BATCH 3 (L-findings)
 - **L1** — password reset/change now invalidates pre-existing 30-day JWT
   sessions (server-side revocation for otherwise-stateless tokens).
-  *Done (2026-07-20 — awaiting review):* new `users.token_version` int
+  *Done (2026-07-20 — awaiting review):*
+  [HISTORY — mechanism replaced 2026-08-01: JWTs and the NextAuth `jwt` callback are
+  gone; better-auth DB sessions are hard-revoked by the `users_revoke_sessions` trigger
+  that fires on the `token_version` bump — see better-auth-migration.md.]
+  new `users.token_version` int
   (migration `20260720180000_user_token_version`, default 0, backfilled 0 so
   no one is logged out on deploy). Every JWT records `ver` at issue time (both
   apps' `authorize` return it + the manual `/api/v1/auth/login` encode); the
@@ -1357,7 +1392,7 @@ docs/security/security-audit.md for the full report and severities.
   column is shared, so a reset also revokes a stolen super_admin/accountant
   session. Cost: one indexed PK lookup per request (cacheable later). Proof
   (live DB, real authorize + jwt/session callbacks + real resetPassword),
-  12/12: apps/www/tests/db/l1-session-invalidation.test.ts — pre-reset token
+  12/12: apps/erp/tests/db/l1-session-invalidation.test.ts — pre-reset token
   accepted → reset bumps ver → same token now rejected → unrelated session
   still valid → old password stops working → fresh login (ver 1) accepted.
   Note: `me/credentials` (set-once first password for walk-ins) deliberately
@@ -1398,6 +1433,10 @@ Missing any of these fails closed (refuse to boot / hard error) — by design.
   Throws in production rather than misdirecting.
 - `SUPERADMIN_BASE_URL` — on **apps/erp only**: where "end view-as" returns the
   browser. Falls back to localhost in development.
+- `NEXTAUTH_URL` — must be an `https://` URL on Vercel production
+  (`VERCEL_ENV=production`), or the app refuses to boot: an http base URL
+  would mint auth cookies without `Secure` (AUTH-09, 2026-09-11 audit;
+  `apps/erp/src/lib/auth/auth.ts`).
 
 - `TRUSTED_CLIENT_IP_HEADER` / `TRUSTED_PROXY_HOPS` — how the client IP is read.
   On Vercel in production, `assertSharedRateLimitStore` REFUSES to boot unless one

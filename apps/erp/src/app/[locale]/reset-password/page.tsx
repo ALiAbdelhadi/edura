@@ -2,10 +2,10 @@
 
 import { AuthCenteredShell } from "@/components/kit/auth-centered-shell";
 import { PasswordInput } from "@/components/kit/password-input";
-import { api } from "@/lib/api/client";
 import { PageSpinner } from "@/components/kit/spinner";
 import { LedgerButton, ledgerTrackTight } from "@/components/ledger";
 import { Link } from "@/i18n/navigation";
+import { api } from "@/lib/api/client";
 import { Label } from "@repo/ui/components/label";
 import { CheckCircle2, Loader2, Lock, XCircle } from "lucide-react";
 import { useTranslations } from "next-intl";

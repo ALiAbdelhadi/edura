@@ -47,6 +47,7 @@ import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Amount, MetricCard, PageHead } from "./ledger";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 
 type Room = {
   id?: string;
@@ -86,7 +87,7 @@ export function AdminRoomsScreen() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { query, result } = useList({ resource: "rooms" });
+  const { query, result } = useList({ resource: "rooms", queryOptions: QUERY_FRESHNESS.list });
   const { mutate: createRoom, mutation: createMutation } = useCreate();
   const { mutate: updateRoom, mutation: updateMutation } = useUpdate();
   const { mutate: deleteRoom, mutation: deleteMutation } = useDelete();

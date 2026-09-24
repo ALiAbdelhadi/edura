@@ -5,6 +5,7 @@ import { scopedDb } from "@/lib/db/scope";
 import { NotFoundError } from "@/lib/errors/classes";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
+import { invalidatesPublicData } from "@/lib/cache/public-data";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ const patchSchema = z.object({
     .optional(),
 });
 
-export const PATCH = withErrors(async (req) => {
+const handlePatch = withErrors(async (req) => {
   const user = await requireRole("center_admin");
   const body = await parseJson(req, patchSchema);
 
@@ -56,3 +57,5 @@ export const PATCH = withErrors(async (req) => {
   });
   return ok(center);
 });
+
+export const PATCH = invalidatesPublicData(handlePatch);

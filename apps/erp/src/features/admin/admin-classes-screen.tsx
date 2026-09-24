@@ -66,19 +66,22 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Amount, Badge, Num, PageHead } from "./ledger";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 
 export function AdminClassesScreen() {
   const t = useTranslations();
   const queryStrings = useQueryStrings();
   const { formatEGP, formatClockRange, locale } = useFormatters();
-  const { query, result } = useList({ resource: "courses" });
+  const { query, result } = useList({ resource: "courses", queryOptions: QUERY_FRESHNESS.list });
   const { result: teachersResult } = useList({
     resource: "teachers",
     pagination: { mode: "off" },
+    queryOptions: QUERY_FRESHNESS.list,
   });
   const { result: roomsResult } = useList({
     resource: "rooms",
     pagination: { mode: "off" },
+    queryOptions: QUERY_FRESHNESS.list,
   });
   const { mutate: cancelCourse, mutation: cancelMutation } =
     useCustomMutation();

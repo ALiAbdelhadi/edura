@@ -10,6 +10,7 @@ import { cn } from "@repo/ui/lib/utils";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner } from "@/components/kit/spinner";
 import { asArray } from "@/lib/refine/as-array";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 
 const MAX_PAGE = 100;
 
@@ -39,6 +40,7 @@ export function TeacherReviewsScreen() {
     resource: "reviews",
     filters: [{ field: "limit", operator: "eq", value: String(MAX_PAGE) }],
     pagination: { mode: "off" },
+    queryOptions: QUERY_FRESHNESS.list,
   });
 
   const reviews = asArray<any>(result?.data);

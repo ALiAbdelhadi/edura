@@ -5,7 +5,9 @@ import { PasswordInput } from "@/components/kit/password-input";
 import { Eyebrow, LedgerButton, Num, ledgerTrackTight } from "@/components/ledger";
 import { Link } from "@/i18n/navigation";
 import { api } from "@/lib/api/client";
+import { authClient } from "@/lib/auth/client";
 import { uiRoleForRole } from "@/lib/auth/portal";
+import { identifyUser } from "@/lib/observability/posthog-client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Form,
@@ -17,8 +19,6 @@ import {
 } from "@repo/ui/components/form";
 import { Input } from "@repo/ui/components/input";
 import { Clock, Loader2, LogIn, ShieldCheck, TriangleAlert } from "lucide-react";
-import { authClient } from "@/lib/auth/client";
-import { identifyUser } from "@/lib/observability/posthog-client";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -88,9 +88,6 @@ export default function LoginPage() {
         password: values.password,
       });
       if (signInError) {
-        // SECURITY_AUDIT.md (2026-09-11) AUTH-01: the door no longer says
-        // whether the email exists. Unknown email and wrong password are the
-        // same failure, and the "create an account" nudge shows for both.
         if (signInError.message === "ACCOUNT_PENDING") {
           setError(t("auth.accountPending"));
         } else if (signInError.message === "ACCOUNT_INACTIVE") {
@@ -225,7 +222,6 @@ export default function LoginPage() {
               {error}
             </p>
           ) : null}
-
           <FormField
             control={form.control}
             name="email"
@@ -246,7 +242,6 @@ export default function LoginPage() {
               </FormItem>
             )}
           />
-
           <FormField
             control={form.control}
             name="password"
@@ -275,7 +270,6 @@ export default function LoginPage() {
               </FormItem>
             )}
           />
-
           <LedgerButton type="submit" variant="primary" className="w-full" disabled={loading}>
             {loading ? (
               <Loader2 className="size-4 animate-spin" aria-hidden />
@@ -286,7 +280,6 @@ export default function LoginPage() {
           </LedgerButton>
         </form>
       </Form>
-
       {SHOW_QUICK_LOGINS ? (
         <div className="mt-7">
           <div className="flex items-center gap-3">
@@ -325,7 +318,6 @@ export default function LoginPage() {
           </p>
         </div>
       ) : null}
-
       <p className="mt-6 text-center text-sm" style={{ color: "var(--ink-2)" }}>
         {t("auth.noAccountPrompt")}{" "}
         <Link href="/register" className="font-semibold hover:underline" style={{ color: "var(--indigo)" }}>

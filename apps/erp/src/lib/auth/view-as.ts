@@ -1,6 +1,5 @@
 import { withPlatformContext } from "@repo/database";
-import { headers as nextHeaders } from "next/headers";
-import { auth } from "./auth";
+import { readAuthSession } from "./read-session";
 
 export type ViewAsContext = {
   actorId: string;
@@ -13,7 +12,10 @@ export async function getViewAsContext(): Promise<ViewAsContext | null> {
   let impersonatedBy: string | null | undefined;
   let expiresAt: Date | null = null;
   try {
-    const res = await auth.api.getSession({ headers: await nextHeaders() });
+    // Shares the request's single session read with `getSessionUser` — the
+    // portal chrome renders this banner on every page, so a second read here
+    // doubled the session queries of every render.
+    const res = await readAuthSession();
     const session = res?.session as
       | { impersonatedBy?: string | null; expiresAt?: Date | string | null }
       | undefined;

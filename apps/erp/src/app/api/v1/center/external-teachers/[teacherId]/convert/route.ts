@@ -5,6 +5,7 @@ import { requireCenterActor } from "@/lib/authz/center-actor";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { convertToEnrolled, convertToExternal } from "@/lib/services/external-teachers";
+import { invalidatesPublicData } from "@/lib/cache/public-data";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,7 @@ const bodySchema = z.discriminatedUnion("to", [
   }),
 ]);
 
-export const POST = withErrors(async (req, ctx) => {
+const handlePost = withErrors(async (req, ctx) => {
   await requireRole("center_admin");
   const actor = await requireCenterActor();
   const { teacherId } = await (ctx as Ctx).params;
@@ -40,3 +41,5 @@ export const POST = withErrors(async (req, ctx) => {
   }
   return ok(await convertToExternal(actor, teacherId, { reason: body.reason }));
 });
+
+export const POST = invalidatesPublicData(handlePost);

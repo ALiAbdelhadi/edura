@@ -3,10 +3,8 @@ import { withRateLimit } from "@/lib/rate-limit/middleware";
 import { ok } from "@/lib/http/envelope";
 import { getSessionUser } from "@/lib/auth/session";
 import { platformDb } from "@/lib/db/scope";
-import {
-  searchCourses,
-  type StudentCatalogScope,
-} from "@/lib/services/discovery/discovery";
+import { type StudentCatalogScope } from "@/lib/services/discovery/discovery";
+import { searchCoursesCached } from "@/lib/services/discovery/discovery-cache";
 import { assertApprovedChild } from "@/lib/services/wallet/parent-wallet";
 
 export const dynamic = "force-dynamic";
@@ -65,7 +63,7 @@ export const GET = withRateLimit(
       }
     }
 
-    const result = await searchCourses(filters, studentScope);
+    const result = await searchCoursesCached(filters, studentScope);
     return ok(result.courses, {
       meta: { page: result.page, limit: result.limit },
     });

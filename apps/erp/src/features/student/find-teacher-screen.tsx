@@ -35,6 +35,7 @@ import {
 } from "@/features/student/discovery-filters";
 import { PageSpinner } from "@/components/kit/spinner";
 import { useFormatters } from "@/lib/i18n/use-formatters";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 
 type CatalogSubject = { id: string; code: string; nameAr: string; nameEn: string };
 
@@ -93,6 +94,7 @@ export function FindTeacherScreen() {
         : { field: "mine", operator: "eq", value: "1" },
     ],
     pagination: { mode: "off" },
+    queryOptions: QUERY_FRESHNESS.reference,
   });
   const subjects = (subjectsResult?.data ?? []) as CatalogSubject[];
   const subjectName = (s: CatalogSubject) => (locale === "ar" ? s.nameAr : s.nameEn);
@@ -110,6 +112,7 @@ export function FindTeacherScreen() {
       ...discoveryQueryFilters(filters),
     ],
     pagination: { mode: "off" },
+    queryOptions: QUERY_FRESHNESS.discovery,
   });
 
   const teachers = (result?.data ?? []) as TeacherHit[];

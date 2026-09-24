@@ -19,6 +19,7 @@ import {
   PageTitle,
   Sheet,
 } from "@/features/student/ledger";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 
 type Material = {
   id?: string;
@@ -48,8 +49,9 @@ export function StudentMaterialsScreen() {
   const { formatDate } = useFormatters();
   const { query: enrollmentsQuery, result: enrollmentsResult } = useList({
     resource: "enrollments",
+    queryOptions: QUERY_FRESHNESS.list,
   });
-  const { query: materialsQuery, result: materialsResult } = useList({ resource: "materials" });
+  const { query: materialsQuery, result: materialsResult } = useList({ resource: "materials", queryOptions: QUERY_FRESHNESS.list });
 
   const enrollments = (enrollmentsResult?.data ?? []) as {
     courseId?: { toString?: () => string } | string;

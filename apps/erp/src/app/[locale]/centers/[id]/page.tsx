@@ -28,9 +28,11 @@ import {
   Star,
   Users,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useParams } from "next/navigation";
 import type { ReactNode } from "react";
+import { QUERY_FRESHNESS } from "@/lib/refine";
+import { CenterAmenities } from "@/features/public-profile/center-amenities";
 
 function formatSchedule(
   pattern: any,
@@ -50,6 +52,7 @@ export default function CenterDetailPage() {
   const params = useParams<{ id?: string | string[] }>();
   const router = useRouter();
   const t = useTranslations();
+  const locale = useLocale();
   const { formatWeekdayShort, formatClockRange } = useFormatters();
   const rawId = Array.isArray(params.id) ? params.id[0] : params.id;
   const centerId = rawId ? decodeURIComponent(rawId) : "";
@@ -57,7 +60,7 @@ export default function CenterDetailPage() {
   const { query, result } = useCustom({
     url: centerId ? `centers/${centerId}` : "",
     method: "get",
-    queryOptions: { enabled: !!centerId },
+    queryOptions: { ...QUERY_FRESHNESS.discovery, enabled: !!centerId },
   });
 
   const center = result?.data as any;
@@ -203,7 +206,6 @@ export default function CenterDetailPage() {
                   {center.description}
                 </p>
               )}
-
               {center.subjects?.length > 0 && (
                 <div>
                   <div className="mb-2 font-semibold text-foreground">
@@ -218,12 +220,18 @@ export default function CenterDetailPage() {
                   </div>
                 </div>
               )}
-
+              {center.amenities?.length > 0 && (
+                <div>
+                  <div className="mb-2 font-semibold text-foreground">
+                    {t("publicCenter.amenities")}
+                  </div>
+                  <CenterAmenities amenities={center.amenities} locale={locale} />
+                </div>
+              )}
               {detailItems.length > 0 && (
                 <DescriptionList columns={2} items={detailItems} />
               )}
             </div>
-
             <div className="flex flex-col gap-4 md:col-span-1">
               <StatCard
                 label={t("publicCenter.rating")}
@@ -246,7 +254,6 @@ export default function CenterDetailPage() {
           </div>
         </CardContent>
       </Card>
-
       <Card className="mt-6">
         <CardHeader>
           <CardTitle>{t("publicCenter.availableCourses")}</CardTitle>

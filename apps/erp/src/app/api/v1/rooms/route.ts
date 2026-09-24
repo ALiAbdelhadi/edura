@@ -1,4 +1,5 @@
 import { centerStaff, MANAGER } from "@/lib/authz/center-actor";
+import { invalidatesPublicData } from "@/lib/cache/public-data";
 import { scopedDb } from "@/lib/db/scope";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
@@ -21,7 +22,7 @@ export const GET = centerStaff(
   { allow: MANAGER },
 );
 
-export const POST = centerStaff(
+const handlePost = centerStaff(
   async (req, _ctx, { acting: user }) => {
     const body = await parseJson(req, roomCreateSchema);
     const { roomFields, perStudentRate } = splitRoomPayload(body);
@@ -45,3 +46,6 @@ export const POST = centerStaff(
   },
   { allow: MANAGER },
 );
+
+// A hall's amenities appear on the centre's public page, which is cached.
+export const POST = invalidatesPublicData(handlePost, ["publicProfile"]);

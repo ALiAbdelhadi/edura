@@ -77,7 +77,18 @@ function studentScopeArms(scope: StudentCatalogScope): Prisma.CourseWhereInput[]
   ];
 }
 
-export async function searchCourses(
+// A course search is split in two, and the seam is the point.
+//
+// The ROWS — which courses match, their schedule, price, centre, teacher name and
+// rating — change when somebody edits them. The LIVE state — seats taken and
+// the upcoming sessions — changes every time a student subscribes or a lesson is
+// cancelled. discovery-cache.ts caches the first and never the second.
+//
+// That matters because screens refresh themselves after an action: the subjects
+// screen calls `query.refetch()` once a student subscribes. If the seat count
+// came from a cache, that refetch would faithfully return the count from BEFORE
+// the subscription. Computing it fresh keeps the refetch honest.
+export async function searchCourseRows(
   filters: CourseSearchInput,
   studentScope?: StudentCatalogScope | null,
 ) {
@@ -202,46 +213,86 @@ export async function searchCourses(
     );
     const nameByTeacher = new Map(teacherUsers.map((u) => [u.id, u.name]));
 
-    const courseIds = courses.map((c) => c.id);
+    return {
+      courses: courses.map((c) => ({
+        ...c,
+        teacherName: nameByTeacher.get(c.teacherId) ?? null,
+        teacherRatingAvg: ratingByTeacher.get(c.teacherId) ?? 0,
+      })),
+      page,
+      limit,
+    };
+  });
+}
 
+// Seats and upcoming sessions for a set of courses, read NOW. Never cached.
+export async function courseLiveState(courseIds: string[]) {
+  if (courseIds.length === 0) {
+    return {
+      countByCourse: new Map<string, number>(),
+      upcomingByCourse: new Map<string, UpcomingSession[]>(),
+    };
+  }
+  return platformDb(async (tx) => {
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
-    const upcoming = await tx.session.findMany({
-      where: { courseId: { in: courseIds }, status: "scheduled", date: { gte: today } },
-      orderBy: { date: "asc" },
-      select: { id: true, courseId: true, date: true, startTime: true, endTime: true },
-      take: 400,
-    });
-    const upcomingByCourse = new Map<string, typeof upcoming>();
+    const [upcoming, grouped] = await Promise.all([
+      tx.session.findMany({
+        where: { courseId: { in: courseIds }, status: "scheduled", date: { gte: today } },
+        orderBy: { date: "asc" },
+        select: { id: true, courseId: true, date: true, startTime: true, endTime: true },
+        take: 400,
+      }),
+      tx.enrollment.groupBy({
+        by: ["courseId"],
+        where: { courseId: { in: courseIds }, status: "active" },
+        _count: { _all: true },
+      }),
+    ]);
+    const upcomingByCourse = new Map<string, UpcomingSession[]>();
     for (const s of upcoming) {
       const list = upcomingByCourse.get(s.courseId) ?? [];
       if (list.length < 8) list.push(s);
       upcomingByCourse.set(s.courseId, list);
     }
+    const countByCourse = new Map(grouped.map((g) => [g.courseId, g._count._all]));
+    return { countByCourse, upcomingByCourse };
+  });
+}
 
-    const grouped = await tx.enrollment.groupBy({
-      by: ["courseId"],
-      where: { courseId: { in: courseIds }, status: "active" },
-      _count: { _all: true },
-    });
-    const countByCourse = new Map(
-      grouped.map((g) => [g.courseId, g._count._all]),
-    );
+type UpcomingSession = {
+  id: string;
+  courseId: string;
+  date: Date;
+  startTime: string;
+  endTime: string;
+};
 
-    const enriched = courses.map((c) => {
+export async function withCourseLiveState<
+  T extends { courses: Array<{ id: string; maxStudents: number }> },
+>(rows: T) {
+  const { countByCourse, upcomingByCourse } = await courseLiveState(
+    rows.courses.map((c) => c.id),
+  );
+  return {
+    ...rows,
+    courses: rows.courses.map((c) => {
       const activeEnrollmentCount = countByCourse.get(c.id) ?? 0;
       return {
         ...c,
-        teacherName: nameByTeacher.get(c.teacherId) ?? null,
-        teacherRatingAvg: ratingByTeacher.get(c.teacherId) ?? 0,
         activeEnrollmentCount,
         remainingSeats: c.maxStudents - activeEnrollmentCount,
         upcomingSessions: upcomingByCourse.get(c.id) ?? [],
       };
-    });
+    }),
+  };
+}
 
-    return { courses: enriched, page, limit };
-  });
+export async function searchCourses(
+  filters: CourseSearchInput,
+  studentScope?: StudentCatalogScope | null,
+) {
+  return withCourseLiveState(await searchCourseRows(filters, studentScope));
 }
 
 type CenterSearchInput = {
@@ -368,7 +419,7 @@ type TeacherDaySearchInput = {
 // reads, pivoted onto the teacher. It adds NO reach: a course that would not
 // appear in searchCourses for this student cannot appear here either, because
 // the two build their WHERE from the same arms.
-export async function searchTeachersByDay(
+export async function searchTeacherDayRows(
   filters: TeacherDaySearchInput,
   studentScope?: StudentCatalogScope | null,
 ) {
@@ -474,29 +525,6 @@ export async function searchTeachersByDay(
       orderBy: { startTime: "asc" },
     });
 
-    const courseIds = courses.map((c) => c.id);
-    const grouped = await tx.enrollment.groupBy({
-      by: ["courseId"],
-      where: { courseId: { in: courseIds }, status: "active" },
-      _count: { _all: true },
-    });
-    const countByCourse = new Map(grouped.map((g) => [g.courseId, g._count._all]));
-
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-    const upcoming = await tx.session.findMany({
-      where: { courseId: { in: courseIds }, status: "scheduled", date: { gte: today } },
-      orderBy: { date: "asc" },
-      select: { id: true, courseId: true, date: true, startTime: true, endTime: true },
-      take: 400,
-    });
-    const upcomingByCourse = new Map<string, typeof upcoming>();
-    for (const s of upcoming) {
-      const list = upcomingByCourse.get(s.courseId) ?? [];
-      if (list.length < 8) list.push(s);
-      upcomingByCourse.set(s.courseId, list);
-    }
-
     const byTeacher = new Map<string, typeof courses>();
     for (const c of courses) {
       const list = byTeacher.get(c.teacherId) ?? [];
@@ -516,21 +544,47 @@ export async function searchTeachersByDay(
         experienceYears: profile?.experienceYears ?? null,
         subjects: profile?.subjects ?? [],
         courseCount: own.length,
-        courses: own.map((c) => {
-          const activeEnrollmentCount = countByCourse.get(c.id) ?? 0;
-          return {
-            ...c,
-            // Which of the days the student asked for this group actually runs on,
-            // so the card can say "Wednesday" rather than repeating the whole week.
-            matchedDays: days.length > 0 ? c.daysOfWeek.filter((d) => days.includes(d)) : c.daysOfWeek,
-            activeEnrollmentCount,
-            remainingSeats: c.maxStudents - activeEnrollmentCount,
-            upcomingSessions: upcomingByCourse.get(c.id) ?? [],
-          };
-        }),
+        courses: own.map((c) => ({
+          ...c,
+          // Which of the days the student asked for this group actually runs on,
+          // so the card can say "Wednesday" rather than repeating the whole week.
+          matchedDays: days.length > 0 ? c.daysOfWeek.filter((d) => days.includes(d)) : c.daysOfWeek,
+        })),
       };
     });
 
     return { teachers, page, limit, total };
   });
+}
+
+// Same seam as the course search: the teacher rows may come from a cache, the
+// seats and upcoming sessions on their groups never do.
+export async function withTeacherDayLiveState<
+  T extends { teachers: Array<{ courses: Array<{ id: string; maxStudents: number }> }> },
+>(rows: T) {
+  const { countByCourse, upcomingByCourse } = await courseLiveState(
+    rows.teachers.flatMap((t) => t.courses.map((c) => c.id)),
+  );
+  return {
+    ...rows,
+    teachers: rows.teachers.map((t) => ({
+      ...t,
+      courses: t.courses.map((c) => {
+        const activeEnrollmentCount = countByCourse.get(c.id) ?? 0;
+        return {
+          ...c,
+          activeEnrollmentCount,
+          remainingSeats: c.maxStudents - activeEnrollmentCount,
+          upcomingSessions: upcomingByCourse.get(c.id) ?? [],
+        };
+      }),
+    })),
+  };
+}
+
+export async function searchTeachersByDay(
+  filters: TeacherDaySearchInput,
+  studentScope?: StudentCatalogScope | null,
+) {
+  return withTeacherDayLiveState(await searchTeacherDayRows(filters, studentScope));
 }

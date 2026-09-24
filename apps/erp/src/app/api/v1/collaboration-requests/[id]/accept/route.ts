@@ -6,6 +6,7 @@ import { ok } from "@/lib/http/envelope";
 import { trackFirstTeacher } from "@/lib/observability/funnel";
 import { acceptCollaborationRequest } from "@/lib/services/collaboration/collaboration";
 import { parseJson } from "@/lib/validation/zod";
+import { invalidatesPublicData } from "@/lib/cache/public-data";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ const acceptSchema = z
   })
   .nullish();
 
-export const POST = delegatedWithCenter(
+const handlePost = delegatedWithCenter(
   async (req, ctx, { acting: user }) => {
     const { id } = await ctx.params;
     const body = req.body ? await parseJson(req, acceptSchema) : null;
@@ -27,3 +28,5 @@ export const POST = delegatedWithCenter(
   },
   { staffAllow: MANAGER },
 );
+
+export const POST = invalidatesPublicData(handlePost);

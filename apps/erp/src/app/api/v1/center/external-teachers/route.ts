@@ -8,6 +8,7 @@ import {
   createExternalTeacher,
   listCenterTeachers,
 } from "@/lib/services/external-teachers";
+import { invalidatesPublicData } from "@/lib/cache/public-data";
 
 export const dynamic = "force-dynamic";
 
@@ -38,9 +39,11 @@ const createSchema = z.object({
   centerShare: z.number().int().min(0).nullish(),
 });
 
-export const POST = withErrors(async (req) => {
+const handlePost = withErrors(async (req) => {
   await requireRole("center_admin");
   const actor = await requireCenterActor();
   const data = await parseJson(req, createSchema);
   return ok(await createExternalTeacher(actor, data), { status: 201 });
 });
+
+export const POST = invalidatesPublicData(handlePost);

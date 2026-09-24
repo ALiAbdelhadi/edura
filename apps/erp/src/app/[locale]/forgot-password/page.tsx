@@ -1,9 +1,9 @@
 "use client";
 
 import { AuthCenteredShell } from "@/components/kit/auth-centered-shell";
-import { api } from "@/lib/api/client";
 import { LedgerButton, ledgerTrackTight } from "@/components/ledger";
 import { Link } from "@/i18n/navigation";
+import { api } from "@/lib/api/client";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
 import { ArrowLeft, CheckCircle2, Loader2, Mail } from "lucide-react";

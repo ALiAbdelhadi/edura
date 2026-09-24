@@ -2,8 +2,8 @@
 
 import { PasswordInput } from "@/components/kit/password-input";
 import { PageSpinner } from "@/components/kit/spinner";
-import { api } from "@/lib/api/client";
 import { Link } from "@/i18n/navigation";
+import { api } from "@/lib/api/client";
 import { Alert, AlertDescription } from "@repo/ui/components/alert";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent } from "@repo/ui/components/card";

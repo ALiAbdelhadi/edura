@@ -1,5 +1,3 @@
-"use client";
-
 import { ledgerMono, ledgerShellScope } from "@/components/ledger";
 import type { ReactNode } from "react";
 import styles from "./landing.module.css";

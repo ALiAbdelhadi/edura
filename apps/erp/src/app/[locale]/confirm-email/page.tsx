@@ -25,9 +25,7 @@ export default function ConfirmEmailPage() {
   );
 }
 
-// SECURITY_AUDIT.md M-06: the link from the NEW inbox lands here. The token is
-// posted once on mount; the switch signs every session out, so the page ends
-// on a sign-in button rather than pretending the visitor is still logged in.
+
 function ConfirmEmailContent() {
   const t = useTranslations();
   const token = useSearchParams().get("token");

@@ -1,7 +1,9 @@
+import { cache } from "react";
 import { platformDb, type TenantTx } from "@/lib/db/scope";
 import { NotFoundError } from "@/lib/errors/classes";
 import type { CourseDeliveryMode } from "@repo/database";
 import { findHandleOwner } from "./public-handles";
+import { orderAmenities } from "@repo/database/room-amenities";
 
 // What the public sees of a centre or a teacher — the session-less read
 // behind GET /api/v1/centers/[id], /p/[handle] and the tenant subdomain.
@@ -134,6 +136,9 @@ export type CenterPublicProfile = {
   shortId: string;
   description: string | null;
   subjects: string[];
+  // Union of the centre's active halls' amenities, catalogue order first. Only
+  // the amenity values leave here — never a hall's name, price or split.
+  amenities: string[];
   address: string | null;
   area: string | null;
   governorate: string | null;
@@ -161,13 +166,14 @@ export async function getCenterPublicProfile(centerId: string): Promise<CenterPu
       select: COURSE_SELECT,
       orderBy: [{ subject: "asc" }, { title: "asc" }],
     });
-    const [courses, reviewStats] = await Promise.all([
+    const [courses, reviewStats, rooms] = await Promise.all([
       enrichCourses(tx, rows),
       tx.review.aggregate({
         where: { centerId },
         _avg: { rating: true },
         _count: { _all: true },
       }),
+      tx.room.findMany({ where: { centerId, isActive: true }, select: { facilities: true } }),
     ]);
 
     const avgRating = reviewStats._avg.rating;
@@ -179,6 +185,7 @@ export async function getCenterPublicProfile(centerId: string): Promise<CenterPu
       shortId: center.shortId,
       description: center.description,
       subjects: center.subjects,
+      amenities: orderAmenities(rooms.flatMap((r) => r.facilities)),
       address: center.address,
       area: center.area,
       governorate: center.governorate,
@@ -258,7 +265,12 @@ export type PublicProfile = CenterPublicProfile | TeacherPublicProfile;
 // `/p/<handle>` and `<handle>.<root>` both end here. Null covers every way a
 // page can be missing — unknown handle, or an owner the status gate hides —
 // so the caller renders one 404 and leaks nothing about which it was.
-export async function resolvePublicProfile(handle: string): Promise<PublicProfile | null> {
+// Memoised per request, not across requests: `/p/[handle]` resolves the same
+// handle twice on every hit — once in `generateMetadata`, once in the page body
+// — and those two cannot legitimately disagree. Cross-request caching of these
+// profiles is a separate, riskier decision (the status gate lives inside the
+// value) and is NOT what this does.
+export async function readPublicProfile(handle: string): Promise<PublicProfile | null> {
   const owner = await findHandleOwner(handle);
   if (!owner) return null;
   try {
@@ -269,4 +281,32 @@ export async function resolvePublicProfile(handle: string): Promise<PublicProfil
     if (err instanceof NotFoundError) return null;
     throw err;
   }
+}
+
+export const resolvePublicProfile = cache(readPublicProfile);
+
+// Enrollment counts are live state: they move every time a student subscribes or
+// leaves. When the profile itself comes from a cache (public-profiles-cache.ts),
+// this re-reads them so no enrollment-derived number is ever served stale —
+// the same seam the discovery searches use. One groupBy, whatever the size of
+// the profile.
+export async function withLiveEnrollment(
+  profile: PublicProfile | null,
+): Promise<PublicProfile | null> {
+  if (!profile || profile.courses.length === 0) return profile;
+  const courseIds = profile.courses.map((c) => c.id);
+  const grouped = await platformDb((tx) =>
+    tx.enrollment.groupBy({
+      by: ["courseId"],
+      where: { courseId: { in: courseIds }, status: "active" },
+      _count: { _all: true },
+    }),
+  );
+  const countMap = new Map(grouped.map((g) => [g.courseId, g._count._all]));
+  const courses = profile.courses.map((c) => ({ ...c, enrolledCount: countMap.get(c.id) ?? 0 }));
+  return {
+    ...profile,
+    courses,
+    totalStudents: courses.reduce((sum, c) => sum + c.enrolledCount, 0),
+  };
 }

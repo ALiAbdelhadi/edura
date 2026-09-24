@@ -27,6 +27,7 @@ import {
   type GradeRow,
   type SubjectGrades,
 } from "@/features/grades/grade-record";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 
 const CHIP_TONE = {
   success: "teal",
@@ -39,7 +40,7 @@ const CHIP_TONE = {
 export function GradesScreen() {
   const t = useTranslations();
   const { formatPercent, formatDate } = useFormatters();
-  const { query, result } = useList({ resource: "grades", pagination: { mode: "off" } });
+  const { query, result } = useList({ resource: "grades", pagination: { mode: "off" }, queryOptions: QUERY_FRESHNESS.list });
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const rows = (result?.data ?? []) as GradeRow[];

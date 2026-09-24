@@ -15,6 +15,7 @@ import {
   createTeacherDirectCourse,
 } from "@repo/server-core/services/center/courses";
 import { z } from "zod";
+import { invalidatesPublicData } from "@/lib/cache/public-data";
 
 export const dynamic = "force-dynamic";
 
@@ -197,7 +198,7 @@ const teacherDirectSchema = z
   })
   .strict();
 
-export const POST = withErrors(async (req) => {
+const handlePost = withErrors(async (req) => {
   const session = await getSessionUser();
   if (session?.role === "teacher") {
     const body = await parseJson(req, teacherDirectSchema);
@@ -223,3 +224,5 @@ export const POST = withErrors(async (req) => {
     { status: 201 },
   );
 });
+
+export const POST = invalidatesPublicData(handlePost);

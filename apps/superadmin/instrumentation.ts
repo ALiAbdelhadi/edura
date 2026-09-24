@@ -10,6 +10,11 @@ export async function register() {
     // guard that stood here let `0` or `false` skip every check inside it.
     assertSharedRateLimitStore();
     await import("./sentry.server.config");
+    // Back-office writes that change a public listing tell the ERP to drop its
+    // cached copy (src/lib/cache/erp-revalidate.ts). Best-effort: the ERP's own
+    // 60s bound holds either way.
+    const { registerErpRevalidation } = await import("./src/lib/cache/erp-revalidate");
+    registerErpRevalidation();
   }
   if (process.env.NEXT_RUNTIME === "edge") {
     await import("./sentry.edge.config");

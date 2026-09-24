@@ -5,6 +5,7 @@ import { requireSession } from "@/lib/auth/session";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { createReview, listReviews } from "@/lib/services/reviews/reviews";
+import { invalidatesPublicData } from "@/lib/cache/public-data";
 
 export const dynamic = "force-dynamic";
 
@@ -37,9 +38,11 @@ const createSchema = z.object({
   lessonId: z.string().uuid().optional(),
 });
 
-export const POST = withErrors(async (req) => {
+const handlePost = withErrors(async (req) => {
   const user = await requireRole("student");
   const data = await parseJson(req, createSchema);
   const review = await createReview(data, user);
   return ok(review, { status: 201 });
 });
+
+export const POST = invalidatesPublicData(handlePost);

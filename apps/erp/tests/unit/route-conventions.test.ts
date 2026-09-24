@@ -34,6 +34,11 @@ type PublicEntry = {
   reason: string;
   mustContain?: string[];
   getOnly?: boolean;
+  // May carry `withPublicCache` — i.e. may be answered by the CDN without the
+  // function running. Only a getOnly entry qualifies, and being in this list at
+  // all already proves the route reads no session (see the freshness test
+  // below). See packages/server-core/src/http/public-cache.ts.
+  cdnCache?: true;
 };
 
 const PUBLIC_ROUTES: Record<string, PublicEntry> = {
@@ -108,6 +113,12 @@ const PUBLIC_ROUTES: Record<string, PublicEntry> = {
     reason: "cron endpoint — CRON_SECRET fails closed in every env (M7)",
     mustContain: ["CRON_SECRET"],
   },
+  "v1/internal/revalidate": {
+    reason:
+      "back office -> ERP cache invalidation (apps/superadmin/src/lib/cache/erp-revalidate.ts); " +
+      "same dedicated secret as chat-notify, and the body can name only the three public datasets",
+    mustContain: ["requireDedicatedSecret", "secretEquals"],
+  },
   "v1/internal/chat-notify": {
     reason: "server↔server bridge from apps/realtime (M2 dedicated secret)",
     mustContain: ["requireDedicatedSecret"],
@@ -126,6 +137,7 @@ const PUBLIC_ROUTES: Record<string, PublicEntry> = {
       "Leaks nothing; the gateway initiators assert the same predicate " +
       "server-side, so this endpoint informs and never authorizes.",
     getOnly: true,
+    cdnCache: true,
   },
   "v1/payments/paymob/webhook": {
     reason: "gateway webhook — authenticity is the HMAC over the raw body",
@@ -139,11 +151,13 @@ const PUBLIC_ROUTES: Record<string, PublicEntry> = {
     reason: "public discovery search",
     mustContain: ["withRateLimit"],
     getOnly: true,
+    cdnCache: true,
   },
   "v1/search/teachers": {
     reason: "public discovery search",
     mustContain: ["withRateLimit"],
     getOnly: true,
+    cdnCache: true,
   },
   "v1/subjects": {
     reason: "public education-catalog read (permanent reference data)",
@@ -152,6 +166,7 @@ const PUBLIC_ROUTES: Record<string, PublicEntry> = {
   "v1/teachers/[teacherId]": {
     reason: "public teacher profile for discovery/browse",
     getOnly: true,
+    cdnCache: true,
   },
 };
 
@@ -240,6 +255,39 @@ describe("route conventions (all api routes)", () => {
         ).toBe(false);
       }
     }
+  });
+
+  it("only allowlisted, session-free, read-only routes are CDN-cacheable", () => {
+    const users = [...sources.entries()]
+      .filter(([, src]) => src.includes("withPublicCache("))
+      .map(([key]) => key);
+    const allowed = Object.entries(PUBLIC_ROUTES)
+      .filter(([, e]) => e.cdnCache)
+      .map(([key]) => key);
+
+    // Nothing uses the wrapper without an entry, and no entry is stale.
+    expect(users.filter((k) => !allowed.includes(k))).toEqual([]);
+    expect(allowed.filter((k) => !users.includes(k))).toEqual([]);
+
+    for (const key of allowed) {
+      const entry = PUBLIC_ROUTES[key]!;
+      const src = sources.get(key)!;
+      expect(entry.getOnly, `${key}: a CDN-cached route must be getOnly`).toBe(true);
+      // A response that varies by request headers or cookies is not identical
+      // for every caller, and the CDN key is the URL alone.
+      expect(
+        /from "next\/headers"|\bcookies\(|\bheaders\(\)/.test(src),
+        `${key}: reads request headers or cookies, so its response is not the same for every caller`,
+      ).toBe(false);
+    }
+  });
+
+  it("the back office never lets a CDN answer for it", () => {
+    const superadminApi = path.resolve(__dirname, "../../../superadmin/src/app/api");
+    const leaked = collectRouteFiles(superadminApi).filter((f) =>
+      readFileSync(f, "utf8").includes("withPublicCache("),
+    );
+    expect(leaked).toEqual([]);
   });
 
   it("no raw req.json() anywhere (allowlist empty, kept for future exceptions)", () => {

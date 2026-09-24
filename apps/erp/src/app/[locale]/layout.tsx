@@ -6,7 +6,6 @@ import { appBaseUrl } from "@repo/server-core/http/app-url";
 import type { Metadata, Viewport } from "next";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
-import { headers } from "next/headers";
 import {
   Alexandria,
   Amiri,
@@ -17,6 +16,7 @@ import {
   Lora,
   Noto_Sans,
 } from "next/font/google";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import "./globals.css";

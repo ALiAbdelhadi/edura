@@ -1,5 +1,3 @@
-"use client";
-
 import { Link } from "@/i18n/navigation";
 import { cn } from "@repo/ui/lib/utils";
 import * as React from "react";

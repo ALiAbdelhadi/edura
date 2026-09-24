@@ -18,7 +18,7 @@ import { Button } from "@repo/ui/components/button";
 import { Eyebrow } from "@repo/ui/components/eyebrow";
 import { MetricCard } from "@repo/ui/components/metric-card";
 import { Num } from "@repo/ui/components/num";
-import { LineChart } from "@repo/ui/components/charts";
+import { LineChart } from "@/components/charts";
 import { SkeletonRows } from "@repo/ui/components/ledger";
 import { QuerySection } from "@repo/ui/components/query-section";
 import { cn } from "@repo/ui/lib/utils";

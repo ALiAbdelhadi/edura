@@ -4,6 +4,7 @@ import { scopedDb } from "@/lib/db/scope";
 import { ok } from "@/lib/http/envelope";
 import { NotFoundError, ValidationError } from "@/lib/errors/classes";
 import { removeTeacherPhoto, setTeacherPhoto } from "@/lib/services/media/profile-images";
+import { invalidatesPublicData } from "@/lib/cache/public-data";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export const GET = withErrors(async () => {
   return ok({ photoUrl: profile.photoUrl });
 });
 
-export const POST = withErrors(async (req) => {
+const handlePost = withErrors(async (req) => {
   const user = await requireRole("teacher");
 
   let form: FormData;
@@ -31,7 +32,10 @@ export const POST = withErrors(async (req) => {
   return ok(await setTeacherPhoto(file, user), { status: 201 });
 });
 
-export const DELETE = withErrors(async () => {
+const handleDelete = withErrors(async () => {
   const user = await requireRole("teacher");
   return ok(await removeTeacherPhoto(user));
 });
+
+export const POST = invalidatesPublicData(handlePost);
+export const DELETE = invalidatesPublicData(handleDelete);

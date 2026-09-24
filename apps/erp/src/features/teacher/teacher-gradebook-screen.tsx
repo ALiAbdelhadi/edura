@@ -54,6 +54,7 @@ import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { BarChart } from "@/components/charts";
 import { GRADE_BANDS, bandForPercent, percentOf } from "@repo/database/grading-scale";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 
 interface RawGrade {
   id: string;
@@ -121,6 +122,7 @@ export function TeacherGradebookScreen() {
   const { query: coursesQuery, result: coursesResult } = useList({
     resource: "courses",
     pagination: { mode: "off" },
+    queryOptions: QUERY_FRESHNESS.list,
   });
   const courses = (coursesResult?.data ?? []) as any[];
 
@@ -130,7 +132,7 @@ export function TeacherGradebookScreen() {
       ? [{ field: "courseId", operator: "eq" as const, value: selectedCourseId }]
       : [],
     pagination: { mode: "off" },
-    queryOptions: { enabled: !!selectedCourseId },
+    queryOptions: { ...QUERY_FRESHNESS.list, enabled: !!selectedCourseId },
   });
   const rawGrades = (gradesResult?.data ?? []) as unknown as RawGrade[];
 

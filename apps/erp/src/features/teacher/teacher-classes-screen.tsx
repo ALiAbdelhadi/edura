@@ -40,6 +40,7 @@ import { platformDayKey, todayKey } from "@repo/server-core/lib/date-key";
 import { asArray } from "@/lib/refine/as-array";
 import { ATTENDANCE_WINDOW_DAYS } from "@/features/teacher/teacher-attendance-screen";
 import { TeacherCreateGroupDialog } from "@/features/teacher/teacher-create-group-dialog";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 
 type Session = Record<string, any>;
 
@@ -72,6 +73,7 @@ export function TeacherClassesScreen() {
   const { query: coursesQuery, result: coursesResult } = useList({
     resource: "courses",
     filters: [{ field: "teacherId", operator: "eq", value: "me" }],
+    queryOptions: QUERY_FRESHNESS.list,
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   useParamSeed("courseId", setSelectedId);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCustom } from "@refinedev/core";
-import { BarChart, LineChart } from "@repo/ui/components/charts";
+import { BarChart, LineChart } from "@/components/charts";
 import { Eyebrow } from "@repo/ui/components/eyebrow";
 import { MetricCard } from "@repo/ui/components/metric-card";
 import { Num } from "@repo/ui/components/num";

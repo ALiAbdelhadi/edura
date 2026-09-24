@@ -1,6 +1,6 @@
+import { PortalIntl } from "@/components/i18n/portal-intl";
 import { requirePortal } from "@/lib/auth/portal-gate";
 import { AnalyticsIdentity } from "@/lib/observability/analytics-identity";
-import { PortalIntl } from "@/components/i18n/portal-intl";
 import PortalChrome from "./portal-chrome";
 
 export default async function AdminLayout({

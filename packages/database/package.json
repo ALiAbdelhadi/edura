@@ -9,6 +9,10 @@
       "types": "./src/search-text.ts",
       "default": "./src/search-text.ts"
     },
+    "./room-amenities": {
+      "types": "./src/room-amenities.ts",
+      "default": "./src/room-amenities.ts"
+    },
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
@@ -107,6 +111,7 @@
     "seed:showcase-live-demo": "tsx --env-file=.env.local prisma/showcase-live-demo-seed.ts",
     "seed:showcase-payments-demo": "tsx --env-file=.env.local prisma/showcase-payments-demo-seed.ts",
     "seed:deliverymode-demo": "tsx --env-file=.env.local prisma/delivery-mode-demo-seed.ts",
+    "seed:roomamenities-demo": "tsx --env-file=.env.local prisma/room-amenities-demo-seed.ts",
     "seed:settledlessons-demo": "tsx --env-file=.env.local prisma/settled-lessons-demo-seed.ts",
     "seed:extteachers-demo": "tsx --env-file=.env.local prisma/external-teachers-demo-seed.ts",
     "db:check-pending": "tsx scripts/check-pending-migrations.ts",

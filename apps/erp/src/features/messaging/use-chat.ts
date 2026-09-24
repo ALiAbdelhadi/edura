@@ -11,7 +11,8 @@ import type {
   TypingEvent,
 } from "@repo/database/chat-protocol";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { io, type Socket } from "socket.io-client";
+// Type-only: the library itself is imported inside the connect effect below.
+import type { Socket } from "socket.io-client";
 import type {
   ChatConnectionStatus,
   Envelope,
@@ -229,6 +230,11 @@ export function useChat(meId: string) {
     };
 
     void (async () => {
+      // socket.io-client (~16 KB gzip) used to be a static import. webpack
+      // grouped it into a chunk every assistant-portal route loaded, chat or
+      // not. It is fetched here instead, in parallel with the token request
+      // the connection already waits on, so it adds no latency to connecting.
+      const ioModule = import("socket.io-client");
       let url = resolveRealtimeUrl(
         process.env.NEXT_PUBLIC_REALTIME_URL ?? "http://localhost:3005",
       );
@@ -236,6 +242,13 @@ export function useChat(meId: string) {
         const first = await fetchToken();
         if (first.data.url) url = resolveRealtimeUrl(first.data.url);
       } catch {
+      }
+      let io: typeof import("socket.io-client").io;
+      try {
+        ({ io } = await ioModule);
+      } catch {
+        if (!disposed) setStatus("offline");
+        return;
       }
       if (disposed) return;
 

@@ -15,12 +15,14 @@ import {
 import { Kbd } from "@repo/ui/components/kbd";
 import {
   CommandPaletteTrigger,
-  NavCommandPalette,
   useCommandPalette,
   usePaletteShortcutLabel,
-  type PaletteGroup,
-  type PaletteRemote,
+} from "@repo/ui/components/nav-command-palette-trigger";
+import type {
+  PaletteGroup,
+  PaletteRemote,
 } from "@repo/ui/components/nav-command-palette";
+
 import {
   Sidebar,
   SidebarContent,
@@ -64,6 +66,15 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import * as React from "react";
+
+// The palette dialog carries cmdk (~16 KB gzip) and used to ship on every
+// portal page although it stays closed until ⌘K. It is fetched when the
+// browser goes idle and mounted on first open; the ⌘K binding and the header
+// button come from the light trigger module and are live immediately.
+const loadNavCommandPalette = () => import("@repo/ui/components/nav-command-palette");
+const NavCommandPalette = React.lazy(() =>
+  loadNavCommandPalette().then((m) => ({ default: m.NavCommandPalette })),
+);
 
 export type NavItem = {
   href: string;
@@ -531,6 +542,19 @@ export function AppShell({
   const hasPhoneNav = bottomNavItems.length > 0;
 
   const palette = useCommandPalette();
+  // Latches true on first open and never unmounts after, so the dialog keeps
+  // its close animation and state. Set during render, not in an effect.
+  const [paletteMounted, setPaletteMounted] = React.useState(false);
+  if (palette.open && !paletteMounted) setPaletteMounted(true);
+  React.useEffect(() => {
+    const prefetch = () => void loadNavCommandPalette().catch(() => {});
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(prefetch, { timeout: 4000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const t = setTimeout(prefetch, 2000);
+    return () => clearTimeout(t);
+  }, []);
   const [localQuery, setLocalQuery] = React.useState("");
   const query = search ? search.query : localQuery;
   const setQuery = search ? search.onQueryChange : setLocalQuery;
@@ -694,26 +718,30 @@ export function AppShell({
         ) : null}
       </SidebarInset>
 
-      <NavCommandPalette
-        open={palette.open}
-        onOpenChange={palette.setOpen}
-        groups={paletteGroups}
-        onSelect={onNavigate}
-        locale={locale}
-        query={query}
-        onQueryChange={setQuery}
-        {...(search?.remote ? { remote: search.remote } : {})}
-        strings={{
-          title: strings.search,
-          placeholder: strings.searchPlaceholder,
-          empty: strings.searchEmpty,
-          fallbackHeading: strings.searchFallbackHeading,
-          destinationsHeading: strings.searchDestinationsHeading,
-          searching: strings.searchSearching,
-          truncated: strings.searchTruncated,
-          masked: strings.searchMasked,
-        }}
-      />
+      {paletteMounted ? (
+        <React.Suspense fallback={null}>
+          <NavCommandPalette
+            open={palette.open}
+            onOpenChange={palette.setOpen}
+            groups={paletteGroups}
+            onSelect={onNavigate}
+            locale={locale}
+            query={query}
+            onQueryChange={setQuery}
+            {...(search?.remote ? { remote: search.remote } : {})}
+            strings={{
+              title: strings.search,
+              placeholder: strings.searchPlaceholder,
+              empty: strings.searchEmpty,
+              fallbackHeading: strings.searchFallbackHeading,
+              destinationsHeading: strings.searchDestinationsHeading,
+              searching: strings.searchSearching,
+              truncated: strings.searchTruncated,
+              masked: strings.searchMasked,
+            }}
+          />
+        </React.Suspense>
+      ) : null}
     </SidebarProvider>
   );
 }

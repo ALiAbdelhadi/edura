@@ -13,6 +13,7 @@ import {
   updateTeacherDirectPricing,
 } from "@repo/server-core/services/center/courses";
 import { z } from "zod";
+import { invalidatesPublicData } from "@/lib/cache/public-data";
 
 export const dynamic = "force-dynamic";
 
@@ -123,7 +124,7 @@ const teacherPatchSchema = z
   })
   .strict();
 
-export const PATCH = withErrors(async (req, ctx) => {
+const handlePatch = withErrors(async (req, ctx) => {
   const user = await requireRole("center_admin", "teacher");
   const { id } = await ctx.params;
   if (user.role === "teacher") {
@@ -133,3 +134,5 @@ export const PATCH = withErrors(async (req, ctx) => {
   const body = await parseJson(req, patchSchema);
   return ok(await updateCourse(user, id, body));
 });
+
+export const PATCH = invalidatesPublicData(handlePatch);

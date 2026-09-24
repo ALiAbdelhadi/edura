@@ -380,7 +380,7 @@ async function main() {
           price: r.price,
           description: r.description,
           allowedPricingMethods: r.methods,
-          facilities: ["سبورة ذكية", "تكييف"],
+          facilities: ["smart_board", "ac"],
         },
       });
     }

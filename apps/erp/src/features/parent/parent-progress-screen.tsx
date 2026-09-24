@@ -13,6 +13,7 @@ import { useTranslations } from "next-intl";
 import { bandForPercent, percentOf } from "@repo/database/grading-scale";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { Figure, Metric, SectionHead, SkeletonRows } from "./ledger-kit";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 
 const SERIES = [
   "var(--chart-1)",
@@ -37,7 +38,7 @@ export function ParentProgressScreen() {
     filters: childId
       ? [{ field: "studentId", operator: "eq", value: childId }]
       : undefined,
-    queryOptions: { enabled: !!childId },
+    queryOptions: { ...QUERY_FRESHNESS.list, enabled: !!childId },
   });
 
 

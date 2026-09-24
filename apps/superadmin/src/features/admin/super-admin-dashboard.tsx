@@ -9,7 +9,7 @@ import { useCustom } from "@refinedev/core";
 
 import { PlatformTrends } from "@/features/admin/platform-trends";
 import { Button } from "@repo/ui/components/button";
-import { BarChart } from "@repo/ui/components/charts";
+import { BarChart } from "@/components/charts";
 import { Eyebrow } from "@repo/ui/components/eyebrow";
 import { MetricCard } from "@repo/ui/components/metric-card";
 import { Num, ProseCount } from "@repo/ui/components/num";

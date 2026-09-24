@@ -1,4 +1,5 @@
 import { centerStaff, MANAGER } from "@/lib/authz/center-actor";
+import { invalidatesPublicData } from "@/lib/cache/public-data";
 import { requireCenterScope } from "@/lib/authz/require-center-scope";
 import { scopedDb } from "@/lib/db/scope";
 import { NotFoundError, BusinessRuleError } from "@/lib/errors/classes";
@@ -17,7 +18,7 @@ export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-export const PATCH = centerStaff(
+const handlePatch = centerStaff(
   async (req, ctx, { acting: user }) => {
     const { id } = await ctx.params;
     const body = await parseJson(req, roomPatchSchema);
@@ -57,7 +58,7 @@ export const PATCH = centerStaff(
   { allow: MANAGER },
 );
 
-export const DELETE = centerStaff(
+const handleDelete = centerStaff(
   async (_req, ctx, { acting: user }) => {
     const { id } = await ctx.params;
 
@@ -84,3 +85,7 @@ export const DELETE = centerStaff(
   },
   { allow: MANAGER },
 );
+
+// A hall's amenities appear on the centre's public page, which is cached.
+export const PATCH = invalidatesPublicData(handlePatch, ["publicProfile"]);
+export const DELETE = invalidatesPublicData(handleDelete, ["publicProfile"]);

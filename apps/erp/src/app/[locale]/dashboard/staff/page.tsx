@@ -1,9 +1,9 @@
-import { redirect } from "next/navigation";
 import { CenterStaffPortalHome } from "@/features/admin/center-staff-portal-home";
 import { requirePortal } from "@/lib/auth/portal-gate";
 import { ForbiddenError } from "@/lib/errors/classes";
 import { localizedTitle } from "@/lib/i18n/page-metadata";
 import { getStaffMe } from "@/lib/services/center/staff";
+import { redirect } from "next/navigation";
 
 export const generateMetadata = localizedTitle("overview");
 

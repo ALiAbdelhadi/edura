@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/authz/require-role";
 import { ok } from "@/lib/http/envelope";
 import { parseJson } from "@/lib/validation/zod";
 import { updateReview } from "@/lib/services/reviews/reviews";
+import { invalidatesPublicData } from "@/lib/cache/public-data";
 
 export const dynamic = "force-dynamic";
 
@@ -12,9 +13,11 @@ const patchSchema = z.object({
   text: z.string().max(2000).optional(),
 });
 
-export const PATCH = withErrors(async (req, ctx) => {
+const handlePatch = withErrors(async (req, ctx) => {
   const user = await requireRole("student");
   const data = await parseJson(req, patchSchema);
   const review = await updateReview((await ctx.params).id, data, user);
   return ok(review);
 });
+
+export const PATCH = invalidatesPublicData(handlePatch);

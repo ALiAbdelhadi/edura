@@ -5,7 +5,7 @@ import { CATALOG_CACHE_LIFE, CATALOG_CACHE_TAG } from "./catalog-cache";
 import { filterStudentSecondLanguage } from "./second-language";
 
 export async function getCatalogTree() {
-  "use cache";
+  "use cache: remote";
   cacheTag(CATALOG_CACHE_TAG);
   cacheLife(CATALOG_CACHE_LIFE);
   return platformDb(async (tx) => {
@@ -102,7 +102,7 @@ export function getSubjectsForSelection(gradeLevelId: string, trackId?: string |
 }
 
 export async function getAllActiveSubjects() {
-  "use cache";
+  "use cache: remote";
   cacheTag(CATALOG_CACHE_TAG);
   cacheLife(CATALOG_CACHE_LIFE);
   return platformDb(async (tx) => {
@@ -142,7 +142,7 @@ export async function getSecondLanguageOptions(gradeLevelId: string) {
 }
 
 export async function getSubjectsForGradeLevels(gradeLevelIds: string[]) {
-  "use cache";
+  "use cache: remote";
   cacheTag(CATALOG_CACHE_TAG);
   cacheLife(CATALOG_CACHE_LIFE);
   if (gradeLevelIds.length === 0) return [];

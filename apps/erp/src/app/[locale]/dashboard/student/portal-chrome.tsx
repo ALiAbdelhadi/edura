@@ -1,5 +1,3 @@
-"use client";
-
 import DashboardShell from "@/components/refine/dashboard-shell";
 import { ledgerMono, ledgerScope, ledgerShellScope } from "@/features/student/ledger";
 

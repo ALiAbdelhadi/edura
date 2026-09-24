@@ -9,6 +9,7 @@ import {
   removeExternalTeacher,
   updateExternalTeacher,
 } from "@/lib/services/external-teachers";
+import { invalidatesPublicData } from "@/lib/cache/public-data";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ const patchSchema = z
   })
   .partial();
 
-export const PATCH = withErrors(async (req, ctx) => {
+const handlePatch = withErrors(async (req, ctx) => {
   await requireRole("center_admin");
   const actor = await requireCenterActor();
   const { teacherId } = (await (ctx as Ctx).params);
@@ -45,10 +46,13 @@ export const PATCH = withErrors(async (req, ctx) => {
 
 const removeSchema = z.object({ reason: z.string().trim().min(3).max(500) });
 
-export const DELETE = withErrors(async (req, ctx) => {
+const handleDelete = withErrors(async (req, ctx) => {
   await requireRole("center_admin");
   const actor = await requireCenterActor();
   const { teacherId } = (await (ctx as Ctx).params);
   const { reason } = await parseJson(req, removeSchema);
   return ok(await removeExternalTeacher(actor, teacherId, reason));
 });
+
+export const PATCH = invalidatesPublicData(handlePatch);
+export const DELETE = invalidatesPublicData(handleDelete);

@@ -22,6 +22,7 @@ import { ChildNextLesson } from "@/features/parent/child-next-lesson";
 import { ChildTodayLine } from "@/features/parent/child-today-line";
 import { ChildSubscriptionAlert } from "@/features/parent/child-subscription-alert";
 import { Figure, Money, SkeletonRows } from "./ledger-kit";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 
 function RecordCard({
   href,
@@ -76,7 +77,7 @@ export function ParentDashboard() {
     filters: childId
       ? [{ field: "studentId", operator: "eq", value: childId }]
       : undefined,
-    queryOptions: { enabled: !!childId },
+    queryOptions: { ...QUERY_FRESHNESS.list, enabled: !!childId },
   });
 
   const { query: paymentsQuery, result: paymentsResult } = useList({

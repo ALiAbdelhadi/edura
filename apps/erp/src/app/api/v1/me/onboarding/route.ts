@@ -11,6 +11,7 @@ import {
   completeTeacherOnboarding,
   completeCenterOnboarding,
 } from "@/lib/services/catalog/onboarding";
+import { invalidatesPublicData } from "@/lib/cache/public-data";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ export const GET = withErrors(async () => {
 
 const draftSchema = z.object({ draft: z.record(z.string(), z.unknown()) });
 
-export const PATCH = withErrors(async (req) => {
+const handlePatch = withErrors(async (req) => {
   const user = await requireSession();
   const body = await parseJson(req, draftSchema);
   if (JSON.stringify(body.draft).length > 10_000) throw new ValidationError("Draft too large");
@@ -49,7 +50,7 @@ const centerSchema = z.object({
   stageIds: z.array(z.string().uuid()).min(1).max(50),
 });
 
-export const POST = withErrors(async (req) => {
+const handlePost = withErrors(async (req) => {
   const user = await requireSession();
   if (user.role === "student") {
     const body = await parseJson(req, studentSchema);
@@ -65,3 +66,6 @@ export const POST = withErrors(async (req) => {
   }
   throw new ValidationError("No onboarding flow for this role");
 });
+
+export const PATCH = invalidatesPublicData(handlePatch);
+export const POST = invalidatesPublicData(handlePost);
