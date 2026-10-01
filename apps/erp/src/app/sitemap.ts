@@ -21,12 +21,8 @@ function entry(path: string, priority: number): MetadataRoute.Sitemap[number] {
   };
 }
 
-// Public tenant pages: only handles whose owner passes the same status gate
-// the page itself applies, so the sitemap never advertises a 404.
 async function publicHandleEntries(): Promise<MetadataRoute.Sitemap> {
   try {
-    // Prerendered: no request to forward, and the read is anonymous as the
-    // cookie-less DB read was. Anything but a body (5xx, unreachable) throws.
     const { data } = await serviceGet<{ handle: string; updatedAt: string }[]>(
       "/api/v1/public/sitemap-handles",
       undefined,
@@ -38,8 +34,6 @@ async function publicHandleEntries(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(r.updatedAt),
     }));
   } catch {
-    // A sitemap must never take the site down with it; a build without the
-    // service simply lists the static pages.
     return [];
   }
 }
