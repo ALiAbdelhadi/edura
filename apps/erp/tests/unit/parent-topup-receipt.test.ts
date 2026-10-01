@@ -24,12 +24,12 @@ vi.mock("@repo/server-core/services/wallet/wallet", () => ({
   getWalletSettings: vi.fn(),
   assertTopupAllowed: vi.fn(),
 }));
-vi.mock("@/lib/services/payments/gateway", () => ({ resolveDriver: vi.fn() }));
-vi.mock("@/lib/services/finance/ref-numbers", () => ({ nextTxnRef: async () => "TXN-000123" }));
-vi.mock("@/lib/db/scope", () => ({ platformDb: vi.fn() }));
+vi.mock("@repo/server-core/services/payments/gateway/index", () => ({ resolveDriver: vi.fn() }));
+vi.mock("@repo/server-core/services/finance/ref-numbers", () => ({ nextTxnRef: async () => "TXN-000123" }));
+vi.mock("@repo/server-core/db/scope", () => ({ platformDb: vi.fn() }));
 
 const { settleParentWalletTopUpFromIntentTx } = await import(
-  "@/lib/services/wallet/parent-wallet"
+  "@repo/server-core/services/wallet/parent-wallet-facade"
 );
 
 const INTENT = {

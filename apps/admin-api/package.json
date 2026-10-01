@@ -1,0 +1,46 @@
+{
+  "name": "admin-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Edura back-office API service — long-running Bun + Hono process that serves everything under apps/superadmin's /api/** (auth, health, v1/admin, v1/finance, v1/me, v1/notifications, v1/search, v1/security). Built on @repo/service-kit like apps/api; business logic lives in @repo/server-core. Its better-auth instance, door, cookie prefix and 2FA are the back office's own — never the ERP's.",
+  "type": "module",
+  "exports": {
+    "./routes/*": "./src/routes/*.ts",
+    "./erp-revalidate": "./src/erp-revalidate.ts"
+  },
+  "scripts": {
+    "dev": "NODE_ENV=development EDURA_DEV_COOKIE_PORT=${SUPERADMIN_PORT:-3004} PORT=${ADMIN_API_PORT:-3007} bun --watch src/server.ts",
+    "start": "bun src/server.ts",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:parity": "vitest run --config vitest.parity.config.ts tests/parity/parity.test.ts",
+    "gen-routes": "bun scripts/gen-routes.ts",
+    "gen-routes:check": "bun scripts/gen-routes.ts --check"
+  },
+  "dependencies": {
+    "@repo/database": "workspace:*",
+    "@repo/notifications": "workspace:*",
+    "@repo/observability": "workspace:*",
+    "@repo/server-core": "workspace:*",
+    "@repo/service-kit": "workspace:*",
+    "@repo/shared": "workspace:*",
+    "@sentry/node": "10.71.0",
+    "better-auth": "1.6.25",
+    "hono": "4.13.11",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@types/bun": "^1.3.14",
+    "@types/node": "26.1.1",
+    "eslint": "9.39.5",
+    "typescript": "7.0.2",
+    "vitest": "^4.1.10"
+  },
+  "engines": {
+    "bun": ">=1.4.0"
+  }
+}

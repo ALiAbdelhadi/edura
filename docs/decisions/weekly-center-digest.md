@@ -3,7 +3,7 @@
 An owner's Monday email: last week's revenue, expenses, net, attendance,
 lesson count and pending gaps. Template in `packages/notifications`
 (`weekly-digest.tsx`), job `runWeeklyCenterDigest` in
-`apps/www/src/lib/services/cron/jobs.ts`, cron case `weekly-center-digest`.
+`packages/server-core/src/services/cron/jobs.ts`, cron case `weekly-center-digest`.
 
 1. **ONE CALL FOR THE FIGURES.** Everything in the email comes from
    `getNetProfitReport` — the same service the reports screen and the CSV
@@ -57,7 +57,7 @@ being scheduled.
 
 **No database migration, no schema change.**
 
-Proof: `apps/www/tests/db/weekly-digest.test.ts` **42/42** (live DB, real job,
+Proof: `apps/erp/tests/db/weekly-digest.test.ts` **42/42** (live DB, real job,
 real reports) — the finished-week window; the digest's figures equalling
 `getNetProfitReport` for the same range; the second run of the same week
 writing to the owner ZERO further times and adding no second audit row; a

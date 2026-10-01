@@ -1156,6 +1156,7 @@ model Session {
   @@index([courseId, date])
   @@index([teacherId, date])
   @@index([roomId, date])
+  @@index([date, startTime], map: "sessions_date_start_time_idx")
   @@map("sessions")
 }
 
@@ -1226,6 +1227,9 @@ model AttendanceRecord {
   @@index([studentId])
   @@index([courseId])
   @@index([centerId])
+  @@index([studentId, createdAt(sort: Desc)], map: "attendance_records_student_created_idx")
+  @@index([centerId, status], map: "attendance_records_center_status_idx")
+  @@index([courseId, status], map: "attendance_records_course_status_idx")
   @@map("attendance_records")
 }
 
@@ -1246,6 +1250,7 @@ model Grade {
 
   @@index([courseId])
   @@index([centerId])
+  @@index([teacherId, date(sort: Desc)], map: "grades_teacher_date_idx")
   @@map("grades")
 }
 
@@ -1338,6 +1343,7 @@ model Payment {
   @@index([centerId, paidAt(sort: Desc)])
   @@index([studentId, paidAt(sort: Desc)])
   @@index([payerUserId])
+  @@index([courseId, paidAt(sort: Desc)], map: "payments_course_paid_idx")
   @@map("payments")
 }
 
@@ -1499,6 +1505,8 @@ model Notification {
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([read])
+  @@index([type, createdAt(sort: Desc)], map: "notifications_type_created_idx")
+  @@index([userId, readAt], map: "notifications_user_read_at_idx")
   @@map("notifications")
 }
 
@@ -1564,6 +1572,7 @@ model AuditLog {
   @@index([targetType, targetId])
   @@index([centerId])
   @@index([createdAt(sort: Desc)])
+  @@index([centerId, createdAt(sort: Desc)], map: "audit_logs_center_created_idx")
   @@map("audit_logs")
 }
 
@@ -2198,6 +2207,7 @@ model WalletLedger {
 
   @@index([studentId])
   @@index([studentId, createdAt(sort: Desc)])
+  @@index([paymentId], map: "wallet_ledger_payment_idx")
   @@map("wallet_ledger")
 }
 
@@ -2239,6 +2249,7 @@ model ParentWalletLedger {
   @@index([parentId])
   @@index([parentId, createdAt(sort: Desc)])
   @@index([beneficiaryStudentId])
+  @@index([paymentId], map: "parent_wallet_ledger_payment_idx")
   @@map("parent_wallet_ledger")
 }
 
@@ -2308,6 +2319,8 @@ model Subscription {
   @@index([teacherId, status])
   @@index([status, periodEnd])
   @@index([sessionId])
+  @@index([centerId, createdAt(sort: Desc)], map: "subs_center_created_idx")
+  @@index([paymentId], map: "subs_payment_idx")
   @@map("subscriptions")
 }
 

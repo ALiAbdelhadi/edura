@@ -1,7 +1,6 @@
 import { ReceiptSheet } from "@/features/receipts/receipt-sheet";
-import { getSessionUser } from "@/lib/auth/session";
-import { AppError } from "@/lib/errors/classes";
-import { buildReceiptDocument } from "@repo/server-core/services/payments/receipt-document";
+import { serviceGet } from "@/lib/server/service-fetch";
+import type { ReceiptDocument } from "@repo/server-core/services/payments/receipt-document";
 import type { Locale } from "@repo/ui/lib/format";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
@@ -13,6 +12,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+type ReceiptWire = Omit<ReceiptDocument, "paidAt"> & { paidAt: string };
+
 export default async function ReceiptPage({
   params,
   searchParams,
@@ -23,20 +24,19 @@ export default async function ReceiptPage({
   const { locale, paymentId } = await params;
   const { print } = await searchParams;
 
-  const user = await getSessionUser();
-  if (!user) {
+  // One read: the route's 401 is the signed-out visitor (login redirect), any
+  // other 4xx is the AppError the page used to turn into notFound().
+  const res = await serviceGet<ReceiptWire>(
+    `/api/v1/payments/${encodeURIComponent(paymentId)}/receipt-document`,
+  );
+  if (res.status === 401) {
     redirect(`/${locale}/login?next=/${locale}/receipts/${paymentId}`);
   }
+  if (!res.data) notFound();
 
   const t = await getTranslations({ locale: locale as "ar" | "en", namespace: "receipt" });
 
-  let doc;
-  try {
-    doc = await buildReceiptDocument(paymentId, user);
-  } catch (err) {
-    if (err instanceof AppError) notFound();
-    throw err;
-  }
+  let doc: ReceiptDocument = { ...res.data, paidAt: new Date(res.data.paidAt) };
 
   const methodLabels: Record<string, string> = {
     cash: t("noteMethodCash"),

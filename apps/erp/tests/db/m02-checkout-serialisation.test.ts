@@ -9,7 +9,7 @@
 //   [4] an abandoned intent (expired) frees the door too — it is not a lockout.
 import { withPlatformContext } from "@repo/database";
 import { createSubscriptionCheckout, cancelPendingSubscription } from "@repo/server-core/services/subscriptions/subscriptions";
-import { initiateSubscriptionIntent } from "@/lib/services/payments/payment-intents";
+import { initiateSubscriptionIntent } from "@repo/server-core/services/payments/payment-intents";
 import type { SessionUser } from "@repo/server-core/auth/types";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

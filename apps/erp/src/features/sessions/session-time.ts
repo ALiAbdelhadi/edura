@@ -1,4 +1,4 @@
-import { platformInstant, shiftDayKey, todayKey } from "@repo/server-core/lib/date-key";
+import { platformInstant, shiftDayKey, todayKey } from "@repo/shared/date-key";
 
 export type TimedSession = {
   date: string | Date;

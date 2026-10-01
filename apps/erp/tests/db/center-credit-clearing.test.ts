@@ -2,7 +2,7 @@ import { withPlatformContext } from "@repo/database";
 import { completeSession } from "@repo/server-core/services/finance/distribution";
 import { bulkMarkAttendance } from "@repo/server-core/services/attendance/attendance";
 import { topUpWalletCash } from "@repo/server-core/services/wallet/cash-topup";
-import { settleCenterCreditTopUpFromIntentTx } from "@/lib/services/wallet/center-credit-topup";
+import { settleCenterCreditTopUpFromIntentTx } from "@repo/server-core/services/wallet/center-credit-topup";
 import type { SessionUser } from "@repo/server-core/auth/types";
 
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";

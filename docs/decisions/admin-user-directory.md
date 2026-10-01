@@ -2,7 +2,7 @@
 
 The cross-role user surface roadmap decision #10 called for and that was never
 built. `apps/superadmin` ONLY (`/dashboard/superadmin/users`), super_admin only.
-Service: `apps/superadmin/src/lib/services/admin/admin-users.ts`.
+Service: `packages/server-core/src/backoffice/admin/admin-users.ts`.
 
 1. **ONE SUSPENSION MECHANISM (binding).** better-auth's admin plugin ships
    `banned` / `ban_reason` / `ban_expires` columns and its own ban endpoints.
@@ -39,7 +39,7 @@ Service: `apps/superadmin/src/lib/services/admin/admin-users.ts`.
    center-oversight).
 5. **Shared-kernel move (pure, with a shim):** password reset moved to
    `@repo/server-core/services/auth/password-reset` so the back office triggers
-   the SAME implementation; `apps/www/src/lib/services/auth/password-reset.ts`
+   the SAME implementation; `packages/server-core/src/services/auth/password-reset.ts`
    re-exports it, so every www import path and behaviour is unchanged (proven by
    mail-password-reset 15/15). The one addition is an optional `linkBaseUrl`.
    **Known limitation, stated honestly:** the reset PAGE lives in apps/www and is

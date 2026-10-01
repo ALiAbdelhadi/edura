@@ -5,7 +5,7 @@ import {
   normalizeHandle,
   suggestHandle,
   RESERVED_HANDLES,
-} from "@/lib/services/public-handles/handle-rules";
+} from "@repo/shared/handle-rules";
 import { handleFromHost, publicProfileUrl, publicRootDomain } from "@/lib/public-site/host";
 
 describe("handle rules — one namespace, one shape", () => {

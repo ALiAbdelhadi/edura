@@ -1,7 +1,7 @@
 import { withPlatformContext } from "@repo/database";
-import { getTeacherWalletTransactions } from "@/lib/services/finance/teacher-wallet";
+import { getTeacherWalletTransactions } from "@repo/server-core/services/finance/teacher-wallet";
 import { getTeacherDashboard } from "@repo/server-core/services/reports/reports";
-import type { SessionUser } from "@/lib/auth/session";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
 
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

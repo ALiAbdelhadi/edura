@@ -3,8 +3,8 @@ import bcrypt from "bcryptjs";
 import { createHash, randomBytes } from "node:crypto";
 import { prisma, withPlatformContext } from "@repo/database";
 import { WWW_LOGIN_ROLES, SUPERADMIN_LOGIN_ROLES } from "@repo/server-core/auth/login-policy";
-import { resolveCenterActorContext } from "@/lib/authz/center-actor";
-import { __resetRateLimiterForTests } from "@/lib/rate-limit/token-bucket";
+import { resolveCenterActorContext } from "@repo/server-core/authz/center-actor";
+import { __resetRateLimiterForTests } from "@repo/server-core/rate-limit/token-bucket";
 import { claimDoor, freshIp, sessionFor, signInDoor } from "./helpers/auth-door";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

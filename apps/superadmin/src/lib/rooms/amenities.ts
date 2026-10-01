@@ -4,4 +4,4 @@ export {
   amenityLabel,
   orderAmenities,
   type AmenityKey,
-} from "@repo/database/room-amenities";
+} from "@repo/shared/room-amenities";

@@ -2,8 +2,8 @@ import { withPlatformContext } from "@repo/database";
 import { recordPayment, listPayments } from "@repo/server-core/services/payments/payments";
 import { topUpWalletCash } from "@repo/server-core/services/wallet/cash-topup";
 import { createWalkInSubscription } from "@repo/server-core/services/subscriptions/subscriptions";
-import { settleWalletTopUpFromIntentTx } from "@/lib/services/wallet/wallet";
-import type { SessionUser } from "@/lib/auth/session";
+import { settleWalletTopUpFromIntentTx } from "@repo/server-core/services/wallet/wallet-facade";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
 
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

@@ -2,7 +2,12 @@ import type { TenantTx } from "../client";
 import type { Role } from "../generated/client/index";
 import { ChatError } from "./chat-scope";
 import { toMessageView, otherParticipantId, type MessageView } from "./chat";
-import { ADULT_ROLES, isAdultRole, isMinorStudent } from "./chat-minors";
+import {
+  ADULT_ROLES,
+  isAdultRole,
+  isMinorStudent,
+  minorStudentIds,
+} from "./chat-minors";
 
 export type OversightConversation = {
   id: string;
@@ -60,15 +65,52 @@ export async function listOversightChildren(
   });
   const nameById = new Map(users.map((u) => [u.id, u.name]));
 
-  const out: OversightChild[] = [];
-  for (const studentId of ids) {
-    const minor = await isMinorStudent(db, studentId);
-    out.push({
+  const minors = await minorStudentIds(db, ids);
+  const counts = await countAdultConversationsByStudent(db, [...minors]);
+  return ids.map((studentId) => {
+    const minor = minors.has(studentId);
+    return {
       studentId,
       name: nameById.get(studentId) ?? null,
       isMinor: minor,
-      conversationCount: minor ? await countAdultConversations(db, studentId) : 0,
-    });
+      conversationCount: minor ? (counts.get(studentId) ?? 0) : 0,
+    };
+  });
+}
+
+async function countAdultConversationsByStudent(
+  db: TenantTx,
+  studentIds: string[],
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (!studentIds.length) return out;
+  const convs = await db.conversation.findMany({
+    where: {
+      OR: [{ userAId: { in: studentIds } }, { userBId: { in: studentIds } }],
+    },
+    select: { userAId: true, userBId: true },
+  });
+  const partnerIds = new Set<string>();
+  for (const c of convs) {
+    partnerIds.add(c.userAId);
+    partnerIds.add(c.userBId);
+  }
+  const adults = new Set(
+    (
+      await db.user.findMany({
+        where: { id: { in: [...partnerIds] }, role: { in: [...ADULT_ROLES] } },
+        select: { id: true },
+      })
+    ).map((a) => a.id),
+  );
+  const wanted = new Set(studentIds);
+  for (const c of convs) {
+    if (wanted.has(c.userAId) && adults.has(c.userBId)) {
+      out.set(c.userAId, (out.get(c.userAId) ?? 0) + 1);
+    }
+    if (wanted.has(c.userBId) && adults.has(c.userAId)) {
+      out.set(c.userBId, (out.get(c.userBId) ?? 0) + 1);
+    }
   }
   return out;
 }
@@ -88,22 +130,6 @@ async function adultPartnerIds(db: TenantTx, studentId: string): Promise<Set<str
     select: { id: true },
   });
   return new Set(adults.map((a) => a.id));
-}
-
-async function countAdultConversations(
-  db: TenantTx,
-  studentId: string,
-): Promise<number> {
-  const adults = await adultPartnerIds(db, studentId);
-  if (!adults.size) return 0;
-  return db.conversation.count({
-    where: {
-      OR: [
-        { userAId: studentId, userBId: { in: [...adults] } },
-        { userBId: studentId, userAId: { in: [...adults] } },
-      ],
-    },
-  });
 }
 
 export async function listChildConversations(

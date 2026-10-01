@@ -7,7 +7,7 @@ import { toast } from "@repo/ui/components/sonner";
 import { Spinner } from "@/components/kit/spinner";
 import { api } from "@/lib/api/client";
 import { useRouter } from "@/i18n/navigation";
-import { filterStudentSecondLanguage } from "@/lib/services/catalog/second-language";
+import { filterStudentSecondLanguage } from "@repo/shared/second-language";
 import {
   OptionCard,
   WizardActions,

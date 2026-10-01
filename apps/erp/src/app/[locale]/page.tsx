@@ -1,5 +1,5 @@
-import { getSessionUser } from "@/lib/auth/session";
 import { marketingSiteUrl } from "@/lib/marketing-site";
+import { ssrSession } from "@/lib/server/ssr-session";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,7 @@ export default async function RootPage({
 }) {
   const { locale } = await params;
 
-  const user = await getSessionUser();
+  const { user } = await ssrSession();
   if (user) redirect(`/${locale}/dashboard`);
 
   const marketing = marketingSiteUrl();

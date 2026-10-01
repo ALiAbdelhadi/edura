@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useCustom, useList } from "@refinedev/core";
 import { Link } from "@/i18n/navigation";
 import {
@@ -29,7 +29,7 @@ import {
   platformDayKey,
   shiftDayKey,
   todayKey,
-} from "@repo/server-core/lib/date-key";
+} from "@repo/shared/date-key";
 
 type SessionRow = {
   id?: string;
@@ -57,26 +57,6 @@ const CAIRO_HM = new Intl.DateTimeFormat("en-GB", {
 
 const sessionId = (s: SessionRow) => s.id || "";
 const dayKeyOf = (s: SessionRow) => platformDayKey(String(s.date));
-
-function CounterOnlyProbe({
-  id,
-  onCount,
-}: {
-  id: string;
-  onCount: (id: string, n: number) => void;
-}) {
-  const { result } = useCustom<{ records?: { status: string }[] }>({
-    url: `sessions/${id}/attendance`,
-    method: "get",
-    queryOptions: { enabled: !!id },
-  });
-  const records = (result?.data as any)?.records ?? [];
-  const n = records.filter((r: any) => r.status === "counter_only").length;
-  useEffect(() => {
-    onCount(id, n);
-  }, [id, n, onCount]);
-  return null;
-}
 
 export function TeacherDashboard() {
   const t = useTranslations();
@@ -110,11 +90,6 @@ export function TeacherDashboard() {
     balance: number;
     available: number;
   }>({ url: "teacher/wallet", method: "get" });
-
-  const [counterOnly, setCounterOnly] = useState<Record<string, number>>({});
-  const reportCounterOnly = useCallback((id: string, n: number) => {
-    setCounterOnly((prev) => (prev[id] === n ? prev : { ...prev, [id]: n }));
-  }, []);
 
   const placeOf = useMemo(() => {
     const centerNames = new Map<string, string>();
@@ -178,11 +153,6 @@ export function TeacherDashboard() {
     [liveSessions, today],
   );
 
-  const counterOnlyTotal = useMemo(
-    () => Object.values(counterOnly).reduce((a, b) => a + b, 0),
-    [counterOnly],
-  );
-
   const payload = asRecord<any>(result?.data);
   const data = payload ?? {};
 
@@ -201,6 +171,7 @@ export function TeacherDashboard() {
   }
 
   const wallet = walletResult?.data;
+  const counterOnlyTotal = typeof data.counterOnlyToday === "number" ? data.counterOnlyToday : 0;
 
   const heroPlace = nextSession
     ? [nextSession.roomName, placeOf.get(nextSession.courseId)]
@@ -217,14 +188,6 @@ export function TeacherDashboard() {
         open={tour.shouldOpen}
         onClose={tour.markDone}
       />
-
-      {todaySessions.map((s) => (
-        <CounterOnlyProbe
-          key={sessionId(s)}
-          id={sessionId(s)}
-          onCount={reportCounterOnly}
-        />
-      ))}
 
       <Card data-tour="teacher-next">
         <CardContent className="space-y-3">

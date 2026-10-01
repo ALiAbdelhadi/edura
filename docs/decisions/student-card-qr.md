@@ -257,7 +257,7 @@ of its height, both of which read as clutter rather than as a plate.
    save a query — it moves it behind an extra round-trip and a click, and the
    screen reads as broken while the reader hunts for what to press. The test:
    *if a reader would be confused to arrive and NOT see it, it loads eagerly.*
-2. **TWO TRIGGERS, ONE RULE** (`apps/www/src/lib/api/use-on-demand.ts`).
+2. **TWO TRIGGERS, ONE RULE** (`apps/erp/src/lib/api/use-on-demand.ts`).
    `useOnDemand` is the click — for a discrete thing you go and get (a card, an
    export history, a filter's option list). `useVisibilityTrigger` is the
    scroll — for a chart three sections down on a page the reader DID ask for.

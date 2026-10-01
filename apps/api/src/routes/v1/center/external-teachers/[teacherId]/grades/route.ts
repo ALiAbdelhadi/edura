@@ -1,0 +1,31 @@
+import { z } from "zod";
+import { centerStaff, RECEPTION } from "@repo/server-core/authz/center-actor";
+import { ok } from "@repo/server-core/http/envelope";
+import { parseJson } from "@repo/server-core/validation/zod";
+import { createManualGrade, listManualGrades } from "@repo/server-core/services/external-teachers/index";
+
+export const GET = centerStaff(
+  async (req, ctx, { acting }) => {
+    const { teacherId } = (await ctx.params) as { teacherId: string };
+    const courseId = new URL(req.url).searchParams.get("courseId");
+    return ok(await listManualGrades(acting, teacherId, { courseId }));
+  },
+  { allow: RECEPTION },
+);
+
+const createSchema = z.object({
+  courseId: z.uuid(),
+  name: z.string().trim().min(1).max(120),
+  gradeType: z.enum(["numeric", "letter"]).optional(),
+  maxScore: z.number().positive(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+export const POST = centerStaff(
+  async (req, ctx, actor) => {
+    const { teacherId } = (await ctx.params) as { teacherId: string };
+    const data = await parseJson(req, createSchema);
+    return ok(await createManualGrade(actor, teacherId, data), { status: 201 });
+  },
+  { allow: RECEPTION },
+);

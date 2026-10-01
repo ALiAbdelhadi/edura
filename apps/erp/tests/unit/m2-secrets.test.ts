@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { requireDedicatedSecret } from "@/lib/config/secrets";
+import { requireDedicatedSecret } from "@repo/server-core/config/secrets";
 
 afterEach(() => vi.unstubAllEnvs());
 

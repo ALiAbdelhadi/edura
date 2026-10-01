@@ -1,6 +1,10 @@
+// In development the cookie name carries the dev server's port so parallel dev
+// servers cannot share a jar. The cookie belongs to the frontend origin, not to
+// the port a process listens on: apps/api runs on its own PORT yet reads and
+// sets the ERP's cookie, so it names the ERP's port in EDURA_DEV_COOKIE_PORT.
 export function devScopedCookiePrefix(base: string): string {
   if (process.env.NODE_ENV !== "development") return base;
-  const port = process.env.PORT?.trim();
+  const port = process.env.EDURA_DEV_COOKIE_PORT?.trim() || process.env.PORT?.trim();
   if (!port || !/^\d{2,5}$/.test(port)) return base;
   return `${base}-${port}`;
 }

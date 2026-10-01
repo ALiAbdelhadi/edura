@@ -9,7 +9,8 @@ import { useQueryStrings } from "@repo/ui/components/query-section";
 import { useOnDemand } from "@/lib/api/use-on-demand";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useCustom } from "@refinedev/core";
-import { todayKey } from "@repo/server-core/lib/date-key";
+import { QUERY_FRESHNESS } from "@/lib/refine";
+import { todayKey } from "@repo/shared/date-key";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { ChevronDown, ChevronRight, Lock, ScrollText } from "lucide-react";
@@ -74,7 +75,7 @@ export function AdminAuditScreen() {
   if (from) query.from = from;
   if (to) query.to = to;
 
-  const req = useCustom({ url: "center/audit-logs", method: "get", config: { query } });
+  const req = useCustom({ url: "center/audit-logs", method: "get", config: { query }, queryOptions: QUERY_FRESHNESS.list });
   const optionsReq = useOnDemand<Options>("center/audit-logs/actors");
 
   const result = req.result?.data as { data: Row[]; total: number } | undefined;

@@ -169,39 +169,59 @@ type EdgeCtx = {
   narrowTo?: string;
   search?: string;
   limit: number;
+  memo?: Map<string, Promise<string[]>>;
 };
 
 const uniq = (xs: string[]) => [...new Set(xs)];
+
+function memoReach(
+  ctx: EdgeCtx,
+  key: string,
+  fn: () => Promise<string[]>,
+): Promise<string[]> {
+  if (ctx.narrowTo || !ctx.memo) return fn();
+  let hit = ctx.memo.get(key);
+  if (!hit) {
+    hit = fn();
+    ctx.memo.set(key, hit);
+  }
+  return hit;
+}
+
 const cap = (ctx: EdgeCtx) => (ctx.narrowTo ? 1 : ROSTER_CAP);
 const narrow = <K extends string>(ctx: EdgeCtx, key: K) =>
   (ctx.narrowTo ? { [key]: ctx.narrowTo } : {}) as Record<K, string> | object;
 
 async function studentsOfTeachers(ctx: EdgeCtx, teacherIds: string[]) {
   if (!teacherIds.length) return [];
-  const rows = await ctx.db.enrollment.findMany({
-    where: {
-      status: "active",
-      course: { teacherId: { in: teacherIds } },
-      ...narrow(ctx, "studentId"),
-    },
-    select: { studentId: true },
-    take: cap(ctx),
+  return memoReach(ctx, `studentsOfTeachers:${teacherIds.join(",")}`, async () => {
+    const rows = await ctx.db.enrollment.findMany({
+      where: {
+        status: "active",
+        course: { teacherId: { in: teacherIds } },
+        ...narrow(ctx, "studentId"),
+      },
+      select: { studentId: true },
+      take: cap(ctx),
+    });
+    return uniq(rows.map((r) => r.studentId));
   });
-  return uniq(rows.map((r) => r.studentId));
 }
 
 async function teachersOfStudents(ctx: EdgeCtx, studentIds: string[]) {
   if (!studentIds.length) return [];
-  const rows = await ctx.db.enrollment.findMany({
-    where: {
-      studentId: { in: studentIds },
-      status: "active",
-      ...(ctx.narrowTo ? { course: { teacherId: ctx.narrowTo } } : {}),
-    },
-    select: { course: { select: { teacherId: true } } },
-    take: cap(ctx),
+  return memoReach(ctx, `teachersOfStudents:${studentIds.join(",")}`, async () => {
+    const rows = await ctx.db.enrollment.findMany({
+      where: {
+        studentId: { in: studentIds },
+        status: "active",
+        ...(ctx.narrowTo ? { course: { teacherId: ctx.narrowTo } } : {}),
+      },
+      select: { course: { select: { teacherId: true } } },
+      take: cap(ctx),
+    });
+    return uniq(rows.map((r) => r.course.teacherId));
   });
-  return uniq(rows.map((r) => r.course.teacherId));
 }
 
 async function assistantsOfTeachers(ctx: EdgeCtx, teacherIds: string[]) {
@@ -234,59 +254,67 @@ async function parentsOfStudents(ctx: EdgeCtx, studentIds: string[]) {
 
 async function centersOfStudents(ctx: EdgeCtx, studentIds: string[]) {
   if (!studentIds.length) return [];
-  const [enrolled, roster] = await Promise.all([
-    ctx.db.enrollment.findMany({
-      where: { studentId: { in: studentIds }, status: "active", centerId: { not: null } },
-      select: { centerId: true },
-      take: ROSTER_CAP,
-    }),
-    ctx.db.centerStudentRoster.findMany({
-      where: { studentId: { in: studentIds }, leftAt: null },
-      select: { centerId: true },
-      take: ROSTER_CAP,
-    }),
-  ]);
-  return uniq([
-    ...enrolled.map((e) => e.centerId).filter((id): id is string => !!id),
-    ...roster.map((r) => r.centerId),
-  ]);
+  return memoReach(ctx, `centersOfStudents:${studentIds.join(",")}`, async () => {
+    const [enrolled, roster] = await Promise.all([
+      ctx.db.enrollment.findMany({
+        where: { studentId: { in: studentIds }, status: "active", centerId: { not: null } },
+        select: { centerId: true },
+        take: ROSTER_CAP,
+      }),
+      ctx.db.centerStudentRoster.findMany({
+        where: { studentId: { in: studentIds }, leftAt: null },
+        select: { centerId: true },
+        take: ROSTER_CAP,
+      }),
+    ]);
+    return uniq([
+      ...enrolled.map((e) => e.centerId).filter((id): id is string => !!id),
+      ...roster.map((r) => r.centerId),
+    ]);
+  });
 }
 
 async function studentsOfCenter(ctx: EdgeCtx, centerId: string | null) {
   if (!centerId) return [];
-  const [enrolled, roster] = await Promise.all([
-    ctx.db.enrollment.findMany({
-      where: { centerId, status: "active", ...narrow(ctx, "studentId") },
-      select: { studentId: true },
-      take: cap(ctx),
-    }),
-    ctx.db.centerStudentRoster.findMany({
-      where: { centerId, leftAt: null, ...narrow(ctx, "studentId") },
-      select: { studentId: true },
-      take: cap(ctx),
-    }),
-  ]);
-  return uniq([...enrolled.map((e) => e.studentId), ...roster.map((r) => r.studentId)]);
+  return memoReach(ctx, `studentsOfCenter:${centerId}`, async () => {
+    const [enrolled, roster] = await Promise.all([
+      ctx.db.enrollment.findMany({
+        where: { centerId, status: "active", ...narrow(ctx, "studentId") },
+        select: { studentId: true },
+        take: cap(ctx),
+      }),
+      ctx.db.centerStudentRoster.findMany({
+        where: { centerId, leftAt: null, ...narrow(ctx, "studentId") },
+        select: { studentId: true },
+        take: cap(ctx),
+      }),
+    ]);
+    return uniq([...enrolled.map((e) => e.studentId), ...roster.map((r) => r.studentId)]);
+  });
 }
 
 async function teachersOfCenter(ctx: EdgeCtx, centerId: string | null) {
   if (!centerId) return [];
-  const rows = await ctx.db.centerTeacherAffiliation.findMany({
-    where: { centerId, status: "active", ...narrow(ctx, "teacherId") },
-    select: { teacherId: true },
-    take: cap(ctx),
+  return memoReach(ctx, `teachersOfCenter:${centerId}`, async () => {
+    const rows = await ctx.db.centerTeacherAffiliation.findMany({
+      where: { centerId, status: "active", ...narrow(ctx, "teacherId") },
+      select: { teacherId: true },
+      take: cap(ctx),
+    });
+    return uniq(rows.map((r) => r.teacherId));
   });
-  return uniq(rows.map((r) => r.teacherId));
 }
 
 async function centersOfTeachers(ctx: EdgeCtx, teacherIds: string[]) {
   if (!teacherIds.length) return [];
-  const rows = await ctx.db.centerTeacherAffiliation.findMany({
-    where: { teacherId: { in: teacherIds }, status: "active" },
-    select: { centerId: true },
-    take: ROSTER_CAP,
+  return memoReach(ctx, `centersOfTeachers:${teacherIds.join(",")}`, async () => {
+    const rows = await ctx.db.centerTeacherAffiliation.findMany({
+      where: { teacherId: { in: teacherIds }, status: "active" },
+      select: { centerId: true },
+      take: ROSTER_CAP,
+    });
+    return uniq(rows.map((r) => r.centerId));
   });
-  return uniq(rows.map((r) => r.centerId));
 }
 
 async function adminsOfCenters(ctx: EdgeCtx, centerIds: string[]) {
@@ -829,6 +857,7 @@ export async function listContacts(
     self,
     search: opts.search?.trim() || undefined,
     limit,
+    memo: new Map(),
   };
 
   const contacts: ContactView[] = [];

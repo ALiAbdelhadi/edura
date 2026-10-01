@@ -37,7 +37,7 @@ import { PageHeader } from "@/components/kit/page-header";
 import { Spinner } from "@/components/kit/spinner";
 import { asKey } from "@/lib/i18n/keys";
 import { useFormatters } from "@/lib/i18n/use-formatters";
-import { Figure, SectionHead, SkeletonRows } from "./ledger-kit";
+import { Figure, SectionHead, SkeletonRows } from "@repo/ui/components/ledger";
 import { LoadError } from "@repo/ui/components/ledger";
 import { useQueryStrings } from "@repo/ui/components/query-section";
 import { QUERY_FRESHNESS } from "@/lib/refine";
@@ -102,7 +102,6 @@ export function ParentLinkingScreen() {
         onSuccess: () => {
           toast.success(t("parentLinking.linkedSuccess"));
           codeForm.reset({ code: "" });
-          linksQuery.refetch();
         },
         onError: (err: any) =>
           toast.error(err?.message || t("parentLinking.failedLink")),
@@ -118,7 +117,6 @@ export function ParentLinkingScreen() {
         onSuccess: () => {
           toast.success(t("parentLinking.linkRequestSent"));
           lookupForm.reset({ email: "" });
-          linksQuery.refetch();
         },
         onError: (err: any) =>
           toast.error(err?.message || t("parentLinking.failedSendRequest")),
@@ -160,7 +158,6 @@ export function ParentLinkingScreen() {
       {
         onSuccess: () => {
           toast.success(t("parentLinking.linkRevoked"));
-          linksQuery.refetch();
         },
         onError: (err: any) =>
           toast.error(err?.message || t("parentLinking.failedRevoke")),

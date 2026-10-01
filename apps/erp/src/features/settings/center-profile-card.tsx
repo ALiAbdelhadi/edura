@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useCustom, useCustomMutation } from "@refinedev/core";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 import { Building2, Save } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@repo/ui/components/button";
@@ -36,7 +37,7 @@ const TEXT_FIELDS: { key: Field; label: string; dir?: "ltr" }[] = [
 export function CenterProfileCard() {
   const t = useTranslations();
   const locale = useLocale();
-  const { query, result } = useCustom({ url: "centers/me", method: "get" });
+  const { query, result } = useCustom({ url: "centers/me", method: "get", queryOptions: QUERY_FRESHNESS.list });
   const { mutateAsync: save } = useCustomMutation();
 
   const [form, setForm] = useState<CenterProfile | null>(null);

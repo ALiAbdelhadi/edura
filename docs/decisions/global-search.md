@@ -110,7 +110,7 @@ unchanged by this work).
 
 `apps/superadmin`'s palette now finds records as well: any person on the
 platform, any center, any online payment attempt. Service
-`apps/superadmin/src/lib/services/admin/global-search.ts`, route
+`packages/server-core/src/backoffice/admin/global-search.ts`, route
 `GET /api/v1/search`, wired through the same `AppShell` `search` prop.
 
 1. **A SECOND IMPLEMENTATION, ONE CONTRACT — and that split is the decision.**

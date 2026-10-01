@@ -5,7 +5,7 @@ import {
   listCounterSessions,
   listCounterTeachers,
 } from "@repo/server-core/services/attendance/counter";
-import type { SessionUser } from "@/lib/auth/session";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const admin = testPool();

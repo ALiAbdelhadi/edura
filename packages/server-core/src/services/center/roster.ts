@@ -471,24 +471,39 @@ export async function listRosterTeachers(
       : [];
     const systemStatusById = new Map(profiles.map((p) => [p.userId, p.systemStatus]));
 
+    const [activeCourses, reviewGroups] = teacherIds.length
+      ? await Promise.all([
+          tx.course.findMany({
+            where: { teacherId: { in: teacherIds }, status: "active" },
+            select: { teacherId: true, subject: true },
+          }),
+          tx.review.groupBy({
+            by: ["teacherId"],
+            where: { teacherId: { in: teacherIds } },
+            _avg: { rating: true },
+            _count: { _all: true },
+          }),
+        ])
+      : [[], []];
+    const coursesByTeacher = new Map<string, { subject: string }[]>();
+    for (const c of activeCourses) {
+      const list = coursesByTeacher.get(c.teacherId) ?? [];
+      list.push(c);
+      coursesByTeacher.set(c.teacherId, list);
+    }
+    const reviewsByTeacher = new Map(reviewGroups.map((r) => [r.teacherId, r]));
+
     const items = [];
     for (const a of affiliations) {
       const t = teacherMap.get(a.teacherId);
-      const teacherCourses = await tx.course.findMany({
-        where: { teacherId: a.teacherId, status: "active" },
-        select: { subject: true },
-      });
+      const teacherCourses = coursesByTeacher.get(a.teacherId) ?? [];
       const coursesCount = teacherCourses.length;
       const subjects = [...new Set(teacherCourses.map((c) => c.subject).filter(Boolean))];
 
-      const reviewStats = await tx.review.aggregate({
-        where: { teacherId: a.teacherId },
-        _avg: { rating: true },
-        _count: true,
-      });
-      const avg = reviewStats._avg.rating;
+      const reviewStats = reviewsByTeacher.get(a.teacherId);
+      const avg = reviewStats?._avg.rating;
       const rating = avg ? Math.round(avg * 10) / 10 : 0;
-      const reviewsCount = reviewStats._count ?? 0;
+      const reviewsCount = reviewStats?._count._all ?? 0;
 
       items.push({
         id: a.teacherId,

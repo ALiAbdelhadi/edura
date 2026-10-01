@@ -9,7 +9,7 @@ funded a child's lesson or subscription, the refund credits the **parent's**
 wallet; in every other case it credits the **student's**.
 
 This is a deliberate divergence from `refundLessonForStudent`
-(`apps/superadmin/src/lib/services/finance/refunds.ts`), which credited
+(`packages/server-core/src/backoffice/finance/refunds.ts`), which credited
 `studentId` unconditionally. That service now uses this rule too, so there is
 exactly one definition of whose wallet is owed — not two.
 

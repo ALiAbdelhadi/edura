@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeLessonSplit, computeTeacherDirectSplit } from "@/lib/services/finance/fees";
+import { computeLessonSplit, computeTeacherDirectSplit } from "@repo/server-core/services/finance/fees";
 
 const DEFAULT_FEES = { platformTeacherFee: 200, platformCenterFee: 200 };
 

@@ -1,8 +1,8 @@
 import { HELP_ARTICLES } from "@/features/marketing/help/articles";
 import { MARKETING_LINKS } from "@/features/marketing/nav";
 import { routing } from "@/i18n/routing";
-import { platformDb } from "@/lib/db/scope";
-import { appBaseUrl } from "@repo/server-core/http/app-url";
+import { serviceGet } from "@/lib/server/service-fetch";
+import { appBaseUrl } from "@repo/shared/app-url";
 import type { MetadataRoute } from "next";
 
 const BASE_URL = appBaseUrl();
@@ -25,26 +25,21 @@ function entry(path: string, priority: number): MetadataRoute.Sitemap[number] {
 // the page itself applies, so the sitemap never advertises a 404.
 async function publicHandleEntries(): Promise<MetadataRoute.Sitemap> {
   try {
-    const rows = await platformDb((tx) =>
-      tx.publicHandle.findMany({
-        where: {
-          OR: [
-            { kind: "center", center: { status: "active" } },
-            { kind: "teacher", teacherProfile: { user: { status: "active", role: "teacher" } } },
-          ],
-        },
-        select: { handle: true, updatedAt: true },
-        orderBy: { handle: "asc" },
-        take: 5000,
-      }),
+    // Prerendered: no request to forward, and the read is anonymous as the
+    // cookie-less DB read was. Anything but a body (5xx, unreachable) throws.
+    const { data } = await serviceGet<{ handle: string; updatedAt: string }[]>(
+      "/api/v1/public/sitemap-handles",
+      undefined,
+      { anonymous: true },
     );
-    return rows.map((r) => ({
+    if (!data) return [];
+    return data.map((r) => ({
       ...entry(`/p/${r.handle}`, 0.7),
-      lastModified: r.updatedAt,
+      lastModified: new Date(r.updatedAt),
     }));
   } catch {
-    // A sitemap must never take the site down with it; a build without a
-    // database simply lists the static pages.
+    // A sitemap must never take the site down with it; a build without the
+    // service simply lists the static pages.
     return [];
   }
 }

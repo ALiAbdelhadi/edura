@@ -124,7 +124,7 @@ The "money is read-only in the back office" sentence in CLAUDE.md was false as
 written. The back office writes money in four places, all routed through the
 same `*Tx` functions the ERP counter uses and all audited with `writeAdminAudit`:
 `adminRecordPayment`, `adminTopUpWallet`, `adminCreateWalkInSubscription`
-(`apps/superadmin/src/lib/services/admin/center-money.ts`) and
+(`packages/server-core/src/backoffice/admin/center-money.ts`) and
 `refundLessonForStudent` (`POST /api/v1/finance/refunds`). The decision taken
 (Ali, 2026-09-06) is to KEEP the three centre-money routes — they are the
 sanctioned counter functions under a super_admin's own audit trail — and to

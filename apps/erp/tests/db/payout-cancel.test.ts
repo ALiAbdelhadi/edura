@@ -1,9 +1,9 @@
 import { withPlatformContext } from "@repo/database";
 import { cancelOwnPayoutRequest } from "@repo/server-core/services/finance/payout-cancel";
 import { requestCenterPayout, getCenterWallet } from "@repo/server-core/services/finance/center-wallet";
-import { requestTeacherPayout, getTeacherWallet } from "@/lib/services/finance/teacher-wallet";
+import { requestTeacherPayout, getTeacherWallet } from "@repo/server-core/services/finance/teacher-wallet";
 import { BusinessRuleError, NotFoundError } from "@repo/server-core/errors/classes";
-import type { SessionUser } from "@/lib/auth/session";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
 
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

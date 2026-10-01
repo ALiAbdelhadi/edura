@@ -1,6 +1,6 @@
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
-import { listRegistrations } from "@/lib/services/admin/platform";
+import { listRegistrations } from "@repo/server-core/backoffice/admin/platform";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const adminPool = testPool();

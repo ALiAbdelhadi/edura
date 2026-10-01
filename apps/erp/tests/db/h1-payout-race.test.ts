@@ -1,7 +1,7 @@
 import { testPool } from "../../../../packages/database/scripts/test-pool";
-import { requestTeacherPayout } from "@/lib/services/finance/teacher-wallet";
-import { requestCenterPayout } from "@/lib/services/finance/center-wallet";
-import type { SessionUser } from "@/lib/auth/session";
+import { requestTeacherPayout } from "@repo/server-core/services/finance/teacher-wallet";
+import { requestCenterPayout } from "@repo/server-core/services/finance/center-wallet";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";

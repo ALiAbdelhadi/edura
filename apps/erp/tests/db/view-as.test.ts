@@ -7,7 +7,7 @@ import {
   isViewAsExpired,
   VIEW_AS_SESSION_TTL_SECONDS,
 } from "@repo/server-core/auth/view-as-token";
-import { __resetRateLimiterForTests } from "@/lib/rate-limit/token-bucket";
+import { __resetRateLimiterForTests } from "@repo/server-core/rate-limit/token-bucket";
 import { rawSessionFor, signInDoor, sessionFor, viewAsDoor } from "./helpers/auth-door";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

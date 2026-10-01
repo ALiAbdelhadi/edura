@@ -2,7 +2,8 @@ import { Container } from "@/components/kit/container";
 import { Eyebrow, Num } from "@/components/ledger";
 import type { Locale } from "@/lib/i18n";
 import { formatEGP, formatNumber, formatPercent } from "@/lib/i18n/format";
-import { getPricingExamples } from "@/lib/services/pricing/public-rates";
+import { ServiceError, serviceGet } from "@/lib/server/service-fetch";
+import type { PricingExamples } from "@repo/shared/public-pricing";
 import {
   Banknote,
   CreditCard,
@@ -22,7 +23,11 @@ import { TrackedCta } from "./tracked-cta";
 
 export async function PricingScreen({ locale }: { locale: Locale }) {
   const t = await getTranslations("marketing");
-  const { rates, teacherDirect, hallSplit, flatFee } = await getPricingExamples();
+  // The DB-error fallback lives inside the service (readRates); a service that
+  // cannot answer at all throws to the page's error boundary.
+  const pricing = await serviceGet<PricingExamples>("/api/v1/public/pricing");
+  if (!pricing.data) throw new ServiceError(pricing.status, "/api/v1/public/pricing");
+  const { rates, teacherDirect, hallSplit, flatFee } = pricing.data;
   const demoUrl = demoBookingUrl();
 
   const egp = (piasters: number) => formatEGP(piasters, locale, { decimals: false });

@@ -73,7 +73,7 @@ gold accent, and Arabic as CO-PRIMARY rather than adapted.
 
 **No database migration, no schema change, no API change.**
 
-Proofs: `apps/www/tests/unit/design-contrast.test.ts` **27/27** — parses the
+Proofs: `apps/erp/tests/unit/design-contrast.test.ts` **27/27** — parses the
 token sheet and asserts every text token holds 4.5:1 on ALL THREE grounds
 (paper/sheet/field, because meta text sits on all of them), every badge pair,
 and the dark-mode "seal is the most legible element in its row" check as an

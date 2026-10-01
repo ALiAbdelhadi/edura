@@ -1,6 +1,6 @@
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
-import { syncOfflineAttendance, type OfflineRecord } from "@/lib/services/attendance/sync";
+import { syncOfflineAttendance, type OfflineRecord } from "@repo/server-core/services/attendance/sync";
 import { randomUUID } from "node:crypto";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
@@ -89,6 +89,7 @@ async function main() {
     const sessionOtherTeacher = await mkSession("2026-02-16T10:00:00Z", teacherB.id);
     const sessionDoor = await mkSession("2026-02-23T10:00:00Z", teacherA.id);
     const sessionDoorNoCounter = await mkSession("2026-03-02T10:00:00Z", teacherA.id);
+    const sessionDup = await mkSession("2026-03-09T10:00:00Z", teacherA.id);
 
     await tx.attendanceRecord.create({
       data: {
@@ -117,6 +118,7 @@ async function main() {
       enrolled: enrolledUser.id, unenrolled: unenrolledUser.id,
       sessionFresh: sessionFresh.id, sessionConflict: sessionConflict.id, sessionOtherTeacher: sessionOtherTeacher.id,
       sessionDoor: sessionDoor.id, sessionDoorNoCounter: sessionDoorNoCounter.id,
+      sessionDup: sessionDup.id,
     };
   });
 
@@ -246,10 +248,26 @@ async function main() {
     );
     assert(foreign.results[0]?.result === "error" && foreign.results[0]?.reason === "not_your_session",
       `door record on another teacher's session -> error/not_your_session (got ${foreign.results[0]?.reason})`);
+
+    const dup = await syncOfflineAttendance(
+      [
+        { sessionId: fx.sessionDup, studentId: fx.enrolled, status: "present" },
+        { sessionId: fx.sessionDup, studentId: fx.enrolled, status: "absent" },
+      ],
+      teacher,
+    );
+    assert(dup.results[0]?.result === "synced", `first of a duplicated pair -> synced (got ${dup.results[0]?.result})`);
+    assert(dup.results[1]?.result === "conflict" && dup.results[1]?.reason === "server_record_kept",
+      `second of a duplicated pair -> conflict/server_record_kept (got ${dup.results[1]?.result}/${dup.results[1]?.reason})`);
+    const dupRows = await withPlatformContext((tx) =>
+      tx.attendanceRecord.findMany({ where: { sessionId: fx.sessionDup, studentId: fx.enrolled } }),
+    );
+    assert(dupRows.length === 1 && dupRows[0]?.status === "present",
+      `a duplicated pair writes one row, first status kept (got ${dupRows.length}/${dupRows[0]?.status})`);
   } finally {
     const allSessions = [
       fx.sessionFresh, fx.sessionConflict, fx.sessionOtherTeacher,
-      fx.sessionDoor, fx.sessionDoorNoCounter,
+      fx.sessionDoor, fx.sessionDoorNoCounter, fx.sessionDup,
     ];
     const allStudents = [fx.enrolled, fx.unenrolled];
     const allTeachers = [fx.teacherA, fx.teacherB, fx.assistant];

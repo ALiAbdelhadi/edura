@@ -11,8 +11,8 @@ import {
   adminDeleteExpense,
   adminGetCenterWallet,
   adminRequestCenterPayout,
-} from "@/lib/services/admin/center-money";
-import type { SessionUser } from "@/lib/auth/session";
+} from "@repo/server-core/backoffice/admin/center-money";
+import type { SessionUser } from "@repo/server-core/backoffice-auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const admin = testPool();
@@ -189,7 +189,7 @@ async function main() {
       "audit: one row, recorded as a CREDIT",
     );
 
-    const moneyModule = (await import("@/lib/services/admin/center-money")) as Record<string, unknown>;
+    const moneyModule = (await import("@repo/server-core/backoffice/admin/center-money")) as Record<string, unknown>;
     const debitish = Object.keys(moneyModule).filter((k) =>
       /debit|withdraw|deduct|setBalance|adjustBalance/i.test(k),
     );

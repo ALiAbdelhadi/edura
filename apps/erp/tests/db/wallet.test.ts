@@ -8,11 +8,11 @@ import {
   initiateWalletTopUpIntent,
   topUpWalletCash,
   getWalletForStudent,
-} from "@/lib/services/wallet/wallet";
-import { processWebhookEvent } from "@/lib/services/payments/payment-intents";
-import { createSubscriptionCheckout } from "@/lib/services/subscriptions/subscriptions";
-import { initiateSubscriptionIntent } from "@/lib/services/payments/payment-intents";
-import type { SessionUser } from "@/lib/auth/session";
+} from "@repo/server-core/services/wallet/wallet-facade";
+import { processWebhookEvent } from "@repo/server-core/services/payments/payment-intents";
+import { createSubscriptionCheckout } from "@repo/server-core/services/subscriptions/subscriptions";
+import { initiateSubscriptionIntent } from "@repo/server-core/services/payments/payment-intents";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
 
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

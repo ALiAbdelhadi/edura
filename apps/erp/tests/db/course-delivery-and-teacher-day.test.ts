@@ -1,9 +1,9 @@
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
-import { BusinessRuleError } from "@/lib/errors/classes";
-import type { SessionUser } from "@/lib/auth/session";
+import { BusinessRuleError } from "@repo/server-core/errors/classes";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
 import { createCourse } from "@repo/server-core/services/center/courses";
-import { searchCourses, searchTeachersByDay } from "@/lib/services/discovery/discovery";
+import { searchCourses, searchTeachersByDay } from "@repo/server-core/services/discovery/discovery";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 
 const admin = testPool();

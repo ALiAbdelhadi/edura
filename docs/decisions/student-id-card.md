@@ -115,7 +115,7 @@ already onboarded — 12 codes on dev, 1 on production.
 Proof: unit `student-code.test.ts` **14/14** (including every single-character
 mistype of five real codes — 1200 of them — and every adjacent transposition)
 and `student-identity.test.ts` **8/8** (determinism, 5000 seeds without a
-repeated pattern). `apps/www/tests/db/student-id-card.test.ts` is written but
+repeated pattern). `apps/erp/tests/db/student-id-card.test.ts` is written but
 **NOT YET RUN — the test database rejects both roles on disk (`edura_app` and
 `neondb_owner`), a pre-existing credential problem unrelated to this change.**
 The SQL↔TypeScript agreement was proven against DEV read-only instead (1000

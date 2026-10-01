@@ -10,17 +10,7 @@ export async function resolveCourseStudentsAndParents(
     }),
   );
 
-  const studentIds = enrollments.map((e) => e.studentId);
-  const recipients = new Set<string>();
-
-  await Promise.all(
-    studentIds.map(async (sid) => {
-      const parentIds = await resolvedParentOrStudent(sid);
-      for (const id of parentIds) recipients.add(id);
-    }),
-  );
-
-  return [...recipients];
+  return withParentFallbackMany(enrollments.map((e) => e.studentId));
 }
 
 export async function resolveCenterAdmins(centerId: string): Promise<string[]> {
@@ -65,6 +55,29 @@ export async function resolveTeacherTeamPeers(
 
 export async function withParentFallback(studentId: string): Promise<string[]> {
   return resolvedParentOrStudent(studentId);
+}
+
+const LINK_LOOKUP_CHUNK = 5000;
+
+export async function withParentFallbackMany(
+  studentIds: string[],
+): Promise<string[]> {
+  const ids = [...new Set(studentIds)];
+  if (!ids.length) return [];
+  const parentOf = new Map<string, string>();
+  for (let i = 0; i < ids.length; i += LINK_LOOKUP_CHUNK) {
+    const chunk = ids.slice(i, i + LINK_LOOKUP_CHUNK);
+    const links = await platformDb((tx) =>
+      tx.parentStudentLink.findMany({
+        where: { studentId: { in: chunk }, status: "approved" },
+        select: { studentId: true, parentId: true },
+      }),
+    );
+    for (const l of links) {
+      if (!parentOf.has(l.studentId)) parentOf.set(l.studentId, l.parentId);
+    }
+  }
+  return [...new Set(ids.map((id) => parentOf.get(id) ?? id))];
 }
 
 /**

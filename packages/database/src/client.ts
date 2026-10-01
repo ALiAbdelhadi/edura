@@ -37,7 +37,11 @@ function createAdapter() {
   if (typeof (globalThis as { WebSocket?: unknown }).WebSocket === "undefined") {
     neonConfig.webSocketConstructor = ws as unknown as typeof WebSocket;
   }
-  return new PrismaNeon({ connectionString });
+  return new PrismaNeon({
+    connectionString,
+    max: Number(process.env.DATABASE_POOL_MAX ?? 10),
+    idleTimeoutMillis: 30_000,
+  });
 }
 
 function createPrisma() {

@@ -16,7 +16,7 @@ import {
   Wifi,
   type LucideIcon,
 } from "lucide-react";
-import type { AmenityKey } from "@repo/database/room-amenities";
+import type { AmenityKey } from "@repo/shared/room-amenities";
 
 export {
   AMENITY_KEYS,
@@ -26,7 +26,7 @@ export {
   isAmenityKey,
   orderAmenities,
   type AmenityKey,
-} from "@repo/database/room-amenities";
+} from "@repo/shared/room-amenities";
 
 const ICONS: Record<AmenityKey, LucideIcon> = {
   ac: AirVent,

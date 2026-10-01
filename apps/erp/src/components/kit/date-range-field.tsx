@@ -1,7 +1,7 @@
 "use client";
 
 import { Calendar } from "@/components/kit/calendar";
-import { parseDateKey, pickedDateKey } from "@repo/server-core/lib/date-key";
+import { parseDateKey, pickedDateKey } from "@repo/shared/date-key";
 import { Button } from "@repo/ui/components/button";
 import type { DateRange } from "@repo/ui/components/calendar";
 import { Num } from "@repo/ui/components/num";

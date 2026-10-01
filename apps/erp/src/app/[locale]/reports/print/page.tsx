@@ -1,11 +1,6 @@
 import { AutoPrint } from "@/features/admin/report-print-sheet";
-import { getSessionUser } from "@/lib/auth/session";
-import { ACCOUNTANT, MANAGER, authorizeCenterActor } from "@/lib/authz/center-actor";
-import { AppError } from "@/lib/errors/classes";
-import {
-  buildReportExport,
-  isReportExportKey,
-} from "@repo/server-core/services/reports/report-export";
+import { serviceGet } from "@/lib/server/service-fetch";
+import type { ExportTable } from "@repo/server-core/services/reports/report-export";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
@@ -15,6 +10,9 @@ export const metadata: Metadata = {
   title: "Edura — Report",
   robots: { index: false, follow: false },
 };
+
+// `def.load` does not survive JSON; the page renders only the title.
+type ReportPrintWire = { table: ExportTable; def: { title: { ar: string; en: string } } };
 
 export default async function ReportPrintPage({
   params,
@@ -27,32 +25,18 @@ export default async function ReportPrintPage({
   const { report, from, to, print } = await searchParams;
   const lang = locale === "en" ? "en" : "ar";
 
-  const user = await getSessionUser();
-  if (!user) redirect(`/${locale}/login?callbackUrl=/${locale}/reports/print`);
-  if (!report || !isReportExportKey(report)) notFound();
+  // One read, same doors in the same order: 401 is the signed-out visitor;
+  // an unknown key, a caller outside ACCOUNTANT/MANAGER (403) or a build-time
+  // AppError (404) were all notFound() before.
+  const res = await serviceGet<ReportPrintWire>("/api/v1/reports/print", {
+    key: report ?? "",
+    from,
+    to,
+  });
+  if (res.status === 401) redirect(`/${locale}/login?callbackUrl=/${locale}/reports/print`);
+  if (!res.data) notFound();
 
-  let actor;
-  try {
-    actor = await authorizeCenterActor(user, { allow: [...ACCOUNTANT, ...MANAGER] });
-  } catch {
-    notFound();
-  }
-
-  let built;
-  try {
-    built = await buildReportExport({
-      key: report,
-      user: actor.acting,
-      staffRole: actor.staffRole,
-      from,
-      to,
-    });
-  } catch (err) {
-    if (err instanceof AppError) notFound();
-    throw err;
-  }
-
-  const { table, def } = built;
+  const { table, def } = res.data;
   const range = from || to ? `${from ?? "…"} → ${to ?? "…"}` : lang === "ar" ? "كل الفترات" : "All time";
   const money = (v: number) => (v / 100).toLocaleString(lang === "ar" ? "ar-EG" : "en-EG", {
     minimumFractionDigits: 2,

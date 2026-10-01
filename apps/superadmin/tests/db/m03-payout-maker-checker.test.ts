@@ -6,8 +6,8 @@
 //   [5] an approved payout can still be rejected (the checker's refusal);
 //   [6] the dashboard counts approved-not-paid as open.
 import { testPool } from "../../../../packages/database/scripts/test-pool";
-import { approvePayout, payPayout, rejectPayout, generatePayouts } from "@/lib/services/finance/payouts";
-import type { SessionUser } from "@/lib/auth/session";
+import { approvePayout, payPayout, rejectPayout, generatePayouts } from "@repo/server-core/backoffice/finance/payouts";
+import type { SessionUser } from "@repo/server-core/backoffice-auth/session";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { createTeacherFixture } from "../../../../packages/database/scripts/payout-fixtures";
@@ -85,7 +85,7 @@ async function main() {
     `INSERT INTO payouts (beneficiary_id, beneficiary_type, net_payable, gross_amount, commission, lesson_count, status, generated_by)
      VALUES ($1,'teacher',1000,1000,0,0,'pending',$2) RETURNING id`, [teacher, maker.id]))[0].id as string;
   await approvePayout(third, checker);
-  const { decisionQueue } = await import("@/lib/services/admin/platform-dashboard");
+  const { decisionQueue } = await import("@repo/server-core/backoffice/admin/platform-dashboard");
   const dash = await decisionQueue();
   ok(dash.payouts.count >= 1, `an approved payout is still counted as awaiting disbursement (count=${dash.payouts.count})`);
 

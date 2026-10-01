@@ -1,6 +1,6 @@
 import { withPlatformContext } from "@repo/database";
-import { listMaterials, getMaterialDownloadUrl } from "@/lib/services/materials/materials";
-import type { SessionUser } from "@/lib/auth/session";
+import { listMaterials, getMaterialDownloadUrl } from "@repo/server-core/services/materials/materials";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
 
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

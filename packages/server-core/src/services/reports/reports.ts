@@ -599,47 +599,52 @@ export async function getTeacherScoreDistribution(user: SessionUser, courseId?: 
 }
 
 export async function getStudentGradeTrend(user: SessionUser, from?: string, to?: string) {
-  const studentId = user.id;
+  return scopedDb(user, (tx) => studentGradeTrendTx(tx, user.id, from, to));
+}
+
+export async function studentGradeTrendTx(
+  tx: TenantTx,
+  studentId: string,
+  from?: string,
+  to?: string,
+) {
   const df = dateFilter(from, to);
-
-  return scopedDb(user, async (tx) => {
-    const grades = await tx.grade.findMany({
-      where: { scores: { some: { studentId } }, ...(df ? { date: df } : {}) },
-      orderBy: { date: "asc" },
-      select: {
-        courseId: true,
-        name: true,
-        maxScore: true,
-        date: true,
-        scores: { where: { studentId }, select: { score: true } },
-      },
-    });
-    const courseIds = [...new Set(grades.map((grade) => grade.courseId))];
-    const courses =
-      courseIds.length > 0
-        ? await tx.course.findMany({ where: { id: { in: courseIds } }, select: { id: true, title: true } })
-        : [];
-    const courseTitleById = new Map(courses.map((course) => [course.id, course.title]));
-    const items: StudentGradeTrendPoint[] = grades
-      .map((grade) => {
-        const score = grade.scores[0];
-        if (!score) return null;
-        const maxScore = grade.maxScore || 1;
-        const percentageValue = Math.round((score.score / maxScore) * 100);
-        const dateLabel = new Date(grade.date).toLocaleDateString("en", { month: "short", day: "numeric" });
-        return {
-          date: new Date(grade.date).toISOString(),
-          label: dateLabel,
-          assignment: grade.name,
-          courseId: grade.courseId,
-          courseTitle: courseTitleById.get(grade.courseId) ?? "Unknown",
-          percentage: percentageValue,
-        };
-      })
-      .filter((item): item is StudentGradeTrendPoint => Boolean(item));
-
-    return { from, to, items };
+  const grades = await tx.grade.findMany({
+    where: { scores: { some: { studentId } }, ...(df ? { date: df } : {}) },
+    orderBy: { date: "asc" },
+    select: {
+      courseId: true,
+      name: true,
+      maxScore: true,
+      date: true,
+      scores: { where: { studentId }, select: { score: true } },
+    },
   });
+  const courseIds = [...new Set(grades.map((grade) => grade.courseId))];
+  const courses =
+    courseIds.length > 0
+      ? await tx.course.findMany({ where: { id: { in: courseIds } }, select: { id: true, title: true } })
+      : [];
+  const courseTitleById = new Map(courses.map((course) => [course.id, course.title]));
+  const items: StudentGradeTrendPoint[] = grades
+    .map((grade) => {
+      const score = grade.scores[0];
+      if (!score) return null;
+      const maxScore = grade.maxScore || 1;
+      const percentageValue = Math.round((score.score / maxScore) * 100);
+      const dateLabel = new Date(grade.date).toLocaleDateString("en", { month: "short", day: "numeric" });
+      return {
+        date: new Date(grade.date).toISOString(),
+        label: dateLabel,
+        assignment: grade.name,
+        courseId: grade.courseId,
+        courseTitle: courseTitleById.get(grade.courseId) ?? "Unknown",
+        percentage: percentageValue,
+      };
+    })
+    .filter((item): item is StudentGradeTrendPoint => Boolean(item));
+
+  return { from, to, items };
 }
 
 
@@ -848,14 +853,13 @@ export async function getAdminDashboard(
             ...(courseIds === null ? {} : { id: { in: courseIds } }),
           },
         });
-        const todaySessions = await tx.session.findMany({
+        const todaySessionCount = await tx.session.count({
           where: {
             date: { gte: todayStart, lt: todayEnd },
             course: { centerId },
             ...courseScope,
             ...(dataSource ? { dataSource } : {}),
           },
-          select: { id: true, courseId: true, date: true, startTime: true, endTime: true, status: true },
         });
         const revenueAgg = await tx.payment.aggregate({
           where: {
@@ -874,18 +878,14 @@ export async function getAdminDashboard(
           where: { centerId, status: "pending", ...courseScope },
         });
         const attendanceWhen = money ? { session: { date: money } } : {};
-        const attendanceTotal = await tx.attendanceRecord.count({
+        const attendanceByStatus = await tx.attendanceRecord.groupBy({
+          by: ["status"],
           where: { centerId, ...courseScope, ...(dataSource ? { dataSource } : {}), ...attendanceWhen },
+          _count: true,
         });
-        const attendancePresent = await tx.attendanceRecord.count({
-          where: {
-            centerId,
-            status: "present",
-            ...courseScope,
-            ...(dataSource ? { dataSource } : {}),
-            ...attendanceWhen,
-          },
-        });
+        const attendanceTotal = attendanceByStatus.reduce((sum, row) => sum + row._count, 0);
+        const attendancePresent =
+          attendanceByStatus.find((row) => row.status === "present")?._count ?? 0;
 
         const externalProfiles = await tx.teacherProfile.findMany({
           where: { managedByCenterId: centerId, systemStatus: "external" },
@@ -919,7 +919,7 @@ export async function getAdminDashboard(
           totalStudents,
           totalTeachers: teacherGroups.length,
           totalCourses,
-          todaySessions,
+          todaySessionCount,
           revenue: revenueAgg._sum.amount ?? 0,
           expenses: expenseAgg._sum.amount ?? 0,
           pendingEnrollmentRequests,
@@ -953,14 +953,7 @@ export async function getAdminDashboard(
       expenses: base.expenses,
       netProfit: base.revenue - base.expenses,
     },
-    todaySessions: base.todaySessions.map((session) => ({
-      id: session.id,
-      courseId: session.courseId,
-      date: session.date,
-      startTime: session.startTime,
-      endTime: session.endTime,
-      status: session.status,
-    })),
+    todaySessionCount: base.todaySessionCount,
     attendanceRate,
     feeDefaulters,
     pendingEnrollmentRequests: base.pendingEnrollmentRequests,
@@ -1037,11 +1030,23 @@ export async function getTeacherDashboard(
       select: { id: true, courseId: true, startTime: true, endTime: true, roomId: true, status: true },
     });
     const attendanceWhen = when ? { session: { date: when } } : {};
-    const attendanceTotal = await tx.attendanceRecord.count({
+    const attendanceByStatus = await tx.attendanceRecord.groupBy({
+      by: ["status"],
       where: { courseId: { in: activeCourseIds }, ...attendanceWhen },
+      _count: true,
     });
-    const attendancePresent = await tx.attendanceRecord.count({
-      where: { courseId: { in: activeCourseIds }, status: "present", ...attendanceWhen },
+    const attendanceTotal = attendanceByStatus.reduce((sum, row) => sum + row._count, 0);
+    const attendancePresent =
+      attendanceByStatus.find((row) => row.status === "present")?._count ?? 0;
+    const counterOnlyToday = await tx.attendanceRecord.count({
+      where: {
+        status: "counter_only",
+        session: {
+          teacherId,
+          date: { gte: todayStart, lt: todayEnd },
+          status: { not: "cancelled" },
+        },
+      },
     });
 
     const courseRoomIds = activeCourses.map((course) => course.defaultRoomId).filter(Boolean) as string[];
@@ -1052,7 +1057,15 @@ export async function getTeacherDashboard(
         ? await tx.room.findMany({ where: { id: { in: allRoomIds } }, select: { id: true, name: true } })
         : [];
 
-    return { activeCourses, activeStudents, todaySessions, attendanceTotal, attendancePresent, rooms };
+    return {
+      activeCourses,
+      activeStudents,
+      todaySessions,
+      attendanceTotal,
+      attendancePresent,
+      counterOnlyToday,
+      rooms,
+    };
   });
 
   const [gradeLoad, attendanceTrend, scoreDistribution] = await Promise.all([
@@ -1105,6 +1118,7 @@ export async function getTeacherDashboard(
     todaySessions: enrichedSessions,
     avgAttendanceRate: avgAttendance,
     pendingGradeEntries,
+    counterOnlyToday: base.counterOnlyToday,
     analytics: {
       attendanceTrend: attendanceTrend.series,
       gradeLoad: gradeLoad.items,

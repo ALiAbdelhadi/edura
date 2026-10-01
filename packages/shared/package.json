@@ -1,0 +1,23 @@
+{
+  "name": "@repo/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Edura browser-safe helpers -- pure functions with no I/O that both the server services and the browser run (date keys, student codes, grading bands, schedule clashes). Nothing here may import a database, a secret or a Node-only module.",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./src/*.ts",
+      "default": "./src/*.ts"
+    }
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "eslint": "9.39.5",
+    "@types/node": "26.1.1",
+    "typescript": "7.0.2"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "check-types": "tsc --noEmit"
+  }
+}

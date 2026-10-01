@@ -3,7 +3,7 @@ import { prisma, withPlatformContext } from "@repo/database";
 import {
   listWhatsAppMessages,
   getWhatsAppMessage,
-} from "@/lib/services/admin/whatsapp-messages";
+} from "@repo/server-core/backoffice/admin/whatsapp-messages";
 import { sendWhatsApp } from "@repo/server-core/services/whatsapp/send";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

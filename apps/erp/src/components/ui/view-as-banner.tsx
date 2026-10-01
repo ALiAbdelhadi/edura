@@ -1,14 +1,12 @@
 import { UserRoundCog } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
-import { getSessionUser } from "@/lib/auth/session";
-import { getViewAsContext } from "@/lib/auth/view-as";
+import { ssrSession } from "@/lib/server/ssr-session";
 export async function ViewAsBanner() {
-  const context = await getViewAsContext();
+  const { user: target, viewAs: context } = await ssrSession();
   if (!context) return null;
 
   const t = await getTranslations("shared.viewAs");
-  const target = await getSessionUser();
   const targetName = target?.name || target?.email || t("unnamed");
   const actor = context.actorName || context.actorEmail || t("unnamed");
 

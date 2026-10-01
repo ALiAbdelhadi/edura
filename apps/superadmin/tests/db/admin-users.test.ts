@@ -13,9 +13,9 @@ import {
   sendPasswordReset,
   setUserSuspended,
   startViewAs,
-} from "@/lib/services/admin/admin-users";
+} from "@repo/server-core/backoffice/admin/admin-users";
 import { verifyViewAsToken } from "@repo/server-core/auth/view-as-token";
-import type { SessionUser } from "@/lib/auth/session";
+import type { SessionUser } from "@repo/server-core/backoffice-auth/session";
 import { signInDoor } from "./helpers/auth-door";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
@@ -446,7 +446,7 @@ async function main() {
     section("8. Money stays out of reach");
 
     const src = readFileSync(
-      fileURLToPath(new URL("../../src/lib/services/admin/admin-users.ts", import.meta.url)),
+      fileURLToPath(new URL("../../../../packages/server-core/src/backoffice/admin/admin-users.ts", import.meta.url)),
       "utf8",
     );
     const importLines = src

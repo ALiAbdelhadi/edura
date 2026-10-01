@@ -5,6 +5,7 @@ import { PageSpinner } from "@/components/kit/spinner";
 import CopyableText from "@/components/ui/copyable-text";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useCustomMutation, useList } from "@refinedev/core";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 import { Button } from "@repo/ui/components/button";
 import { QuerySection } from "@repo/ui/components/query-section";
 import { toast } from "@repo/ui/components/sonner";
@@ -55,8 +56,8 @@ export function AdminEnrollmentRequestsScreen() {
   });
   const requests = (requestsResult?.data ?? []) as EnrollmentRequest[];
 
-  const { result: studentsResult } = useList({ resource: "students", pagination: { mode: "off" } });
-  const { result: coursesResult } = useList({ resource: "courses", pagination: { mode: "off" } });
+  const { result: studentsResult } = useList({ resource: "students", pagination: { mode: "off" }, queryOptions: QUERY_FRESHNESS.list });
+  const { result: coursesResult } = useList({ resource: "courses", pagination: { mode: "off" }, queryOptions: QUERY_FRESHNESS.list });
 
   const studentMap = useMemo(() => {
     const m = new Map<string, string>();

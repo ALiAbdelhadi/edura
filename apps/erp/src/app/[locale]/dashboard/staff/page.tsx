@@ -1,8 +1,8 @@
 import { CenterStaffPortalHome } from "@/features/admin/center-staff-portal-home";
 import { requirePortal } from "@/lib/auth/portal-gate";
-import { ForbiddenError } from "@/lib/errors/classes";
 import { localizedTitle } from "@/lib/i18n/page-metadata";
-import { getStaffMe } from "@/lib/services/center/staff";
+import { ServiceError, serviceGet } from "@/lib/server/service-fetch";
+import { type StaffMe, STAFF_ME_PATH } from "@/lib/server/staff-me";
 import { redirect } from "next/navigation";
 
 export const generateMetadata = localizedTitle("overview");
@@ -13,15 +13,11 @@ export default async function Page({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  const user = await requirePortal("center_staff", locale);
+  await requirePortal("center_staff", locale);
 
-  let me;
-  try {
-    me = await getStaffMe(user);
-  } catch (err) {
-    if (err instanceof ForbiddenError) redirect(`/${locale}/login`);
-    throw err;
-  }
+  const me = await serviceGet<StaffMe>(STAFF_ME_PATH);
+  if (me.status === 403) redirect(`/${locale}/login`);
+  if (!me.data) throw new ServiceError(me.status, STAFF_ME_PATH);
 
-  return <CenterStaffPortalHome role={me.role} centerName={me.centerName} />;
+  return <CenterStaffPortalHome role={me.data.role} centerName={me.data.centerName} />;
 }

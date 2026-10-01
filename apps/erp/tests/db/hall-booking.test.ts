@@ -9,11 +9,11 @@ import {
   cancelCollaborationRequest,
   expireCollaborationRequests,
   listCollaborationRequests,
-} from "@/lib/services/collaboration/collaboration";
+} from "@repo/server-core/services/collaboration/collaboration";
 import {
   resolveMethod2Rate,
   resolveMethod2RatesForRooms,
-} from "@/lib/services/finance/commission";
+} from "@repo/server-core/services/finance/commission";
 
 let __sweepTag = "";
 const SUITE_NAME = "hall-booking.test.ts";

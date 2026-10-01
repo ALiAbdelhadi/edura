@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { arabicErrorMessage } from "../errors/messages-ar";
 
 export type Envelope<T> =
@@ -25,7 +24,7 @@ export function ok<T>(data: T, init?: { status?: number; meta?: Record<string, u
   const body: Envelope<T> = init?.meta
     ? { data: serialized, meta: serialize(init.meta) as Record<string, unknown> }
     : { data: serialized };
-  return NextResponse.json(body, {
+  return Response.json(body, {
     status: init?.status ?? 200,
     headers: UNCACHEABLE,
   });
@@ -40,7 +39,7 @@ export function fail(
   // `message` stays canonical English — screens and tests match on it. The
   // Arabic rendering rides ALONGSIDE it and the client picks by locale.
   const messageAr = arabicErrorMessage(message);
-  return NextResponse.json(
+  return Response.json(
     { error: { code, message, ...(messageAr ? { messageAr } : {}), ...(extra ?? {}) } },
     { status, headers: UNCACHEABLE },
   );

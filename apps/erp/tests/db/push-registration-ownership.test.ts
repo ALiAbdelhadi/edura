@@ -2,8 +2,8 @@ import { withPlatformContext } from "@repo/database";
 import {
   registerDeviceToken,
   registerPushSubscription,
-} from "@/lib/services/notifications/push-registration";
-import type { SessionUser } from "@/lib/auth/session";
+} from "@repo/server-core/services/notifications/push-registration";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
 import type { Role } from "@repo/database";
 
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";

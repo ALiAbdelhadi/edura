@@ -10,14 +10,23 @@ import {
 
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
 const ORIGINAL_PORT = process.env.PORT;
+const ORIGINAL_COOKIE_PORT = process.env.EDURA_DEV_COOKIE_PORT;
 
-function setEnv(nodeEnv: string | undefined, port: string | undefined) {
-  (process.env as Record<string, string | undefined>).NODE_ENV = nodeEnv;
-  (process.env as Record<string, string | undefined>).PORT = port;
+// Assigning undefined to process.env stores the string "undefined"; an absent
+// variable has to be deleted.
+function setVar(name: string, value: string | undefined) {
+  if (value === undefined) delete process.env[name];
+  else process.env[name] = value;
 }
 
-beforeEach(() => setEnv(ORIGINAL_NODE_ENV, ORIGINAL_PORT));
-afterEach(() => setEnv(ORIGINAL_NODE_ENV, ORIGINAL_PORT));
+function setEnv(nodeEnv: string | undefined, port: string | undefined, cookiePort?: string) {
+  setVar("NODE_ENV", nodeEnv);
+  setVar("PORT", port);
+  setVar("EDURA_DEV_COOKIE_PORT", cookiePort);
+}
+
+beforeEach(() => setEnv(ORIGINAL_NODE_ENV, ORIGINAL_PORT, ORIGINAL_COOKIE_PORT));
+afterEach(() => setEnv(ORIGINAL_NODE_ENV, ORIGINAL_PORT, ORIGINAL_COOKIE_PORT));
 
 describe("devScopedCookiePrefix", () => {
   it("appends the dev server's port so parallel dev servers cannot share a jar", () => {
@@ -56,6 +65,17 @@ describe("devScopedCookiePrefix", () => {
     setEnv("development", "not-a-port");
     expect(devScopedCookiePrefix("edura")).toBe("edura");
     setEnv("development", "3002; DROP");
+    expect(devScopedCookiePrefix("edura")).toBe("edura");
+  });
+
+  it("EDURA_DEV_COOKIE_PORT names the frontend's port for a service on its own PORT", () => {
+    setEnv("development", "3006", "3002");
+    expect(devScopedCookiePrefix("edura")).toBe("edura-3002");
+    setEnv("development", "3006", "");
+    expect(devScopedCookiePrefix("edura")).toBe("edura-3006");
+    setEnv("development", "3006", "junk");
+    expect(devScopedCookiePrefix("edura")).toBe("edura");
+    setEnv("production", "3006", "3002");
     expect(devScopedCookiePrefix("edura")).toBe("edura");
   });
 

@@ -7,7 +7,7 @@ import {
 } from "@repo/server-core/services/attendance/attendance";
 import { counterCheckin, doorTransitionTx } from "@repo/server-core/services/attendance/checkin";
 import { completeSession } from "@repo/server-core/services/finance/distribution";
-import { syncOfflineAttendance } from "@/lib/services/attendance/sync";
+import { syncOfflineAttendance } from "@repo/server-core/services/attendance/sync";
 import { BusinessRuleError, ForbiddenError } from "@repo/server-core/errors/classes";
 import type { SessionUser } from "@repo/server-core/auth/types";
 

@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth/auth";
+import { auth } from "./bind-auth";
 import { APIError } from "better-auth/api";
 
 let ipCounter = 0;

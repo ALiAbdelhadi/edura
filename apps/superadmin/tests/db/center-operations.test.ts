@@ -15,9 +15,9 @@ import {
   adminListCenterBlacklist,
   adminAddCenterBlacklist,
   adminLiftCenterBlacklist,
-} from "@/lib/services/admin/center-operations";
+} from "@repo/server-core/backoffice/admin/center-operations";
 import { postponeSession, cancelSession } from "@repo/server-core/services/session-actions/session-actions";
-import type { SessionUser } from "@/lib/auth/session";
+import type { SessionUser } from "@repo/server-core/backoffice-auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const admin = testPool();

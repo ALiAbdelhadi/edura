@@ -10,9 +10,9 @@ import { PageHeader } from "@/components/kit/page-header";
 import { useChildSelector } from "@/components/ui/child-selector";
 import { BarChart } from "@/components/charts";
 import { useTranslations } from "next-intl";
-import { bandForPercent, percentOf } from "@repo/database/grading-scale";
+import { bandForPercent, percentOf } from "@repo/shared/grading-scale";
 import { useFormatters } from "@/lib/i18n/use-formatters";
-import { Figure, Metric, SectionHead, SkeletonRows } from "./ledger-kit";
+import { Figure, Metric, SectionHead, SkeletonRows } from "@repo/ui/components/ledger";
 import { QUERY_FRESHNESS } from "@/lib/refine";
 
 const SERIES = [

@@ -1,5 +1,5 @@
 import { withPlatformContext } from "@repo/database";
-import { completeSession } from "@/lib/services/finance/distribution";
+import { completeSession } from "@repo/server-core/services/finance/distribution";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 
@@ -9,7 +9,7 @@ const SUITE_NAME = "center-share-admin.test.ts";
 import {
   getCenterAffiliations,
   updateAffiliationCenterShare,
-} from "@/lib/services/admin/rooms-split";
+} from "@repo/server-core/backoffice/admin/rooms-split";
 
 let pass = 0;
 let fail = 0;

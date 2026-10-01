@@ -36,7 +36,7 @@ import {
 } from "@repo/ui/components/dialog";
 import { toast } from "@repo/ui/components/sonner";
 import { cn } from "@repo/ui/lib/utils";
-import { platformDayKey, todayKey } from "@repo/server-core/lib/date-key";
+import { platformDayKey, todayKey } from "@repo/shared/date-key";
 import { asArray } from "@/lib/refine/as-array";
 import { ATTENDANCE_WINDOW_DAYS } from "@/features/teacher/teacher-attendance-screen";
 import { TeacherCreateGroupDialog } from "@/features/teacher/teacher-create-group-dialog";
@@ -68,7 +68,9 @@ export function TeacherClassesScreen() {
   const courseLabel = (c: any) =>
     c.title || [c.subject, c.gradeTag].filter(Boolean).join(" — ");
 
-  const { data: identity } = useGetIdentity<{ role?: string }>();
+  const { data: identity } = useGetIdentity<{ role?: string }>({
+    queryOptions: { refetchOnMount: false },
+  });
   const canCreateGroup = identity?.role === "teacher";
   const { query: coursesQuery, result: coursesResult } = useList({
     resource: "courses",

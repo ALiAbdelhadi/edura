@@ -8,8 +8,8 @@ import {
   forceLogoutUser,
   verifyStudentDateOfBirth,
   moveCourseBetweenCenters,
-} from "@/lib/services/admin/center-platform";
-import type { SessionUser } from "@/lib/auth/session";
+} from "@repo/server-core/backoffice/admin/center-platform";
+import type { SessionUser } from "@repo/server-core/backoffice-auth/session";
 import { sessionFor, signInDoor } from "./helpers/auth-door";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

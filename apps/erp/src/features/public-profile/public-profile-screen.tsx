@@ -21,7 +21,7 @@ import { formatClockRange, formatEGP, formatNumber, formatWeekdayShort } from "@
 import type {
   PublicCourse,
   PublicProfile,
-} from "@/lib/services/public-handles/public-profiles";
+} from "@repo/server-core/services/public-handles/public-profiles";
 import {
   Award,
   BookOpen,

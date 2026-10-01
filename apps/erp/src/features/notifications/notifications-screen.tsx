@@ -13,7 +13,7 @@ import {
   notificationPath,
   portalForRole,
   type NotificationPortal,
-} from "@repo/server-core/services/notifications/deep-link";
+} from "@repo/shared/deep-link";
 import { Button } from "@repo/ui/components/button";
 import { QuerySection } from "@repo/ui/components/query-section";
 import { toast } from "@repo/ui/components/sonner";

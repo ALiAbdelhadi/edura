@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { AppError } from "./classes";
 import { fail } from "../http/envelope";
 
@@ -24,7 +23,7 @@ function prismaErrorStatus(err: unknown): { status: number; code: string; messag
   return null;
 }
 
-export function toErrorResponse(err: unknown): NextResponse {
+export function toErrorResponse(err: unknown): Response {
   if (err instanceof AppError) {
     const extra: Record<string, unknown> = {};
     if (err.details && typeof err.details === "object") {
@@ -56,7 +55,7 @@ export type RouteCtx = { params: Promise<Record<string, string>> };
 export type Handler = (
   req: Request,
   ctx: RouteCtx,
-) => Promise<NextResponse> | NextResponse;
+) => Promise<Response> | Response;
 
 export function withErrors(handler: Handler): Handler {
   return async (req, ctx) => {

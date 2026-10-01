@@ -1,6 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "bash ../../scripts/vercel-build.sh",
+  "regions": [
+    "fra1"
+  ],
   "build": {
     "env": {
       "NODE_OPTIONS": "--max-old-space-size=6144"

@@ -871,32 +871,12 @@ function prodItems(): Item[] {
 
     {
       kind: "ask",
-      key: "PAYMOB_API_KEY",
+      key: "PAYMOB_INTEGRATION_IDS",
       group: "Payments (leave blank while mock)",
       targets: T,
-      what: "Paymob API key",
+      what: "comma-separated Paymob integration ids this deployment settles for (card, mobile wallet)",
       where: "Paymob dashboard — blank is correct until the account exists",
-      validate: minLen(20),
-      optional: true,
-    },
-    {
-      kind: "ask",
-      key: "PAYMOB_INTEGRATION_ID_CARD",
-      group: "Payments (leave blank while mock)",
-      targets: T,
-      what: "card integration id",
-      where: "Paymob dashboard",
-      validate: digits,
-      optional: true,
-    },
-    {
-      kind: "ask",
-      key: "PAYMOB_INTEGRATION_ID_WALLET",
-      group: "Payments (leave blank while mock)",
-      targets: T,
-      what: "mobile-wallet integration id",
-      where: "Paymob dashboard",
-      validate: digits,
+      validate: (v) => (/^\d+(\s*,\s*\d+)*$/.test(v) ? null : "digits, comma-separated"),
       optional: true,
     },
     {
@@ -1120,9 +1100,7 @@ function prodItems(): Item[] {
  * ──────────────────────────────────────────────────────────────────────────── */
 
 const PARKED: Record<string, string> = {
-  PAYMOB_API_KEY: "Paymob — no merchant account yet; PAYMENTS_MODE stays mock",
-  PAYMOB_INTEGRATION_ID_CARD: "Paymob — same",
-  PAYMOB_INTEGRATION_ID_WALLET: "Paymob — same",
+  PAYMOB_INTEGRATION_IDS: "Paymob — no merchant account yet; PAYMENTS_MODE stays mock",
   WHATSAPP_TOKEN: "WhatsApp — no verified business number; WHATSAPP_MODE stays mock",
   WHATSAPP_PHONE_ID: "WhatsApp — same",
   CLOUDINARY_CLOUD_NAME: "Cloudinary — parked; existing values left in place and still work",
@@ -1693,7 +1671,7 @@ const VERCEL_ERP = [
   ["Public URLs", ["NEXTAUTH_URL", "APP_BASE_URL", "NEXT_PUBLIC_APP_URL", "MARKETING_SITE_URL", "SUPERADMIN_BASE_URL"]],
   ["Secrets (no fallback in production)", ["NEXTAUTH_SECRET", "STUDENT_QR_SECRET", "VIEW_AS_SECRET", "REALTIME_JWT_SECRET", "INTERNAL_API_SECRET", "CRON_SECRET"]],
   ["Database — role edura_app, NEVER neondb_owner", ["DATABASE_URL", "DIRECT_URL", "DATABASE_DRIVER", "DATABASE_POOL_MAX"]],
-  ["Payments", ["PAYMENTS_MODE", "PAYMOB_HMAC_SECRET", "PAYMOB_API_KEY", "PAYMOB_INTEGRATION_ID_CARD", "PAYMOB_INTEGRATION_ID_WALLET"]],
+  ["Payments", ["PAYMENTS_MODE", "PAYMOB_HMAC_SECRET", "PAYMOB_INTEGRATION_IDS"]],
   ["Mail", ["MAIL_PROVIDER", "MAIL_FROM", "MAIL_REPLY_TO", "SMTP_HOST", "SMTP_PORT", "SMTP_SECURE", "SMTP_USER", "SMTP_PASS"]],
   ["Invites and guardian gate", ["INVITE_CHANNELS", "INVITE_TOKEN_TTL_HOURS", "WALKIN_TOKEN_TTL_HOURS", "GUARDIAN_EMAIL_GRACE_DAYS", "GUARDIAN_REMINDER_EVERY_DAYS"]],
   ["WhatsApp", ["WHATSAPP_MODE", "WHATSAPP_API_VERSION", "WHATSAPP_TOKEN", "WHATSAPP_PHONE_ID"]],
@@ -1748,7 +1726,8 @@ function checklist() {
     C.dim(
       "\nNames only — this script never prints a value.\n" +
         "`python3 scripts/gen-vercel-env.py` splits .env.production into paste-ready\n" +
-        "per-project files (.env-erp, .env-superadmin, .env-www, .env-realtime).",
+        "per-deployable files (.env-erp, .env-superadmin, .env-www for Vercel;\n" +
+        ".env-api, .env-admin-api, .env-realtime for Railway).",
     ),
   );
 

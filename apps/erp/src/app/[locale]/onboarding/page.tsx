@@ -1,12 +1,8 @@
 import { redirect } from "next/navigation";
+import type { CatalogSystem } from "@/features/onboarding/types";
 import { portalForRole } from "@/lib/auth/portal";
-import { getSessionUser } from "@/lib/auth/session";
-import { getCatalogTree } from "@/lib/services/catalog/catalog-read";
-import {
-  getOnboardingState,
-  isOnboardingComplete,
-} from "@/lib/services/catalog/onboarding";
-import { verifyOnboardingToken } from "@/lib/services/onboarding/welcome-email";
+import { ServiceError, serviceGet } from "@/lib/server/service-fetch";
+import { ssrSession } from "@/lib/server/ssr-session";
 import OnboardingClient, {
   type OnboardingTokenState,
   type WizardRole,
@@ -15,6 +11,14 @@ import OnboardingClient, {
 export const dynamic = "force-dynamic";
 
 const WIZARD_ROLES = new Set<string>(["student", "teacher", "center_admin"]);
+
+// The service answered a 4xx to a caller requirePortal-style checks already
+// admitted (session gone between two reads, or a missing profile the old
+// in-process call would have thrown for): the same throw to the error boundary.
+function required<T>(res: { status: number; data: T | null }, path: string): T {
+  if (res.data === null) throw new ServiceError(res.status, path);
+  return res.data;
+}
 
 export default async function OnboardingPage({
   params,
@@ -28,7 +32,7 @@ export default async function OnboardingPage({
   const editMode = query.edit === "1";
   const emailToken = typeof query.token === "string" ? query.token : null;
 
-  const user = await getSessionUser();
+  const { user, onboardingComplete } = await ssrSession();
   if (!user) {
     const back = emailToken
       ? `/${locale}/onboarding?token=${encodeURIComponent(emailToken)}`
@@ -40,24 +44,26 @@ export default async function OnboardingPage({
   if (!WIZARD_ROLES.has(user.role)) {
     redirect(`/${locale}${portal ?? "/dashboard"}`);
   }
-  if (!editMode && (await isOnboardingComplete(user))) {
+  if (!editMode && onboardingComplete) {
     redirect(`/${locale}${portal ?? "/dashboard"}`);
   }
 
   let tokenState: OnboardingTokenState = "ok";
   if (emailToken) {
-    const check = await verifyOnboardingToken(emailToken);
-    tokenState =
-      check.status === "valid"
-        ? check.userId === user.id
-          ? "ok"
-          : "mismatch"
-        : (check.status as OnboardingTokenState);
+    // The route already answers "mismatch" for a valid token owned by another user.
+    const check = required(
+      await serviceGet<{ status: "valid" | "mismatch" | "expired" | "invalid" }>(
+        "/api/v1/me/onboarding-email",
+        { token: emailToken },
+      ),
+      "/api/v1/me/onboarding-email",
+    );
+    tokenState = check.status === "valid" ? "ok" : check.status;
   }
 
   const [tree, state] = await Promise.all([
-    getCatalogTree(),
-    getOnboardingState(user),
+    serviceGet<CatalogSystem[]>("/api/v1/catalog/tree").then((r) => required(r, "/api/v1/catalog/tree")),
+    serviceGet<unknown>("/api/v1/me/onboarding").then((r) => required(r, "/api/v1/me/onboarding")),
   ]);
 
   return (

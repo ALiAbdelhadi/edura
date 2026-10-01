@@ -8,7 +8,7 @@ const SUITE_NAME = "center-share-governance.test.ts";
 import {
   createCollaborationRequest,
   acceptCollaborationRequest,
-} from "@/lib/services/collaboration/collaboration";
+} from "@repo/server-core/services/collaboration/collaboration";
 
 let pass = 0;
 let fail = 0;

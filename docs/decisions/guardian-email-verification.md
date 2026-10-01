@@ -74,7 +74,7 @@ to the pre-flight (8 users / 2 centers / 1 student / 0 payments / 0 transactions
 **[test] there is no test database — `.env.test` points at DEV** (the 2026-08-03
 decision), which already has them. Do not read this as work pending.
 
-Proof: `apps/www/tests/db/guardian-verification.test.ts` **51/51** (live DB,
+Proof: `apps/erp/tests/db/guardian-verification.test.ts` **51/51** (live DB,
 real services, the real better-auth claim door) — the token hash never being
 the token; the claim door refusing and leaving the token unburned with no
 session row; the stamp, the burn and the actor-less audit row in one

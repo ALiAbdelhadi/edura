@@ -7,7 +7,7 @@ import {
   toPath,
 } from "@repo/ui/lib/student-identity";
 import { EDURA_MARK_PATHS, EDURA_MARK_STROKE, EDURA_MARK_VIEWBOX } from "@repo/ui/lib/edura-mark";
-import { formatStudentCode } from "@repo/database/student-code";
+import { formatStudentCode } from "@repo/shared/student-code";
 import styles from "./student-id-card.module.css";
 
 const ARABIC = /[؀-ۿ]/;

@@ -1,8 +1,8 @@
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { backOfficeSearch } from "@/lib/services/admin/global-search";
-import type { SessionUser } from "@/lib/auth/session";
+import { backOfficeSearch } from "@repo/server-core/backoffice/admin/global-search";
+import type { SessionUser } from "@repo/server-core/backoffice-auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const admin = testPool();
@@ -292,7 +292,7 @@ async function main() {
     );
 
     const src = readFileSync(
-      fileURLToPath(new URL("../../src/lib/services/admin/global-search.ts", import.meta.url)),
+      fileURLToPath(new URL("../../../../packages/server-core/src/backoffice/admin/global-search.ts", import.meta.url)),
       "utf8",
     );
     const importLines = src

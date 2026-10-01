@@ -3,9 +3,9 @@
 import { useEffect, useRef } from "react";
 import { Printer } from "lucide-react";
 import { Button } from "@repo/ui/components/button";
-import { formatStudentCode } from "@repo/database/student-code";
+import { formatStudentCode } from "@repo/shared/student-code";
 import type { StudentCard } from "@repo/server-core/services/students/student-card";
-import { StudentIdCard, type CardLabels } from "./student-id-card";
+import { StudentIdCard, type CardLabels } from "@repo/ui/components/student-id-card";
 
 export function StudentIdPrintSheet({
   card,

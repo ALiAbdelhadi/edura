@@ -150,25 +150,70 @@ export async function bulkMarkAttendanceTx(
     }
 
     const now = new Date();
-    for (const entry of entries) {
-      await tx.attendanceRecord.upsert({
-        where: { sessionId_studentId: { sessionId, studentId: entry.studentId } },
+    const finalStatus = new Map<string, AttendanceEntry["status"]>();
+    for (const entry of entries) finalStatus.set(entry.studentId, entry.status);
+    const studentIds = [...finalStatus.keys()];
+
+    const upsertOne = (studentId: string, status: AttendanceEntry["status"]) =>
+      tx.attendanceRecord.upsert({
+        where: { sessionId_studentId: { sessionId, studentId } },
         create: {
           sessionId,
-          studentId: entry.studentId,
+          studentId,
           courseId: session.courseId,
           centerId: adminCenterId,
-          status: entry.status,
+          status,
           markedBy: adminId,
           editedAt: now,
           dataSource: session.dataSource,
         },
-        update: {
-          status: entry.status,
+        update: { status, markedBy: adminId, editedAt: now },
+      });
+
+    const existing = studentIds.length
+      ? await tx.attendanceRecord.findMany({
+          where: { sessionId, studentId: { in: studentIds } },
+          select: { studentId: true },
+        })
+      : [];
+    const existingSet = new Set(existing.map((r) => r.studentId));
+
+    const toCreate = studentIds.filter((id) => !existingSet.has(id));
+    if (toCreate.length > 0) {
+      const created = await tx.attendanceRecord.createMany({
+        data: toCreate.map((studentId) => ({
+          sessionId,
+          studentId,
+          courseId: session.courseId,
+          centerId: adminCenterId,
+          status: finalStatus.get(studentId)!,
           markedBy: adminId,
           editedAt: now,
-        },
+          dataSource: session.dataSource,
+        })),
+        skipDuplicates: true,
       });
+      // A row inserted by a writer that does not take the session lock loses
+      // the race silently under skipDuplicates; upsert settles those exactly.
+      if (created.count !== toCreate.length) {
+        for (const id of toCreate) await upsertOne(id, finalStatus.get(id)!);
+      }
+    }
+
+    const byStatus = new Map<AttendanceEntry["status"], string[]>();
+    for (const id of studentIds) {
+      if (!existingSet.has(id)) continue;
+      const status = finalStatus.get(id)!;
+      byStatus.set(status, [...(byStatus.get(status) ?? []), id]);
+    }
+    for (const [status, ids] of byStatus) {
+      const res = await tx.attendanceRecord.updateMany({
+        where: { sessionId, studentId: { in: ids } },
+        data: { status, markedBy: adminId, editedAt: now },
+      });
+      if (res.count !== ids.length) {
+        for (const id of ids) await upsertOne(id, status);
+      }
     }
 
     return { absentEntries: entries.filter((e) => e.status === "absent") };

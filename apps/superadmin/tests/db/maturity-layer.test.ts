@@ -19,8 +19,8 @@ import {
 import {
   listContactSubmissions,
   setContactSubmissionStatus,
-} from "@/lib/services/admin/contact-submissions";
-import type { SessionUser } from "@/lib/auth/session";
+} from "@repo/server-core/backoffice/admin/contact-submissions";
+import type { SessionUser } from "@repo/server-core/backoffice-auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";

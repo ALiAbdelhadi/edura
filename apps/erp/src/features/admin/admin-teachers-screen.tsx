@@ -96,7 +96,6 @@ export function AdminTeachersScreen() {
       {
         onSuccess: () => {
           toast.success(t("adminHome.teachers_removed"));
-          query.refetch();
         },
         onError: (err: any) => toast.error(err?.message || t("adminHome.teachers_removeFailed")),
       },

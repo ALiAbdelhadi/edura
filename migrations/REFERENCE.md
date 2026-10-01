@@ -34,7 +34,7 @@
 | الحضور / الدرجات / المدفوعات | **لا يوجد مسار استيراد إطلاقًا** — انظر «ما لا نستورده» |
 
 تفاصيل مسار استيراد الطلاب (`packages/server-core/src/services/center/bulk-import-students.ts`
-و `apps/www/src/app/api/v1/center/students/import/route.ts`):
+و `apps/erp/src/app/api/v1/center/students/import/route.ts`):
 
 - **الصيغة:** CSV أو TSV فقط. **`.xlsx` غير مدعوم** في المنصة. الـ BOM الذي
   يكتبه Excel على ويندوز يُزال تلقائيًا، والاقتباس RFC-4180 مدعوم (فاصلة داخل

@@ -6,8 +6,8 @@
 // zero payments rows, zero transactions rows, subscription still cancelled.
 import { withPlatformContext } from "@repo/database";
 import { createSubscriptionCheckout, cancelPendingSubscription } from "@repo/server-core/services/subscriptions/subscriptions";
-import { initiateSubscriptionIntent, processWebhookEvent } from "@/lib/services/payments/payment-intents"; // apps/erp alias
-import { signMockWebhook, resolveDriver } from "@/lib/services/payments/gateway";
+import { initiateSubscriptionIntent, processWebhookEvent } from "@repo/server-core/services/payments/payment-intents"; // apps/erp alias
+import { signMockWebhook, resolveDriver } from "@repo/server-core/services/payments/gateway/index";
 import type { SessionUser } from "@repo/server-core/auth/types";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

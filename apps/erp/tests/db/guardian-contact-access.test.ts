@@ -1,8 +1,9 @@
+import "./helpers/bind-auth";
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { prisma, withPlatformContext } from "@repo/database";
-import { GET as guardianGet, POST as guardianPost } from "@/app/api/v1/center/students/[id]/guardian-contact/route";
-import { __setSessionOverrideForTests } from "@/lib/auth/session";
-import type { SessionUser } from "@/lib/auth/session";
+import { GET as guardianGet, POST as guardianPost } from "api/routes/v1/center/students/[id]/guardian-contact/route";
+import { __setSessionOverrideForTests } from "@repo/server-core/erp-auth/session";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const admin = testPool();

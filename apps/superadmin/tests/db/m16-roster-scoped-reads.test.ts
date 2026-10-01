@@ -1,7 +1,7 @@
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
-import { listStudents } from "@/lib/services/admin/platform";
-import { centerWalletMovements } from "@/lib/services/admin/center-oversight";
+import { listStudents } from "@repo/server-core/backoffice/admin/platform";
+import { centerWalletMovements } from "@repo/server-core/backoffice/admin/center-oversight";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const adminPool = testPool();

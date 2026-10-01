@@ -14,8 +14,13 @@
     "@repo/database": "workspace:*",
     "@repo/notifications": "workspace:*",
     "@repo/observability": "workspace:*",
+    "@repo/shared": "workspace:*",
     "bcryptjs": "3.0.3",
+    "better-auth": "1.6.25",
+    "exceljs": "^4.4.0",
     "ioredis": "^5.11.1",
+    "jose": "^6.2.4",
+    "pdf-lib": "^1.17.1",
     "posthog-node": "^5.47.3",
     "web-push": "^3.6.7",
     "zod": "4.4.3"
@@ -25,11 +30,7 @@
     "eslint": "9.39.5",
     "@types/node": "26.1.1",
     "@types/web-push": "^3.6.4",
-    "next": "16.3.5",
     "typescript": "7.0.2"
-  },
-  "peerDependencies": {
-    "next": ">=16"
   },
   "scripts": {
     "lint": "eslint .",

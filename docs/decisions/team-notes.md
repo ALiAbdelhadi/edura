@@ -45,7 +45,7 @@ staff role, so none of the child-safety machinery applies).
    first. Full board at `/dashboard/{admin,staff,teacher,assistant}/notes` +
    nav items; compact panel on the staff home, center-admin dashboard, and
    ABOVE the chat on the assistant home. i18n `teamNotes.*` ar/en.
-7. Proof: `apps/www/tests/db/team-notes.test.ts` **47/47** (live DB, real
+7. Proof: `apps/erp/tests/db/team-notes.test.ts` **47/47** (live DB, real
    center-actor + real resolveActingTeacher + real service; includes raw-RLS
    cross-center peek and the CHECK rejections). Regressions green: root
    check-types 6/6, www unit 111 pass/1 skip, rbac-isolation 11/11,

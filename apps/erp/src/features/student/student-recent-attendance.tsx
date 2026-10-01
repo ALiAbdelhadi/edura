@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useCustom, useList } from "@refinedev/core";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 import { useTranslations } from "next-intl";
 import {
   Chip,
@@ -31,7 +32,7 @@ export function StudentRecentAttendance() {
   const { formatDate } = useFormatters();
 
   const { query, result } = useCustom({ url: "me/attendance", method: "get" });
-  const { result: enrollmentsResult } = useList({ resource: "enrollments" });
+  const { result: enrollmentsResult } = useList({ resource: "enrollments", queryOptions: QUERY_FRESHNESS.list });
 
   const courseNames = useMemo(() => {
     const rows = (enrollmentsResult?.data ?? []) as {

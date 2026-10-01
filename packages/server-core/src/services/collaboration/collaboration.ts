@@ -9,7 +9,6 @@ import {
 import type { SessionUser } from "../../auth/types";
 import type { CollaborationRequest, Course, Prisma } from "@repo/database";
 import { notify } from "../notifications/notify";
-import { resolveCenterAdmins } from "../notifications/fanout";
 import { generateSessionsTx } from "../sessions/session-generator";
 import {
   resolveCoursePricingSnapshot,
@@ -172,9 +171,18 @@ export async function createCollaborationRequestTx(
         },
       });
 
+      // Read on the caller's transaction, as resolveDecisionRecipients does:
+      // `resolveCenterAdmins` opens a second connection while this one is
+      // still held, and at pool size that deadlocks the instance. Both
+      // callers run under platformDb, so the rows are the same ones.
       const recipients =
         initiator === "teacher"
-          ? await resolveCenterAdmins(input.centerId)
+          ? (
+              await tx.centerAdminProfile.findMany({
+                where: { centerId: input.centerId },
+                select: { userId: true },
+              })
+            ).map((a) => a.userId)
           : [input.teacherId];
       return { request, recipients };
     }

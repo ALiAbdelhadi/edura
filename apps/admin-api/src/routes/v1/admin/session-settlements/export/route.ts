@@ -1,0 +1,33 @@
+import { withRole } from "@repo/server-core/backoffice-auth/require-role";
+import { buildSettlementWorkbook } from "@repo/server-core/backoffice/finance/settlement-export";
+
+export const GET = withRole(["accountant", "super_admin"], async (_user, req) => {
+
+  const p = new URL(req.url).searchParams;
+  const date = (v: string | null) => {
+    if (!v) return undefined;
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? undefined : d;
+  };
+  const locale = p.get("locale") === "en" ? "en" : "ar";
+
+  const { buffer, filename, rowCount, truncated } = await buildSettlementWorkbook(
+    {
+      centerId: p.get("centerId") ?? undefined,
+      pricingMethod: p.get("pricingMethod") ?? undefined,
+      from: date(p.get("from")),
+      to: date(p.get("to")),
+    },
+    locale,
+  );
+
+  return new Response(new Uint8Array(buffer), {
+    headers: {
+      "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "content-disposition": `attachment; filename="${filename}"`,
+      "content-length": String(buffer.byteLength),
+      "x-edura-rows": String(rowCount),
+      "x-edura-truncated": String(truncated),
+    },
+  });
+});

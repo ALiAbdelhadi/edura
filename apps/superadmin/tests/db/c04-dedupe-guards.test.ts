@@ -4,9 +4,9 @@ import {
   PARENT_LINK_ONE_LIVE,
   WALLET_SETTINGS_ONE_ROW,
 } from "@repo/server-core/db/unique-indexes";
-import { linkTeacherCenter, linkParent, unlinkTeacherCenter, unlinkParent } from "@/lib/services/admin/platform";
-import { getWalletPolicy, updateWalletPolicy } from "@/lib/services/settings/wallet-settings-admin";
-import type { SessionUser } from "@/lib/auth/session";
+import { linkTeacherCenter, linkParent, unlinkTeacherCenter, unlinkParent } from "@repo/server-core/backoffice/admin/platform";
+import { getWalletPolicy, updateWalletPolicy } from "@repo/server-core/backoffice/settings/wallet-settings-admin";
+import type { SessionUser } from "@repo/server-core/backoffice-auth/session";
 
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

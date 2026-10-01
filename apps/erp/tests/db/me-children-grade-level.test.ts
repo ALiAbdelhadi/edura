@@ -1,6 +1,6 @@
 import { withPlatformContext } from "@repo/database";
-import { listChildren } from "@/lib/services/parent-links/parent-links";
-import type { SessionUser } from "@/lib/auth/session";
+import { listChildren } from "@repo/server-core/services/parent-links/parent-links";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
 
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

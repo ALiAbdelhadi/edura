@@ -8,7 +8,7 @@ Step 7 tokenized single-use claim — nothing was rebuilt.
 > **nodemailer over SMTP** (`MAIL_PROVIDER=console|smtp`), NOT the Resend SDK.
 > It works with Resend's SMTP bridge; that is an env change, never a code one.
 
-1. **ONE claim kernel**: `apps/www/src/lib/services/invites/invite-token.ts`.
+1. **ONE claim kernel**: `packages/server-core/src/services/invites/invite-token.ts`.
    `CLAIMABLE` maps purpose → the exactly-one role it may resolve to
    (`walk_in_onboarding`→student, `assistant_invite`→assistant,
    `center_staff_invite`→center_staff). The NextAuth claim provider reads that
@@ -84,7 +84,7 @@ that adds it) and `20260725100100_guardian_contact` (5 nullable columns + index,
 no backfill).
 **[dev] APPLIED. [production, 2026-07-31] APPLIED — all 40 migrations deployed; production is no longer behind.** Consequence: `guardian_contact_due_at` does not exist there, so the
 `guardian-contact-reminders` cron job ERRORS on production rather than no-oping.
-Applying them is part of the production bootstrap. Proof: `apps/www/tests/db/invite-claim.test.ts` **107/107** (live
+Applying them is part of the production bootstrap. Proof: `apps/erp/tests/db/invite-claim.test.ts` **107/107** (live
 DB, real services + real NextAuth providers + the real me/credentials route).
 Regressions green: `bun run check-types` 5/5, `bun run build` both apps, www unit
 111 pass/1 skip, messaging-scope 87/87, c04 72/72, center-staff-delegation

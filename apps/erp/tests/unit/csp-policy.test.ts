@@ -1,8 +1,11 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { API_ROUTES } from "../route-source";
+import { SERVICE_PREFIXES } from "@/lib/http/service-routes";
 import { describe, expect, it } from "vitest";
 import * as erpCsp from "@/lib/security/csp";
 import * as saCsp from "../../../superadmin/src/lib/security/csp";
+import { SERVICE_PREFIXES as SA_SERVICE_PREFIXES } from "../../../superadmin/src/lib/http/service-routes";
 
 const ROOT = path.resolve(__dirname, "../../..");
 const read = (rel: string) => readFileSync(path.join(ROOT, rel), "utf8");
@@ -87,11 +90,13 @@ describe("CSP — cross-app invariants", () => {
   });
 
   it("both apps expose the report endpoint they point at", () => {
-    for (const app of ["erp", "superadmin"] as const) {
-      const route = path.join(ROOT, app, "src/app/api/v1/security/csp-report/route.ts");
-      expect(() => readFileSync(route, "utf8")).not.toThrow();
-      expect(readFileSync(route, "utf8")).toContain("export const POST");
-    }
+    // Each app serves it through the rewrite to its own service.
+    const erpRoute = path.join(API_ROUTES, "v1/security/csp-report/route.ts");
+    expect(readFileSync(erpRoute, "utf8")).toContain("export const POST");
+    expect(SERVICE_PREFIXES).toContain("/api/v1/security");
+    const saRoute = path.join(ROOT, "admin-api", "src/routes/v1/security/csp-report/route.ts");
+    expect(readFileSync(saRoute, "utf8")).toContain("export const POST");
+    expect(SA_SERVICE_PREFIXES).toContain("/api/v1/security");
   });
 
   it("neither app ignores type errors at build any more (M-09)", () => {

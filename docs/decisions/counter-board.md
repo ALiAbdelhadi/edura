@@ -191,7 +191,7 @@ Refine data provider already reads `error.data`.
 `centerStaff(..., { allow: RECEPTION })`. New i18n block `shared.counter.*`
 (ar/en) and a `nav.counter` entry in both portals.
 
-Proof: `apps/www/tests/db/counter-board.test.ts` **39/39** (live DB, real
+Proof: `apps/erp/tests/db/counter-board.test.ts` **39/39** (live DB, real
 services) — the picker being a directory rather than a schedule, the Cairo clock
 choosing the live lesson over the finished one, `?q=` never moving the default,
 tenancy refused on all three reads, the union and its partition, and coverage

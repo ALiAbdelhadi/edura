@@ -23,7 +23,7 @@ import {
   SectionHead,
   SkeletonRows,
   TotalLine,
-} from "./ledger-kit";
+} from "@repo/ui/components/ledger";
 
 type PaymentRow = {
   id?: string;

@@ -1,5 +1,5 @@
 import { withPlatformContext } from "@repo/database";
-import { enrichSessions } from "@/lib/services/sessions/enrich";
+import { enrichSessions } from "@repo/server-core/services/sessions/enrich";
 
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

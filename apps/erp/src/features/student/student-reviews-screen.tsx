@@ -163,7 +163,6 @@ export function StudentReviewsScreen() {
             toast.success(t("studentReviews.reviewUpdated"));
             setIsModalOpen(false);
             form.reset({ rating: 0, text: "" });
-            reviewsQuery.refetch();
           },
           onError: (err: any) =>
             toast.error(err?.message || t("studentReviews.reviewUpdateFailed")),
@@ -180,7 +179,6 @@ export function StudentReviewsScreen() {
             toast.success(t("studentReviews.reviewSubmitted"));
             setIsModalOpen(false);
             form.reset({ rating: 0, text: "" });
-            reviewsQuery.refetch();
             eligibleQuery.refetch();
           },
           onError: (err: any) =>

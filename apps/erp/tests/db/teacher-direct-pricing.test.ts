@@ -1,7 +1,7 @@
 import { withPlatformContext } from "@repo/database";
 import { updateTeacherDirectPricing } from "@repo/server-core/services/center/courses";
 import { BusinessRuleError, NotFoundError } from "@repo/server-core/errors/classes";
-import type { SessionUser } from "@/lib/auth/session";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
 
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

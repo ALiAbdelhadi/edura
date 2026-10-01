@@ -99,7 +99,7 @@ tables before the student-code migration landed on top). The line that used to
 stand here said "NOT applied" and was STALE — exactly the failure the
 environment-labelling convention at the top of this file exists to catch.**
 
-Proof: `apps/www/tests/db/external-teachers.test.ts` **102/102** (live DB, real
+Proof: `apps/erp/tests/db/external-teachers.test.ts` **102/102** (live DB, real
 center-actor authorization, real services, real money engine) — including the
 shared-student scenario and a conversion that asserts eight record counts are
 byte-identical before and after, against the counts the journal itself froze in

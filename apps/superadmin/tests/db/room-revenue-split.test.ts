@@ -1,10 +1,10 @@
 import { withPlatformContext } from "@repo/database";
-import { completeSession } from "@/lib/services/finance/distribution";
+import { completeSession } from "@repo/server-core/services/finance/distribution";
 import {
   resolveRevenueSplit,
   resolveCourseSplitSnapshot,
-} from "@/lib/services/finance/commission";
-import { refundLessonForStudent } from "@/lib/services/finance/refunds";
+} from "@repo/server-core/services/finance/commission";
+import { refundLessonForStudent } from "@repo/server-core/backoffice/finance/refunds";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 import {
@@ -49,7 +49,7 @@ import {
   clearCenterSplit,
   upsertRoomSplit,
   clearRoomSplit,
-} from "@/lib/services/admin/rooms-split";
+} from "@repo/server-core/backoffice/admin/rooms-split";
 
 let pass = 0;
 let fail = 0;

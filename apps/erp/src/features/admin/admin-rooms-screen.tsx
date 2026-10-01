@@ -97,6 +97,7 @@ export function AdminRoomsScreen() {
   const availabilityReq = useCustom({
     url: "rooms/per-student-availability",
     method: "get",
+    queryOptions: QUERY_FRESHNESS.list,
   });
   const availability = availabilityReq.result?.data as M2Availability | undefined;
   const ceiling = availability?.ceiling ?? null;

@@ -1,15 +1,13 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { SessionUser } from "@repo/server-core/auth/types";
+import type { SsrSession } from "@/lib/server/ssr-session";
 
-const getSessionUser = vi.fn<() => Promise<SessionUser | null>>();
-vi.mock("@/lib/auth/session", () => ({
-  getSessionUser: () => getSessionUser(),
-  requireSession: vi.fn(),
-}));
-
-const isOnboardingComplete = vi.fn<(u: SessionUser) => Promise<boolean>>();
-vi.mock("@/lib/services/catalog/onboarding", () => ({
-  isOnboardingComplete: (u: SessionUser) => isOnboardingComplete(u),
+// The gate reads ONE service route; the session's null rules and the
+// onboarding answer are the service's (R5), so the gate only routes on them.
+const serviceGet = vi.fn<(path: string) => Promise<{ status: number; data: SsrSession | null }>>();
+vi.mock("@/lib/server/service-fetch", () => ({
+  serviceGet: (path: string) => serviceGet(path),
+  ServiceError: class extends Error {},
 }));
 
 class RedirectSignal extends Error {
@@ -32,6 +30,10 @@ const user = (role: SessionUser["role"], extra: Partial<SessionUser> = {}): Sess
   ...extra,
 });
 
+function session(u: SessionUser | null, onboardingComplete = Boolean(u)) {
+  serviceGet.mockResolvedValue({ status: 200, data: { user: u, onboardingComplete, viewAs: null } });
+}
+
 async function gate(role: Parameters<typeof requirePortal>[0]): Promise<string> {
   try {
     await requirePortal(role, "ar");
@@ -43,47 +45,53 @@ async function gate(role: Parameters<typeof requirePortal>[0]): Promise<string> 
 }
 
 beforeEach(() => {
-  getSessionUser.mockReset();
-  isOnboardingComplete.mockReset();
-  isOnboardingComplete.mockResolvedValue(true);
+  serviceGet.mockReset();
 });
 
 describe("requirePortal", () => {
-  it("sends a signed-out visitor to login, without asking about onboarding", async () => {
-    getSessionUser.mockResolvedValue(null);
+  it("reads the one ssr-session route and nothing else", async () => {
+    session(user("student"));
+    await gate("student");
+    expect(serviceGet.mock.calls.map((c) => c[0])).toEqual(["/api/v1/me/ssr-session"]);
+  });
+
+  it("sends a signed-out visitor to login", async () => {
+    session(null);
     expect(await gate("student")).toBe("/ar/login");
-    expect(isOnboardingComplete).not.toHaveBeenCalled();
   });
 
   it("sends a role www does not host to login rather than guessing a portal", async () => {
-    getSessionUser.mockResolvedValue(user("super_admin"));
+    session(user("super_admin"));
     expect(await gate("student")).toBe("/ar/login");
-    expect(isOnboardingComplete).not.toHaveBeenCalled();
   });
 
   it("sends a mismatched identity to ITS OWN portal, in one hop", async () => {
-    getSessionUser.mockResolvedValue(user("parent"));
+    session(user("parent"));
     expect(await gate("student")).toBe("/ar/dashboard/parent");
   });
 
   it("sends an unfinished student to the wizard instead of drawing the portal", async () => {
-    getSessionUser.mockResolvedValue(user("student"));
-    isOnboardingComplete.mockResolvedValue(false);
+    session(user("student"), false);
     expect(await gate("student")).toBe("/ar/onboarding");
   });
 
   it("lets a finished student through", async () => {
-    getSessionUser.mockResolvedValue(user("student"));
+    session(user("student"));
     expect(await gate("student")).toBe("");
   });
 
   it("keeps the locale it was given", async () => {
-    getSessionUser.mockResolvedValue(null);
+    session(null);
     try {
       await requirePortal("student", "en");
     } catch (e) {
       expect((e as RedirectSignal).target).toBe("/en/login");
     }
+  });
+
+  it("treats a service without a body as an outage, not a signed-out visitor", async () => {
+    serviceGet.mockResolvedValue({ status: 200, data: null });
+    await expect(requirePortal("student", "ar")).rejects.toThrow(/ssr-session/);
   });
 });
 
@@ -97,21 +105,20 @@ describe("resolvePortalEntry", () => {
       ["student", "/ar/dashboard/student"],
       ["parent", "/ar/dashboard/parent"],
     ] as const) {
-      getSessionUser.mockResolvedValue(user(role));
+      session(user(role));
       expect(await resolvePortalEntry("ar")).toBe(portal);
     }
   });
 
   it("sends an unfinished user to the wizard, not to a portal that would bounce them", async () => {
-    getSessionUser.mockResolvedValue(user("teacher"));
-    isOnboardingComplete.mockResolvedValue(false);
+    session(user("teacher"), false);
     expect(await resolvePortalEntry("ar")).toBe("/ar/onboarding");
   });
 
   it("sends signed-out and back-office callers to login", async () => {
-    getSessionUser.mockResolvedValue(null);
+    session(null);
     expect(await resolvePortalEntry("ar")).toBe("/ar/login");
-    getSessionUser.mockResolvedValue(user("accountant"));
+    session(user("accountant"));
     expect(await resolvePortalEntry("ar")).toBe("/ar/login");
   });
 });

@@ -1,5 +1,5 @@
 import { withPlatformContext } from "@repo/database";
-import { runSubscriptionRenewalReminders } from "@/lib/services/cron/jobs";
+import { runSubscriptionRenewalReminders } from "@repo/server-core/services/cron/jobs";
 import { shiftDayKey, todayKey } from "@repo/server-core/lib/date-key";
 
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";

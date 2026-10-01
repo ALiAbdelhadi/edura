@@ -1,8 +1,8 @@
 // SECURITY_AUDIT.md L-08 — a grade's HEADER (title, type, max score, course)
 // is course data: only an enrolled student, or the parent of one, may read it.
 import { withPlatformContext } from "@repo/database";
-import { getGrade } from "@/lib/services/grades/grades";
-import type { SessionUser } from "@/lib/auth/session";
+import { getGrade } from "@repo/server-core/services/grades/grades";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 

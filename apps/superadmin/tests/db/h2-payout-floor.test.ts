@@ -1,6 +1,6 @@
 import { testPool } from "../../../../packages/database/scripts/test-pool";
-import { approvePayout, payPayout } from "@/lib/services/finance/payouts";
-import type { SessionUser } from "@/lib/auth/session";
+import { approvePayout, payPayout } from "@repo/server-core/backoffice/finance/payouts";
+import type { SessionUser } from "@repo/server-core/backoffice-auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";

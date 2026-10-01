@@ -18,7 +18,7 @@ import {
   centerPayouts,
   centerSettlements,
   centerWalletMovements,
-} from "@/lib/services/admin/center-oversight";
+} from "@repo/server-core/backoffice/admin/center-oversight";
 import {
   setCenterStatus,
   setCenterMemberStatus,
@@ -27,9 +27,9 @@ import {
   decideCollaborationRequest,
   updateCenterProfile,
   updateCenterRoomProfile,
-} from "@/lib/services/admin/center-control";
-import { listAuditLogs } from "@/lib/services/admin/audit-log";
-import type { SessionUser } from "@/lib/auth/session";
+} from "@repo/server-core/backoffice/admin/center-control";
+import { listAuditLogs } from "@repo/server-core/backoffice/admin/audit-log";
+import type { SessionUser } from "@repo/server-core/backoffice-auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const admin = testPool();

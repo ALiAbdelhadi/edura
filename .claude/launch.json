@@ -140,6 +140,72 @@
         "3095"
       ],
       "port": 3095
+    },
+    {
+      "name": "edura-api-hop",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "NODE_ENV=development",
+        "EDURA_DEV_COOKIE_PORT=3002",
+        "EDURA_PROXY_SECRET=local-hop-proof-only",
+        "PORT=3006",
+        "bun",
+        "--env-file",
+        "/Users/ali/edura/apps/erp/.env.local",
+        "/Users/ali/edura/apps/api/src/server.ts"
+      ],
+      "port": 3006
+    },
+    {
+      "name": "edura-erp-hop",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "EDURA_PROXY_SECRET=local-hop-proof-only",
+        "API_SERVICE_URL=http://localhost:3006",
+        "NEXT_DIST_DIR=.next-hop",
+        "bun",
+        "run",
+        "--cwd",
+        "/Users/ali/edura/apps/erp",
+        "next",
+        "dev",
+        "-p",
+        "3002"
+      ],
+      "port": 3002
+    },
+    {
+      "name": "edura-admin-api-hop",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "NODE_ENV=development",
+        "EDURA_DEV_COOKIE_PORT=3004",
+        "EDURA_PROXY_SECRET=local-hop-proof-only",
+        "PORT=3007",
+        "bun",
+        "--env-file",
+        "/Users/ali/edura/apps/superadmin/.env.local",
+        "/Users/ali/edura/apps/admin-api/src/server.ts"
+      ],
+      "port": 3007
+    },
+    {
+      "name": "edura-superadmin-hop",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "EDURA_PROXY_SECRET=local-hop-proof-only",
+        "ADMIN_API_SERVICE_URL=http://localhost:3007",
+        "NEXT_DIST_DIR=.next-hop",
+        "bun",
+        "run",
+        "--cwd",
+        "/Users/ali/edura/apps/superadmin",
+        "next",
+        "dev",
+        "-p",
+        "3004"
+      ],
+      "port": 3004
     }
   ]
 }

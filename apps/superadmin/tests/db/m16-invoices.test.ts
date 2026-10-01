@@ -1,6 +1,6 @@
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
-import { listInvoices, generateInvoice } from "@/lib/services/finance/invoices";
+import { listInvoices, generateInvoice } from "@repo/server-core/services/finance/invoices";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const adminPool = testPool();

@@ -1,8 +1,8 @@
 // SECURITY_AUDIT.md L-04 — acceptInvite claims the token with a conditional
 // update FIRST, so two concurrent accepts resolve to exactly one.
 import { withPlatformContext } from "@repo/database";
-import { acceptInvite } from "@/lib/services/auth/invite-accept";
-import { generateOpaqueToken, hashToken } from "@/lib/utils/random";
+import { acceptInvite } from "@repo/server-core/services/auth/invite-accept";
+import { generateOpaqueToken, hashToken } from "@repo/server-core/utils/random";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 

@@ -106,7 +106,7 @@ they ask.
 
 **No database migration, no schema change.**
 
-Proof: `apps/www/tests/db/bulk-import-students.test.ts` **43/43** (live DB, real
+Proof: `apps/erp/tests/db/bulk-import-students.test.ts` **43/43** (live DB, real
 center actor, real services) — reuse by phone and by national ID, per-row
 isolation under a deliberately bad row, the row cap and the missing-name-column
 refusal, the chunk `lineOffset` keeping original line numbers, cross-center

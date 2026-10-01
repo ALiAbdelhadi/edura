@@ -9,6 +9,7 @@ import StudentLink from "@/components/ui/student-link";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCustomMutation, useInvalidate, useList, useUpdate } from "@refinedev/core";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 import { track } from "@/lib/track";
 import { ANALYTICS_EVENTS } from "@repo/observability";
 import { Button } from "@repo/ui/components/button";
@@ -42,11 +43,13 @@ import { Badge, BlacklistCascadePanel, DataTable, DateText, EmptyState, MetricCa
 export function AdminStudentsScreen() {
   const t = useTranslations();
   const { formatDate } = useFormatters();
-  const { query, result } = useList({ resource: "students" });
+  const { query, result } = useList({ resource: "students", queryOptions: QUERY_FRESHNESS.list });
+  // Same key and options as the shell's nav badge (dashboard-shell useNavBadges),
+  // so the pending count is one request shared by both.
   const { result: pendingRequestsResult } = useList({
     resource: "enrollment-requests",
-    filters: [{ field: "status", operator: "eq", value: "pending" }],
-    pagination: { mode: "off" },
+    filters: [{ field: "status", operator: "eq" as const, value: "pending" }],
+    queryOptions: QUERY_FRESHNESS.list,
   });
   const { mutate: updateStudent, mutation: updateMutation } = useUpdate();
   const { mutate: invite, mutation: inviteMutation } = useCustomMutation();

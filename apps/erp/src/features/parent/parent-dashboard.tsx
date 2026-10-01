@@ -21,7 +21,7 @@ import { LatestGradeCard } from "@/features/grades/latest-grade-card";
 import { ChildNextLesson } from "@/features/parent/child-next-lesson";
 import { ChildTodayLine } from "@/features/parent/child-today-line";
 import { ChildSubscriptionAlert } from "@/features/parent/child-subscription-alert";
-import { Figure, Money, SkeletonRows } from "./ledger-kit";
+import { Figure, Money, SkeletonRows } from "@repo/ui/components/ledger";
 import { QUERY_FRESHNESS } from "@/lib/refine";
 
 function RecordCard({

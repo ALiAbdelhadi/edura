@@ -17,8 +17,8 @@ import { awaitingSettlement, liveNow, type CenterSession } from "./center-day";
 import {
   clashingSessionIds,
   type SchedulableSession,
-} from "@repo/server-core/services/sessions/conflict-detector";
-import { shiftDayKey, todayKey } from "@repo/server-core/lib/date-key";
+} from "@repo/shared/schedule-clash";
+import { shiftDayKey, todayKey } from "@repo/shared/date-key";
 import { Link } from "@/i18n/navigation";
 
 interface DashboardData {
@@ -29,7 +29,7 @@ interface DashboardData {
     revenue: number;
   };
   attendanceRate: number;
-  todaySessions: unknown[];
+  todaySessionCount: number;
   feeDefaulters: number;
   pendingEnrollmentRequests: number;
   external?: { teachers: number; courses: number; students: number; revenue: number };
@@ -90,7 +90,7 @@ export function AdminDashboard() {
   const external = d?.external;
   const hasExternal = !!external && (external.teachers > 0 || external.revenue > 0);
   const attendanceRate = d?.attendanceRate ?? 0;
-  const todaySessions = d?.todaySessions?.length ?? 0;
+  const todaySessions = d?.todaySessionCount ?? 0;
   const feeDefaulters = d?.feeDefaulters ?? 0;
   const pendingRequests = d?.pendingEnrollmentRequests ?? 0;
 

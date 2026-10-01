@@ -64,7 +64,7 @@ change — the whole upgrade lives in manifests, four tsconfigs and three
    - `packages/observability` — dependency-free, reads only the `process`
      global, so nothing ever imported node types for it. Now
      `"types": ["node"]`, same as `packages/database` already had.
-   - `apps/www/tests/e2e/smoke.e2e.ts` — `/// <reference types="bun" />`, so
+   - `apps/erp/tests/e2e/smoke.e2e.ts` — `/// <reference types="bun" />`, so
      `bun:test` resolves. `@types/bun` was the ONLY package www lost.
 
 7. **`baseUrl` was REMOVED in TS 7** (`error TS5102`), so it is gone from

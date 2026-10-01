@@ -25,7 +25,7 @@ import {
   approveAgreementTx,
   proposeAgreement,
 } from "@repo/server-core/services/finance/agreements";
-import type { SessionUser } from "@/lib/auth/session";
+import type { SessionUser } from "@repo/server-core/backoffice-auth/session";
 
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

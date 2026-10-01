@@ -1,3 +1,4 @@
+import "./helpers/bind-auth";
 // PoC for SECURITY_AUDIT.md M-01 — a `center_staff` (receptionist) of centre A
 // can read centre B's session row and its attendance/coverage by id. Written in
 // Phase 3 from the Appendix A-4 curl recipe, at the route level: the two GET
@@ -10,10 +11,10 @@
 // Expected AFTER the fix: 403 on both, and the staff member's OWN centre's
 // session still reads 200 ([3]) so the fix is scoping, not a lockout.
 import { withPlatformContext } from "@repo/database";
-import type { SessionUser } from "@/lib/auth/session";
-import { __setSessionOverrideForTests } from "@/lib/auth/session";
-import { GET as sessionGet } from "@/app/api/v1/sessions/[id]/route";
-import { GET as attendanceGet } from "@/app/api/v1/sessions/[id]/attendance/route";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
+import { __setSessionOverrideForTests } from "@repo/server-core/erp-auth/session";
+import { GET as sessionGet } from "api/routes/v1/sessions/[id]/route";
+import { GET as attendanceGet } from "api/routes/v1/sessions/[id]/attendance/route";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 

@@ -1,6 +1,6 @@
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext } from "@repo/database";
-import { processWebhookEvent } from "@/lib/services/payments/payment-intents";
+import { processWebhookEvent } from "@repo/server-core/services/payments/payment-intents";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const admin = testPool();

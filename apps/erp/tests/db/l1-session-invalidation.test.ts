@@ -1,7 +1,7 @@
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import bcrypt from "bcryptjs";
-import { resetPassword } from "@/lib/services/auth/password-reset";
-import { generateOpaqueToken, hashToken } from "@/lib/utils/random";
+import { resetPassword } from "@repo/server-core/services/auth/password-reset";
+import { generateOpaqueToken, hashToken } from "@repo/server-core/utils/random";
 import { sessionFor, signInDoor } from "./helpers/auth-door";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

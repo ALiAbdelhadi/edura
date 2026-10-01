@@ -16,7 +16,7 @@ import {
   teacherStudents,
   teacherSubscriptions,
   teacherTransactions,
-} from "@/lib/services/admin/teacher-oversight";
+} from "@repo/server-core/backoffice/admin/teacher-oversight";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const admin = testPool();

@@ -1,8 +1,8 @@
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
-import { ForbiddenError } from "@/lib/errors/classes";
-import { scopedDb } from "@/lib/db/scope";
-import type { SessionUser } from "@/lib/auth/session";
+import { ForbiddenError } from "@repo/server-core/errors/classes";
+import { scopedDb } from "@repo/server-core/db/scope";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
 import {
   authorizeCenterActor,
   assertCenterActorMethodAllowed,
@@ -11,10 +11,10 @@ import {
   RECEPTION,
   MANAGER,
   ACCOUNTANT,
-} from "@/lib/authz/center-actor";
-import { createStaff, listStaff } from "@/lib/services/center/staff";
-import { requestCenterPayout, getCenterWallet } from "@/lib/services/finance/center-wallet";
-import { createTempStudent } from "@/lib/services/temp-students/temp-students";
+} from "@repo/server-core/authz/center-actor";
+import { createStaff, listStaff } from "@repo/server-core/services/center/staff";
+import { requestCenterPayout, getCenterWallet } from "@repo/server-core/services/finance/center-wallet";
+import { createTempStudent } from "@repo/server-core/services/temp-students/temp-students";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const admin = testPool();

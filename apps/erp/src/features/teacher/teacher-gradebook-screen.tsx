@@ -53,7 +53,7 @@ import { StatusBadge } from "@/components/kit/status-badge";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { BarChart } from "@/components/charts";
-import { GRADE_BANDS, bandForPercent, percentOf } from "@repo/database/grading-scale";
+import { GRADE_BANDS, bandForPercent, percentOf } from "@repo/shared/grading-scale";
 import { QUERY_FRESHNESS } from "@/lib/refine";
 
 interface RawGrade {
@@ -142,7 +142,7 @@ export function TeacherGradebookScreen() {
       ? [{ field: "courseId", operator: "eq" as const, value: selectedCourseId }]
       : [],
     pagination: { mode: "off" },
-    queryOptions: { enabled: !!selectedCourseId },
+    queryOptions: { ...QUERY_FRESHNESS.list, enabled: !!selectedCourseId },
   });
   const studentNameMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -173,7 +173,6 @@ export function TeacherGradebookScreen() {
           toast.success(`${t("teacher.assignmentCreated")}: "${values.name}"`);
           setIsCreateOpen(false);
           createForm.reset();
-          gradesQuery.refetch();
         },
         onError: (err: any) => {
           toast.error(err?.message || t("teacher.createFailed"));

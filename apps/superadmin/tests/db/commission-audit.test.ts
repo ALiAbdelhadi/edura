@@ -2,8 +2,8 @@ import { withPlatformContext } from "@repo/database";
 import {
   getGlobalCommission,
   updateGlobalCommission,
-} from "@/lib/services/settings/commission-admin";
-import type { SessionUser } from "@/lib/auth/session";
+} from "@repo/server-core/backoffice/settings/commission-admin";
+import type { SessionUser } from "@repo/server-core/backoffice-auth/session";
 
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

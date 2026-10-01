@@ -11,7 +11,7 @@ import type { ReactNode } from "react";
 import { AuthCenteredShell } from "@/components/kit/auth-centered-shell";
 import { Eyebrow, Num } from "@/components/ledger";
 import { Link } from "@/i18n/navigation";
-import { formatStudentCode } from "@repo/database/student-code";
+import { formatStudentCode } from "@repo/shared/student-code";
 import { Button } from "@repo/ui/components/button";
 import type {
   ScanIdentity,

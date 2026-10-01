@@ -47,7 +47,7 @@ menu on the center reports screen.
 
 **No database migration, no schema change, no new read.**
 
-Proof: `apps/www/tests/db/report-export.test.ts` **38/38** (live DB, real
+Proof: `apps/erp/tests/db/report-export.test.ts` **38/38** (live DB, real
 reports, real `scopedDb`) — every export compared field-by-field against the
 service the screen calls; the range narrowing the FILE and not merely the total
 (an out-of-range receipt appears nowhere in it); a second center's money absent

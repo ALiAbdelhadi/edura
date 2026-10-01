@@ -5,6 +5,7 @@ import { useList } from "@refinedev/core";
 import { useTranslations } from "next-intl";
 import { Clock, MapPin, Star, Users } from "lucide-react";
 import { SearchInput } from "@repo/ui/components/search-input";
+import { useDebounced } from "@repo/ui/hooks/use-debounced";
 import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/tabs";
 import {
   Select,
@@ -83,6 +84,7 @@ export function FindTeacherScreen() {
   const [subjectId, setSubjectId] = useState<string>(ALL_SUBJECTS);
   const [teacherSearch, setTeacherSearch] = useState("");
   const [filters, setFilters] = useState<DiscoveryFilters>(EMPTY_DISCOVERY_FILTERS);
+  const teacherQ = useDebounced(teacherSearch, 250).trim();
 
   const browseAll = scope === "all";
 
@@ -106,8 +108,8 @@ export function FindTeacherScreen() {
       ...(subjectId !== ALL_SUBJECTS
         ? [{ field: "subjectId", operator: "eq" as const, value: subjectId }]
         : []),
-      ...(teacherSearch.trim()
-        ? [{ field: "q", operator: "eq" as const, value: teacherSearch.trim() }]
+      ...(teacherQ
+        ? [{ field: "q", operator: "eq" as const, value: teacherQ }]
         : []),
       ...discoveryQueryFilters(filters),
     ],

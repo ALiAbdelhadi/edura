@@ -1,9 +1,10 @@
 import createMiddleware from "next-intl/middleware";
 import { NextRequest, NextResponse } from "next/server";
 import { routing } from "./i18n/routing";
-import { handleFromHost, publicProfilePath, publicRootDomain } from "./lib/public-site/host";
+import { handleFromHost, publicProfilePath, publicRootDomain } from "@repo/shared/public-host";
 import { isLocalisedPath } from "./i18n/route-matcher";
 import { buildPageCsp, cspHeaderName, mintNonce } from "./lib/security/csp";
+import { stampProxyClientIp } from "@repo/shared/proxy-client-ip";
 
 const intl = createMiddleware(routing);
 
@@ -13,7 +14,7 @@ const intl = createMiddleware(routing);
 // what keeps auth on one origin: no login form, no session cookie and no
 // API call ever lives on a tenant subdomain, so `trustedOrigins` and the
 // cookie domain stay exactly as they are. Dormant while PUBLIC_ROOT_DOMAIN
-// is unset — see src/lib/public-site/host.ts.
+// is unset — see @repo/shared/public-host.
 //
 // SECURITY_AUDIT.md (2026-09-11) DIFF-01: the matcher used to skip `/api`
 // and `/ingest`, so this function never saw them and a sign-in POST on a
@@ -23,6 +24,10 @@ const intl = createMiddleware(routing);
 // credential to another host), and on the canonical host they pass through
 // untouched, exactly as before. `isLocalisedPath` (INTL_MATCHER, unchanged)
 // is still what decides whether next-intl and the page CSP run.
+
+function isApiPath(pathname: string): boolean {
+  return pathname === "/api" || pathname.startsWith("/api/");
+}
 
 function tenantHostResponse(
   request: NextRequest,
@@ -62,7 +67,16 @@ export default function middleware(request: NextRequest): NextResponse {
   // CSP (next.config.ts carries the API policy). Only the tenant-host refusal
   // above applies to them.
   if (!isLocalisedPath(request.nextUrl.pathname)) {
-    return tenantHostResponse(request, new Headers(request.headers)) ?? NextResponse.next();
+    const requestHeaders = new Headers(request.headers);
+    const tenant = tenantHostResponse(request, requestHeaders);
+    if (tenant) return tenant;
+    if (!isApiPath(request.nextUrl.pathname)) return NextResponse.next();
+    // docs/decisions/backend-separation.md, "Client IP": whatever the browser
+    // sent under the two edura names is dropped, and when EDURA_PROXY_SECRET is
+    // set the platform-derived IP is stamped for the API service behind the
+    // rewrite. Without the secret the request passes through as before.
+    stampProxyClientIp(requestHeaders, process.env.EDURA_PROXY_SECRET);
+    return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
   const nonce = mintNonce();

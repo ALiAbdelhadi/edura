@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { Chip, Eyebrow, Sheet } from "@/components/ledger";
 import { Link } from "@/i18n/navigation";
 import { asKey } from "@/lib/i18n/keys";
-import { todayKey } from "@repo/server-core/lib/date-key";
+import { todayKey } from "@repo/shared/date-key";
 
 const TONE = { present: "teal", late: "amber", absent: "red" } as const;
 

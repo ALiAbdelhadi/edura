@@ -7,14 +7,14 @@ const h = vi.hoisted(() => ({
   notify: vi.fn(async () => {}),
 }));
 
-vi.mock("@/lib/cloudinary/cloudinary", () => ({
+vi.mock("@repo/server-core/media/cloudinary", () => ({
   uploadBuffer: h.uploadBuffer,
   deleteResource: h.deleteResource,
   isCloudinaryConfigured: h.isCloudinaryConfigured,
   generateSignedUrl: vi.fn(async () => "https://cdn/signed"),
 }));
 
-vi.mock("@/lib/services/notifications/notify", () => ({ notify: h.notify }));
+vi.mock("@repo/server-core/services/notifications/notify", () => ({ notify: h.notify }));
 
 const TEACHER_ID = "teacher-1";
 const fakeTx = {
@@ -27,11 +27,11 @@ const fakeTx = {
   enrollment: { findMany: vi.fn(async () => [] as { studentId: string }[]) },
 };
 
-vi.mock("@/lib/db/scope", () => ({
+vi.mock("@repo/server-core/db/scope", () => ({
   scopedDb: (_user: unknown, fn: (tx: unknown) => unknown) => fn(fakeTx),
 }));
 
-import { uploadMaterial, updateMaterial } from "@/lib/services/materials/materials";
+import { uploadMaterial, updateMaterial } from "@repo/server-core/services/materials/materials";
 
 const user = { id: TEACHER_ID, role: "teacher", centerId: "center-1" } as never;
 

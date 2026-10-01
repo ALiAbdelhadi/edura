@@ -3,7 +3,6 @@ import { scopedDb, type TenantTx } from "../../db/scope";
 import { toDateKey } from "../../lib/date-key";
 import type { SessionUser } from "../../auth/types";
 import { ConflictError } from "../../errors/classes";
-import { checkConflicts } from "./conflict-detector";
 
 type SchedulePattern = {
   daysOfWeek: number[];
@@ -37,6 +36,82 @@ function walkDates(startDate: Date, endDate: Date, daysOfWeek: number[]): Date[]
   return dates;
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function utcDayStart(d: Date): number {
+  const x = new Date(d);
+  x.setUTCHours(0, 0, 0, 0);
+  return x.getTime();
+}
+
+type RangeConflict = {
+  sessionId: string;
+  courseTitle: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+};
+
+// One query over the whole range instead of checkConflicts() per occurrence;
+// each clash is bucketed into the same UTC day window checkConflicts uses.
+async function conflictsByDay(
+  tx: TenantTx,
+  input: {
+    teacherId: string;
+    roomId?: string | null;
+    dates: Date[];
+    startTime: string;
+    endTime: string;
+  },
+): Promise<Map<number, RangeConflict[]>> {
+  const byDay = new Map<number, RangeConflict[]>();
+  if (!input.dates.length) return byDay;
+
+  const days = input.dates.map(utcDayStart);
+  const wanted = new Set(days);
+  const from = new Date(Math.min(...days));
+  const to = new Date(Math.max(...days) + DAY_MS);
+
+  const orClauses: { teacherId?: string; roomId?: string }[] = [
+    { teacherId: input.teacherId },
+  ];
+  if (input.roomId) orClauses.push({ roomId: input.roomId });
+
+  const clashes = await tx.session.findMany({
+    where: {
+      date: { gte: from, lt: to },
+      startTime: { lt: input.endTime },
+      endTime: { gt: input.startTime },
+      status: { in: ["scheduled", "postponed"] },
+      OR: orClauses,
+    },
+    select: { id: true, courseId: true, startTime: true, endTime: true, date: true },
+  });
+  const relevant = clashes.filter((c) => wanted.has(utcDayStart(c.date)));
+  if (!relevant.length) return byDay;
+
+  const courseIds = [...new Set(relevant.map((c) => c.courseId))];
+  const courses = await tx.course.findMany({
+    where: { id: { in: courseIds } },
+    select: { id: true, title: true },
+  });
+  const courseMap = new Map(courses.map((c) => [c.id, c.title]));
+
+  for (const c of relevant) {
+    const key = utcDayStart(c.date);
+    const list = byDay.get(key) ?? [];
+    list.push({
+      sessionId: c.id,
+      courseTitle: courseMap.get(c.courseId) ?? "Unknown",
+      date: toDateKey(c.date),
+      startTime: c.startTime,
+      endTime: c.endTime,
+    });
+    byDay.set(key, list);
+  }
+  return byDay;
+}
+
 export async function generateSessionsTx(tx: TenantTx, course: CourseInput): Promise<string[]> {
   const { schedulePattern, teacherId, defaultRoomId } = course;
   const dates = walkDates(
@@ -66,17 +141,17 @@ export async function generateSessionsTx(tx: TenantTx, course: CourseInput): Pro
   }[] = [];
   const conflicts: object[] = [];
 
-  for (const date of dates) {
-    const dateStr = toDateKey(date);
-    if (existingDates.has(dateStr)) continue;
+  const candidates = dates.filter((date) => !existingDates.has(toDateKey(date)));
+  const clashesByDay = await conflictsByDay(tx, {
+    teacherId,
+    roomId: defaultRoomId ?? undefined,
+    dates: candidates,
+    startTime: schedulePattern.startTime,
+    endTime: schedulePattern.endTime,
+  });
 
-    const clashes = await checkConflicts(tx, {
-      teacherId,
-      roomId: defaultRoomId ?? undefined,
-      date,
-      startTime: schedulePattern.startTime,
-      endTime: schedulePattern.endTime,
-    });
+  for (const date of candidates) {
+    const clashes = clashesByDay.get(utcDayStart(date)) ?? [];
 
     if (clashes.length > 0) {
       conflicts.push(...clashes);

@@ -2,9 +2,9 @@ import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { prisma } from "@repo/database";
 import bcrypt from "bcryptjs";
 import { admin as adminPlugin } from "better-auth/plugins";
-import { auth } from "@/lib/auth/auth";
+import { auth } from "./helpers/bind-auth";
 import { signInDoor } from "./helpers/auth-door";
-import { twoFactorSatisfied } from "@/lib/auth/two-factor";
+import { twoFactorSatisfied } from "@repo/server-core/backoffice-auth/two-factor";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const admin = testPool();

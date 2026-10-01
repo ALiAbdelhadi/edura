@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useCustom, useList } from "@refinedev/core";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 import { useTranslations } from "next-intl";
 import {
   Chip,
@@ -37,7 +38,7 @@ export function ParentRecentAttendance({ childId }: { childId: string }) {
   const { result: enrollmentsResult } = useList({
     resource: "enrollments",
     filters: [{ field: "studentId", operator: "eq", value: childId }],
-    queryOptions: { enabled: Boolean(childId) },
+    queryOptions: { ...QUERY_FRESHNESS.list, enabled: Boolean(childId) },
   });
 
   const courseNames = useMemo(() => {

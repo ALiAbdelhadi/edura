@@ -129,7 +129,7 @@ verification, not a design pass. ~6 strings are affected.
 
 ### Shared-layer note
 
-`packages/ui/components/charts/heatmap-calendar.tsx` was changed without the
+`packages/ui/src/components/charts/heatmap-calendar.tsx` was changed without the
 `REQUESTS.md` entry the constitution asks for, because that file was deleted on
 2026-08-11 along with the five-session protocol it served. Blast radius verified
 instead: **one JSX render site repo-wide** (`features/attendance/

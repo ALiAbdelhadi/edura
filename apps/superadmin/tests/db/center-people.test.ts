@@ -18,9 +18,9 @@ import {
   adminListCenterAdmins,
   adminInviteCenterAdmin,
   adminRemoveCenterAdmin,
-} from "@/lib/services/admin/center-people";
-import { superadminAsCenter } from "@/lib/authz/center-actor";
-import type { SessionUser } from "@/lib/auth/session";
+} from "@repo/server-core/backoffice/admin/center-people";
+import { superadminAsCenter } from "@repo/server-core/backoffice/center-actor";
+import type { SessionUser } from "@repo/server-core/backoffice-auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const admin = testPool();

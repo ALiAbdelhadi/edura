@@ -4,10 +4,10 @@ import {
   BusinessRuleError,
   ConflictError,
   NotFoundError,
-} from "@/lib/errors/classes";
-import { platformDb } from "@/lib/db/scope";
-import type { SessionUser } from "@/lib/auth/session";
-import { authorizeCenterActor, RECEPTION, ACCOUNTANT, MANAGER } from "@/lib/authz/center-actor";
+} from "@repo/server-core/errors/classes";
+import { platformDb } from "@repo/server-core/db/scope";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
+import { authorizeCenterActor, RECEPTION, ACCOUNTANT, MANAGER } from "@repo/server-core/authz/center-actor";
 import { canSignIn } from "@repo/server-core/auth/login-policy";
 import {
   createExternalTeacher,
@@ -29,12 +29,12 @@ import {
   settleWithTeacher,
   listOutstandingBalances,
   buildGapReport,
-} from "@/lib/services/external-teachers";
+} from "@repo/server-core/services/external-teachers/index";
 import { createCourse } from "@repo/server-core/services/center/courses";
-import { createWalkInSubscription } from "@/lib/services/subscriptions/subscriptions";
+import { createWalkInSubscription } from "@repo/server-core/services/subscriptions/subscriptions";
 import { bulkMarkAttendance,
-  reopenAttendanceForSettlement } from "@/lib/services/attendance/attendance";
-import { completeSession } from "@/lib/services/finance/distribution";
+  reopenAttendanceForSettlement } from "@repo/server-core/services/attendance/attendance";
+import { completeSession } from "@repo/server-core/services/finance/distribution";
 import {
   getRevenueReport,
   getAdminDashboard,

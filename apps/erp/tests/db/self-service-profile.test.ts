@@ -1,12 +1,13 @@
+import "./helpers/bind-auth";
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { prisma, withPlatformContext } from "@repo/database";
 import bcrypt from "bcryptjs";
-import { POST as emailRoute } from "@/app/api/v1/me/email/route";
-import { PATCH as meRoute } from "@/app/api/v1/me/route";
-import { setGuardianContact } from "@/lib/services/invites/guardian-contact";
+import { POST as emailRoute } from "api/routes/v1/me/email/route";
+import { PATCH as meRoute } from "api/routes/v1/me/route";
+import { setGuardianContact } from "@repo/server-core/services/invites/guardian-contact";
 import { requestEmailChange, confirmEmailChange } from "@repo/server-core/services/auth/email-change";
-import { __setSessionOverrideForTests } from "@/lib/auth/session";
-import type { SessionUser } from "@/lib/auth/session";
+import { __setSessionOverrideForTests } from "@repo/server-core/erp-auth/session";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const admin = testPool();

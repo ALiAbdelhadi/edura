@@ -4,17 +4,17 @@ import { createHash } from "node:crypto";
 import { prisma, withPlatformContext } from "@repo/database";
 import { assertCanReach, canReach, listContacts, ChatError } from "@repo/database/chat-scope";
 import { guardianChannelState } from "@repo/database/chat-guardian";
-import { POST as credentialsRoute } from "@/app/api/v1/me/credentials/route";
-import { registerWalkIn } from "@/lib/services/walk-in/walk-in";
-import { createAssistant, resendAssistantInvite } from "@/lib/services/teacher/assistants";
-import { createStaff, resendStaffInvite } from "@/lib/services/center/staff";
+import { POST as credentialsRoute } from "api/routes/v1/me/credentials/route";
+import { registerWalkIn } from "@repo/server-core/services/walk-in/walk-in";
+import { createAssistant, resendAssistantInvite } from "@repo/server-core/services/teacher/assistants";
+import { createStaff, resendStaffInvite } from "@repo/server-core/services/center/staff";
 import {
   setGuardianContact,
   runGuardianContactReminders,
-} from "@/lib/services/invites/guardian-contact";
-import { resolveCenterActorContext } from "@/lib/authz/center-actor";
-import { __setSessionOverrideForTests } from "@/lib/auth/session";
-import type { SessionUser } from "@/lib/auth/session";
+} from "@repo/server-core/services/invites/guardian-contact";
+import { resolveCenterActorContext } from "@repo/server-core/authz/center-actor";
+import { __setSessionOverrideForTests } from "@repo/server-core/erp-auth/session";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
 import { claimDoor, freshIp, sessionFor, signInDoor } from "./helpers/auth-door";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

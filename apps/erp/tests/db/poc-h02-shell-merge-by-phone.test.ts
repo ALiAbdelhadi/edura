@@ -4,7 +4,7 @@
 // Expected TODAY (vulnerable): assert in [2] FAILS — the attacker's new account
 // IS the shell (same user id), so the shell's wallet/roster/history are theirs.
 import { withPlatformContext } from "@repo/database";
-import { registerStudent } from "@/lib/services/auth/register"; // apps/erp alias
+import { registerStudent } from "@repo/server-core/services/auth/register"; // apps/erp alias
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 

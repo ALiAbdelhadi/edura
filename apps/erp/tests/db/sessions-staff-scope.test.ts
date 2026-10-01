@@ -1,6 +1,6 @@
 import { withTenant, withPlatformContext } from "@repo/database";
-import { authorizeCenterActor } from "@/lib/authz/center-actor";
-import type { SessionUser } from "@/lib/auth/session";
+import { authorizeCenterActor } from "@repo/server-core/authz/center-actor";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
 
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

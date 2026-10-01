@@ -10,13 +10,13 @@ import { Button } from "@repo/ui/components/button";
 import { toast } from "@repo/ui/components/sonner";
 import { Link } from "@/i18n/navigation";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
-import { formatStudentCode } from "@repo/database/student-code";
+import { formatStudentCode } from "@repo/shared/student-code";
 import type {
   ProfileChecklist,
   StudentCard,
 } from "@repo/server-core/services/students/student-card";
 import { Hairline, PageTitle, Sheet, Eyebrow } from "@/features/student/ledger";
-import { StudentIdCard } from "./student-id-card";
+import { StudentIdCard } from "@repo/ui/components/student-id-card";
 import { renderStudentCardPng } from "./student-id-card-png";
 import { GuardianContactNotice } from "./guardian-contact-notice";
 

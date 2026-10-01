@@ -1,7 +1,7 @@
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import bcrypt from "bcryptjs";
 import { prisma } from "@repo/database";
-import { updateUserStatus } from "@/lib/services/admin/platform";
+import { updateUserStatus } from "@repo/server-core/backoffice/admin/platform";
 import { sessionFor, signInDoor } from "./helpers/auth-door";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

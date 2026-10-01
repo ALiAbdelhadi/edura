@@ -57,7 +57,7 @@ export function TeacherAffiliationsScreen() {
       {
         onSuccess: () => {
           toast.success(action === "accept" ? t("teacher.invitationAccepted") : t("teacher.invitationDeclined"));
-          invalidate({ resource: "me-affiliations", invalidates: ["all"] });
+          invalidate({ resource: "me-affiliations", invalidates: ["list"] });
           query.refetch?.();
         },
         onError: (err) => toast.error((err as { message?: string })?.message || t("teacher.actionFailed")),

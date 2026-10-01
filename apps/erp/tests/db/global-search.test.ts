@@ -1,8 +1,8 @@
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { prisma } from "@repo/database";
 import { globalSearch } from "@repo/server-core/services/search/global-search";
-import { authorizeCenterActor } from "@/lib/authz/center-actor";
-import type { SessionUser } from "@/lib/auth/session";
+import { authorizeCenterActor } from "@repo/server-core/authz/center-actor";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const admin = testPool();

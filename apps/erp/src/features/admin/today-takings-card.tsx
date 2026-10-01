@@ -4,7 +4,7 @@ import { Link } from "@/i18n/navigation";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { QuerySection } from "@repo/ui/components/query-section";
 import { useList } from "@refinedev/core";
-import { todayKey } from "@repo/server-core/lib/date-key";
+import { todayKey } from "@repo/shared/date-key";
 import { useTranslations } from "next-intl";
 import { useMemo } from "react";
 import { Amount, Eyebrow, Sheet, SheetHead } from "./ledger";

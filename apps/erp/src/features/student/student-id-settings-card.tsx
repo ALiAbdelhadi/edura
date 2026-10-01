@@ -8,7 +8,7 @@ import { DirectionalIcon } from "@repo/ui/components/directional-icon";
 import { Link } from "@/i18n/navigation";
 import { useOnDemand } from "@/lib/api/use-on-demand";
 import type { StudentCard } from "@repo/server-core/services/students/student-card";
-import { StudentIdCard } from "./student-id-card";
+import { StudentIdCard } from "@repo/ui/components/student-id-card";
 
 export function StudentIdSettingsCard() {
   const t = useTranslations("studentIdCard");

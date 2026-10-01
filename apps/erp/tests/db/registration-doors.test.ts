@@ -6,7 +6,7 @@ import {
   registerParent,
   registerTeacher,
   registerCenter,
-} from "@/lib/services/auth/register";
+} from "@repo/server-core/services/auth/register";
 import { signInDoor } from "./helpers/auth-door";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

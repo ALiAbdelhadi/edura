@@ -1,9 +1,9 @@
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withTenant, withPlatformContext, prisma } from "@repo/database";
-import { ForbiddenError } from "@/lib/errors/classes";
-import { completeSession } from "@/lib/services/finance/distribution";
-import { acceptCollaborationRequest, rejectCollaborationRequest } from "@/lib/services/collaboration/collaboration";
-import { cancelSession } from "@/lib/services/session-actions/session-actions";
+import { ForbiddenError } from "@repo/server-core/errors/classes";
+import { completeSession } from "@repo/server-core/services/finance/distribution";
+import { acceptCollaborationRequest, rejectCollaborationRequest } from "@repo/server-core/services/collaboration/collaboration";
+import { cancelSession } from "@repo/server-core/services/session-actions/session-actions";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const adminPool = testPool();

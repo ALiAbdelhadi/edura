@@ -1,8 +1,8 @@
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { randomUUID } from "node:crypto";
 import { withPlatformContext, type TenantTx } from "@repo/database";
-import { generatePayouts } from "@/lib/services/finance/payouts";
-import type { SessionUser } from "@/lib/auth/session";
+import { generatePayouts } from "@repo/server-core/backoffice/finance/payouts";
+import type { SessionUser } from "@repo/server-core/backoffice-auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const admin = testPool();

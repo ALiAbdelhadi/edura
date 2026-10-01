@@ -1,22 +1,22 @@
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
-import { ForbiddenError, NotFoundError } from "@/lib/errors/classes";
-import { scopedDb, platformDb } from "@/lib/db/scope";
-import type { SessionUser } from "@/lib/auth/session";
+import { ForbiddenError, NotFoundError } from "@repo/server-core/errors/classes";
+import { scopedDb, platformDb } from "@repo/server-core/db/scope";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
 import {
   authorizeCenterActor,
   assertCenterActorMethodAllowed,
   RECEPTION,
   ACCOUNTANT,
-} from "@/lib/authz/center-actor";
-import { resolveActingTeacher } from "@/lib/authz/teacher-actor";
+} from "@repo/server-core/authz/center-actor";
+import { resolveActingTeacher } from "@repo/server-core/authz/teacher-actor";
 import {
   listTeamNotes,
   createTeamNote,
   updateTeamNote,
   deleteTeamNote,
   type TeamNoteActor,
-} from "@/lib/services/team-notes/team-notes";
+} from "@repo/server-core/services/team-notes/team-notes";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const admin = testPool();

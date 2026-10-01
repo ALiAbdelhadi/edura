@@ -10,8 +10,8 @@ import {
 } from "@repo/notifications";
 import { toDateKey } from "@repo/server-core/lib/date-key";
 import { getNetProfitReport } from "@repo/server-core/services/reports/reports";
-import { runWeeklyCenterDigest } from "@/lib/services/cron/jobs";
-import type { SessionUser } from "@/lib/auth/session";
+import { runWeeklyCenterDigest } from "@repo/server-core/services/cron/jobs";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const admin = testPool();

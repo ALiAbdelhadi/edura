@@ -1,17 +1,18 @@
+import "./helpers/bind-auth";
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { computeNoRoomLessonSplit } from "@repo/server-core/services/finance/fees";
 
-import type { SessionUser } from "@/lib/auth/session";
-import { __setSessionOverrideForTests } from "@/lib/auth/session";
-import { POST as coursesRoute } from "@/app/api/v1/courses/route";
-import { PATCH as courseByIdRoute } from "@/app/api/v1/courses/[id]/route";
-import { POST as enrollmentsRoute } from "@/app/api/v1/enrollments/route";
-import { POST as centerSubscriptionsRoute } from "@/app/api/v1/center/subscriptions/route";
-import { PATCH as attendanceModeRoute } from "@/app/api/v1/teacher/attendance-mode/route";
-import { POST as doorCheckinRoute } from "@/app/api/v1/door-checkin/route";
-import { POST as sessionCompleteRoute } from "@/app/api/v1/sessions/[id]/complete/route";
-import { POST as registerCenterRoute } from "@/app/api/v1/auth/register/center/route";
-import { POST as centerStaffRoute } from "@/app/api/v1/center/staff/route";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
+import { __setSessionOverrideForTests } from "@repo/server-core/erp-auth/session";
+import { POST as coursesRoute } from "api/routes/v1/courses/route";
+import { PATCH as courseByIdRoute } from "api/routes/v1/courses/[id]/route";
+import { POST as enrollmentsRoute } from "api/routes/v1/enrollments/route";
+import { POST as centerSubscriptionsRoute } from "api/routes/v1/center/subscriptions/route";
+import { PATCH as attendanceModeRoute } from "api/routes/v1/teacher/attendance-mode/route";
+import { POST as doorCheckinRoute } from "api/routes/v1/door-checkin/route";
+import { POST as sessionCompleteRoute } from "api/routes/v1/sessions/[id]/complete/route";
+import { POST as registerCenterRoute } from "api/routes/v1/auth/register/center/route";
+import { POST as centerStaffRoute } from "api/routes/v1/center/staff/route";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const pool = testPool();

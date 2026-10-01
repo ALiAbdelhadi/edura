@@ -9,7 +9,7 @@ vi.mock("@repo/server-core/db/scope", () => ({
     fn({
       enrollment: { count: async () => 0, findMany: async () => [] },
       course: { groupBy: async () => [], count: async () => 0, findMany: async () => [] },
-      session: { findMany: async () => [], groupBy: async () => [] },
+      session: { findMany: async () => [], groupBy: async () => [], count: async () => 3 },
       payment: {
         aggregate: async ({ where }: any) => {
           captured.payment.push(where);
@@ -28,11 +28,16 @@ vi.mock("@repo/server-core/db/scope", () => ({
       },
       enrollmentRequest: { count: async () => 0, groupBy: async () => [] },
       attendanceRecord: {
-        count: async ({ where }: any) => {
+        count: async () => 0,
+        groupBy: async ({ by, where }: any) => {
+          if (by.length !== 1 || by[0] !== "status") return [];
           captured.attendance.push(where);
-          return 10;
+          return [
+            { status: "present", _count: 6 },
+            { status: "absent", _count: 3 },
+            { status: "excused", _count: 1 },
+          ];
         },
-        groupBy: async () => [],
       },
       teacherProfile: { findMany: async () => [] },
       user: { findMany: async () => [] },
@@ -143,5 +148,21 @@ describe("getAdminDashboard — omitting the period changes nothing", () => {
     expect(august.totals.teachers).toBe(lifetime.totals.teachers);
     expect(august.totals.activeCourses).toBe(lifetime.totals.activeCourses);
     expect(august.pendingEnrollmentRequests).toBe(lifetime.pendingEnrollmentRequests);
+  });
+});
+
+describe("getAdminDashboard — one attendance pass, a count for today", () => {
+  it("the headline rate comes from ONE status groupBy: present over every status", async () => {
+    const r = await getAdminDashboard(OWNER);
+
+    expect(captured.attendance).toHaveLength(1);
+    expect(r.attendanceRate).toBe(60);
+  });
+
+  it("today's sessions are reported as a count, not as rows", async () => {
+    const r = await getAdminDashboard(OWNER);
+
+    expect(r.todaySessionCount).toBe(3);
+    expect(r).not.toHaveProperty("todaySessions");
   });
 });

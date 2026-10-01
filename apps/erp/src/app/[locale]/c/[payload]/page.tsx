@@ -1,6 +1,7 @@
 import { ScanResultView } from "@/features/student/scan-result-view";
-import { getSessionUser } from "@/lib/auth/session";
-import { resolveStudentScan } from "@repo/server-core/services/students/student-scan";
+import { ServiceError, serviceGet } from "@/lib/server/service-fetch";
+import { ssrSession } from "@/lib/server/ssr-session";
+import type { StudentScanResult } from "@repo/server-core/services/students/student-scan";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 
@@ -10,6 +11,16 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
 };
 
+// The wire form of StudentScanResult: `revokedAt` crosses as an ISO string
+// (the view never renders it, but the type is honest about what arrives).
+type ScanResultWire =
+  | Exclude<StudentScanResult, { outcome: "revoked" }>
+  | (Omit<Extract<StudentScanResult, { outcome: "revoked" }>, "revokedAt"> & { revokedAt: string });
+
+function reviveScan(wire: ScanResultWire): StudentScanResult {
+  return wire.outcome === "revoked" ? { ...wire, revokedAt: new Date(wire.revokedAt) } : wire;
+}
+
 export default async function StudentCardScanPage({
   params,
 }: {
@@ -17,8 +28,12 @@ export default async function StudentCardScanPage({
 }) {
   const { locale, payload } = await params;
 
-  const viewer = await getSessionUser();
-  const result = await resolveStudentScan(decodeURIComponent(payload), viewer);
+  // The viewer decides the CTA links here; the disclosure tier is decided by
+  // the service from the same cookie (session-optional route).
+  const scanPath = `/api/v1/students/scan/${encodeURIComponent(decodeURIComponent(payload))}`;
+  const [{ user: viewer }, scan] = await Promise.all([ssrSession(), serviceGet<ScanResultWire>(scanPath)]);
+  if (!scan.data) throw new ServiceError(scan.status, scanPath);
+  const result = reviveScan(scan.data);
 
   const t = await getTranslations({
     locale: locale as "ar" | "en",

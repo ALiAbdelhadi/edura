@@ -1,7 +1,7 @@
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import net from "node:net";
 import bcrypt from "bcryptjs";
-import { requestPasswordReset, resetPassword } from "@/lib/services/auth/password-reset";
+import { requestPasswordReset, resetPassword } from "@repo/server-core/services/auth/password-reset";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const admin = testPool();

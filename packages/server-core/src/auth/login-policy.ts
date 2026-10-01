@@ -1,4 +1,9 @@
 import type { Role } from "@repo/database";
+import {
+  PORTAL_SEGMENT_BY_ROLE,
+  type PortalRole,
+  type PortalSegment,
+} from "@repo/shared/portal-segments";
 
 export type LoginApp = "www" | "superadmin";
 
@@ -14,48 +19,21 @@ const LOGIN_APP: Record<Role, LoginApp> = {
   student: "www",
 };
 
-/**
- * The portal segment each ERP role lands in — the SINGLE derivation.
- *
- * It lives beside `canSignIn` because they are the same class of question:
- * that one answers "which app may this role sign into", this one answers
- * "and where does it land once inside". It used to be written three times —
- * a switch in `services/notifications/deep-link.ts`, `PORTAL_BY_ROLE` in the
- * ERP, and `uiRoleForRole`'s `center_admin ? "admin" : role` — all agreeing by
- * hand. A seventh role would have had to be remembered in all three, and
- * missing one sends either a notification deep link or the portal gate
- * somewhere wrong.
- *
- * Order is load-bearing: `NOTIFICATION_PORTALS` is iterated by tests.
- */
-export const PORTAL_SEGMENTS = [
-  "student",
-  "parent",
-  "teacher",
-  "assistant",
-  "admin",
-  "staff",
-] as const;
+export {
+  PORTAL_SEGMENTS,
+  PORTAL_SEGMENT_BY_ROLE,
+  portalSegmentForRole,
+  type PortalRole,
+  type PortalSegment,
+} from "@repo/shared/portal-segments";
 
-export type PortalSegment = (typeof PORTAL_SEGMENTS)[number];
-
-export const PORTAL_SEGMENT_BY_ROLE = {
-  center_admin: "admin",
-  center_staff: "staff",
-  teacher: "teacher",
-  assistant: "assistant",
-  student: "student",
-  parent: "parent",
-} as const satisfies Partial<Record<Role, PortalSegment>>;
-
-export type PortalRole = keyof typeof PORTAL_SEGMENT_BY_ROLE;
-
-export function portalSegmentForRole(
-  role: string | null | undefined,
-): PortalSegment | null {
-  if (!role) return null;
-  return PORTAL_SEGMENT_BY_ROLE[role as PortalRole] ?? null;
-}
+// The portal segment map moved to @repo/shared/portal-segments so the browser
+// can use it; its doc comment says why it is the single derivation. Shared
+// cannot import @repo/database, so the Role check it carried stays here, at
+// compile time: every key must be a Role, every value a PortalSegment.
+PORTAL_SEGMENT_BY_ROLE satisfies Partial<Record<Role, PortalSegment>>;
+const PORTAL_ROLES_ARE_ROLES: readonly Role[] = [] as PortalRole[];
+void PORTAL_ROLES_ARE_ROLES;
 
 export function canSignIn(app: LoginApp, role: string | null | undefined): boolean {
   return !!role && LOGIN_APP[role as Role] === app;

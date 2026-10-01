@@ -1,0 +1,17 @@
+{
+  "extends": "@repo/typescript-config/base.json",
+  "compilerOptions": {
+    "declaration": false,
+    "declarationMap": false,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    // server-core and @repo/notifications are consumed as SOURCE, so this program
+    // typechecks them too: under their own contract (packages/server-core
+    // tsconfig), which renders .tsx email templates and does not index-check.
+    "jsx": "react-jsx",
+    "noUncheckedIndexedAccess": false,
+    "types": ["bun", "node"]
+  },
+  "include": ["src", "tests"]
+}

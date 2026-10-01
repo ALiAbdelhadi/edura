@@ -16,7 +16,7 @@ import {
   handleProblem,
   normalizeHandle,
   type HandleProblem,
-} from "@/lib/services/public-handles/handle-rules";
+} from "@repo/shared/handle-rules";
 
 type Mine = {
   kind: "center" | "teacher";

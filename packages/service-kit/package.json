@@ -1,0 +1,26 @@
+{
+  "name": "@repo/service-kit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Edura service kit -- the host-generic half of a Bun + Hono API service (app factory, request id, client-IP trust, Next-route adapter and mount, set-cookie sink, after scheduler, Sentry binding, boot checks, route generator, parity harness core). apps/api and apps/admin-api both build on it; nothing here knows which auth instance or route table a service has.",
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@repo/observability": "workspace:*",
+    "@repo/server-core": "workspace:*",
+    "@sentry/node": "10.71.0",
+    "hono": "4.13.11"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@types/node": "26.1.1",
+    "eslint": "9.39.5",
+    "typescript": "7.0.2"
+  }
+}

@@ -9,17 +9,17 @@
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import bcrypt from "bcryptjs";
 import { prisma } from "@repo/database";
-import { adminAddStudent, adminRemoveStudent } from "@/lib/services/admin/center-people";
+import { adminAddStudent, adminRemoveStudent } from "@repo/server-core/backoffice/admin/center-people";
 import { addRosterStudent } from "@repo/server-core/services/center/roster";
-import { recordAdminAudit } from "@/lib/services/admin/admin-audit";
-import { adminCreateExpense } from "@/lib/services/admin/center-money";
-import { adminCreateCourse } from "@/lib/services/admin/center-academic";
+import { recordAdminAudit } from "@repo/server-core/audit/admin-audit";
+import { adminCreateExpense } from "@repo/server-core/backoffice/admin/center-money";
+import { adminCreateCourse } from "@repo/server-core/backoffice/admin/center-academic";
 import {
   decideCollaborationRequest,
   removeStudentFromCenter,
   restoreStudentToCenter,
-} from "@/lib/services/admin/center-control";
-import type { SessionUser } from "@/lib/auth/session";
+} from "@repo/server-core/backoffice/admin/center-control";
+import type { SessionUser } from "@repo/server-core/backoffice-auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const admin = testPool();

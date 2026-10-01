@@ -20,14 +20,18 @@ corrected here:
 
 ## 0. The env files are already written
 
-Four files sit at the repo root, one per app, generated from `.env.production`
-and gitignored:
+Six files sit at the repo root, one per deployable, generated from
+`.env.production` and gitignored. Regenerate them after the backend separation:
+sheets written before it put the database and auth secrets in the two frontend
+files.
 
 | File | Where it goes |
 |---|---|
-| `.env-erp` | Vercel — the ERP project |
-| `.env-superadmin` | Vercel — the back office |
+| `.env-erp` | Vercel — the ERP frontend (no database or auth secret) |
+| `.env-superadmin` | Vercel — the back-office frontend (no database or auth secret) |
 | `.env-www` | Vercel — the marketing site |
+| `.env-api` | **Railway** — `apps/api`, the ERP backend |
+| `.env-admin-api` | **Railway** — `apps/admin-api`, the back-office backend |
 | `.env-realtime` | **Railway**, not Vercel |
 
 Vercel's project settings take a pasted `.env`, so each file goes in whole. Do
@@ -155,7 +159,7 @@ Vercel bakes env at build time: **every change needs a redeploy to take effect.*
 | `DATABASE_POOL_MAX` | `10` |
 | `PAYMENTS_MODE` | must be explicit: `mock` \| `sandbox` \| `live` |
 | `PAYMOB_HMAC_SECRET` | required in prod, no fallback — even in `mock` |
-| `PAYMOB_API_KEY`, `PAYMOB_INTEGRATION_ID_CARD`, `PAYMOB_INTEGRATION_ID_WALLET` | from `.env.production` |
+| `PAYMOB_INTEGRATION_IDS` | comma-separated integration ids; blank while `mock`, required outside it (unset parks every capture as `needs_review`) |
 | `MAIL_PROVIDER`, `MAIL_FROM`, `SMTP_*` | see the mail warning below |
 | `INVITE_CHANNELS` | `email` (see the mail warning) |
 | `INVITE_TOKEN_TTL_HOURS`, `WALKIN_TOKEN_TTL_HOURS` | `168` |

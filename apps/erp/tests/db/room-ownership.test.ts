@@ -1,8 +1,8 @@
 import { withTenant, withPlatformContext } from "@repo/database";
-import { ForbiddenError } from "@/lib/errors/classes";
-import { requireCenterScope } from "@/lib/authz/require-center-scope";
-import { uploadRoomPhoto } from "@/lib/services/rooms/rooms";
-import type { SessionUser } from "@/lib/auth/session";
+import { ForbiddenError } from "@repo/server-core/errors/classes";
+import { requireCenterScope } from "@repo/server-core/authz/center-scope";
+import { uploadRoomPhoto } from "@repo/server-core/services/rooms/rooms";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
 
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

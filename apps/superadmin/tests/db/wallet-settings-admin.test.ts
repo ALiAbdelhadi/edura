@@ -1,7 +1,7 @@
 import { withPlatformContext } from "@repo/database";
 import { assertTopupAllowed, getWalletSettings } from "@repo/server-core/services/wallet/wallet";
-import { getWalletPolicy, updateWalletPolicy } from "@/lib/services/settings/wallet-settings-admin";
-import type { SessionUser } from "@/lib/auth/session";
+import { getWalletPolicy, updateWalletPolicy } from "@repo/server-core/backoffice/settings/wallet-settings-admin";
+import type { SessionUser } from "@repo/server-core/backoffice-auth/session";
 
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

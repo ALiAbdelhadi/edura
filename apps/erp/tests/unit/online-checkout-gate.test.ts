@@ -3,14 +3,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const platformDb = vi.fn(async () => {
   throw new Error("platformDb must not be reached when the gate refuses");
 });
-vi.mock("@/lib/db/scope", () => ({
+vi.mock("@repo/server-core/db/scope", () => ({
   platformDb: (...a: unknown[]) => platformDb(...(a as [])),
   scopedDb: vi.fn(),
 }));
 
-const { onlineCheckoutAvailable } = await import("@/lib/services/payments/gateway");
-const { initiateWalletTopUpIntent } = await import("@/lib/services/wallet/wallet");
-const { BusinessRuleError } = await import("@/lib/errors/classes");
+const { onlineCheckoutAvailable } = await import("@repo/server-core/services/payments/gateway/index");
+const { initiateWalletTopUpIntent } = await import("@repo/server-core/services/wallet/wallet-facade");
+const { BusinessRuleError } = await import("@repo/server-core/errors/classes");
 
 afterEach(() => {
   vi.unstubAllEnvs();

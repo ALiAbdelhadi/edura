@@ -1,7 +1,7 @@
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { prisma, withPlatformContext } from "@repo/database";
-import { getSubjectsForSelection, getStudentOwnSubjects } from "@/lib/services/catalog/catalog-read";
-import { filterStudentSecondLanguage } from "@/lib/services/catalog/second-language";
+import { getSubjectsForSelection, getStudentOwnSubjects } from "@repo/server-core/services/catalog/catalog-read";
+import { filterStudentSecondLanguage } from "@repo/server-core/services/catalog/second-language";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const adminPool = testPool();

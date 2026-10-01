@@ -1,6 +1,6 @@
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { prisma } from "@repo/database";
-import { searchCenters } from "@/lib/services/discovery/discovery";
+import { searchCenters } from "@repo/server-core/services/discovery/discovery";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const admin = testPool();

@@ -59,6 +59,7 @@ import { goToCheckout } from "@/lib/payments/checkout-redirect";
 import { useOnlineCheckout } from "@/lib/payments/use-online-checkout";
 import { ReceiptLink } from "@/features/receipts/receipt-link";
 import { asArray } from "@/lib/refine/as-array";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 import { newIdempotencyKey } from "@/features/student/idempotency";
 
 type RefundChannel = "cash_drawer" | "bank_transfer" | "gateway";
@@ -121,13 +122,18 @@ export function AdminFeesScreen() {
     method: "get",
     config: { query: dateQuery },
   });
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isSubOpen, setIsSubOpen] = useState(false);
+  const pickersWanted = isFormOpen || isSubOpen;
   const { query: studentsQuery, result: studentsResult } = useList({
     resource: "students",
     pagination: { mode: "off" },
+    queryOptions: { ...QUERY_FRESHNESS.list, enabled: pickersWanted },
   });
   const { query: coursesQuery, result: coursesResult } = useList({
     resource: "courses",
     pagination: { mode: "off" },
+    queryOptions: { ...QUERY_FRESHNESS.list, enabled: pickersWanted },
   });
   const { result: enrollmentsResult } = useList({
     resource: "enrollments",
@@ -250,9 +256,6 @@ export function AdminFeesScreen() {
     }
   };
 
-  const [isFormOpen, setIsFormOpen] = useState(false);
-
-  const [isSubOpen, setIsSubOpen] = useState(false);
   const [subStudentId, setSubStudentId] = useState("");
   const [subCourseId, setSubCourseId] = useState("");
   const [subPlan, setSubPlan] = useState<"monthly" | "per_session">("monthly");

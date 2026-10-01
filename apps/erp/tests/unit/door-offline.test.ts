@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { API_ROUTES } from "../route-source";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -15,10 +16,7 @@ const OUTBOX = readFileSync(
   join(process.cwd(), "src/lib/pwa/attendance-outbox.ts"),
   "utf8",
 );
-const SYNC_ROUTE = readFileSync(
-  join(process.cwd(), "src/app/api/v1/teacher/attendance/sync/route.ts"),
-  "utf8",
-);
+const SYNC_ROUTE = readFileSync(join(API_ROUTES, "v1/teacher/attendance/sync/route.ts"), "utf8");
 
 const record = z.object({
   sessionId: z.string().min(1),

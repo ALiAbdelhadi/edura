@@ -3,16 +3,16 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { withPlatformContext, prisma } from "@repo/database";
-import { BusinessRuleError, ForbiddenError, NotFoundError } from "@/lib/errors/classes";
-import type { SessionUser } from "@/lib/auth/session";
-import { authorizeCenterActor, MANAGER } from "@/lib/authz/center-actor";
+import { BusinessRuleError, ForbiddenError, NotFoundError } from "@repo/server-core/errors/classes";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
+import { authorizeCenterActor, MANAGER } from "@repo/server-core/authz/center-actor";
 import {
   getCenterLogo,
   setCenterLogo,
   removeCenterLogo,
   setTeacherPhoto,
   removeTeacherPhoto,
-} from "@/lib/services/media/profile-images";
+} from "@repo/server-core/services/media/profile-images";
 import {
   deleteImageByUrl,
   imageSlot,

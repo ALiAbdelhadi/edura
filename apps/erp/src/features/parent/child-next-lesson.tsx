@@ -10,7 +10,9 @@ import {
   isHappeningNow,
   upcomingSessions,
 } from "@/features/sessions/session-time";
-import { todayKey } from "@repo/server-core/lib/date-key";
+import { todayKey } from "@repo/shared/date-key";
+
+const UPCOMING_WINDOW = 50;
 
 type SessionRow = {
   id: string;
@@ -29,31 +31,18 @@ export function ChildNextLesson({ childId }: { childId: string }) {
   const t = useTranslations();
   const { formatDate, formatClock } = useFormatters();
 
-  const { result: enrollmentsResult } = useList({
-    resource: "enrollments",
+  const { result: sessionsResult } = useList({
+    resource: "sessions",
     filters: [
       { field: "studentId", operator: "eq", value: childId },
-      { field: "status", operator: "eq", value: "active" },
+      { field: "from", operator: "eq", value: todayKey() },
+      { field: "limit", operator: "eq", value: UPCOMING_WINDOW },
     ],
+    pagination: { mode: "off" },
     queryOptions: { enabled: Boolean(childId) },
   });
 
-  const { result: sessionsResult } = useList({
-    resource: "sessions",
-    pagination: { mode: "off" },
-  });
-
-  const courseIds = new Set(
-    ((enrollmentsResult?.data ?? []) as { courseId?: unknown }[])
-      .map((e) =>
-        typeof e.courseId === "string" ? e.courseId : String(e.courseId ?? ""),
-      )
-      .filter(Boolean),
-  );
-
-  const mine = ((sessionsResult?.data ?? []) as SessionRow[]).filter((s) =>
-    s.courseId ? courseIds.has(s.courseId) : false,
-  );
+  const mine = (sessionsResult?.data ?? []) as SessionRow[];
 
   const upcoming = upcomingSessions(mine);
   const next = upcoming[0];

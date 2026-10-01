@@ -59,7 +59,7 @@ shared ChatScreen) — nothing was rebuilt.
     cached row (proven). Announcement-shaped (`owner_only` default).
 
 Migration `20260722200000_messaging_scope_groups_safety` (additive only).
-Proofs: `apps/www/tests/db/messaging-scope.test.ts` **87/87**, unit
+Proofs: `apps/erp/tests/db/messaging-scope.test.ts` **87/87**, unit
 `tests/unit/messaging-matrix.test.ts` 12/12. Regressions green: rbac-isolation
 11/11, center-staff-delegation 55/55, unit suite 85 pass/1 skip, typecheck 5/5,
 `bun run build` both apps. Demo data: `prisma/messaging-demo-seed.ts`

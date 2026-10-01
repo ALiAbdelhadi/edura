@@ -5,6 +5,9 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src/", import.meta.url)),
+      // Next's own server-layer alias for `import "server-only"` (an empty
+      // module); the client-layer one throws, and unit tests are server code.
+      "server-only": "next/dist/compiled/server-only/empty",
     },
   },
   test: {

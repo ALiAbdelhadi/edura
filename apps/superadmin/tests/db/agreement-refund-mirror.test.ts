@@ -6,8 +6,8 @@ import {
   approveAgreement,
   rejectAgreement,
   terminateAgreement,
-} from "@/lib/services/admin/teacher-agreements-admin";
-import { refundLessonForStudent } from "@/lib/services/finance/refunds";
+} from "@repo/server-core/backoffice/admin/teacher-agreements-admin";
+import { refundLessonForStudent } from "@repo/server-core/backoffice/finance/refunds";
 import { BusinessRuleError } from "@repo/server-core/errors/classes";
 import type { SessionUser } from "@repo/server-core/auth/types";
 

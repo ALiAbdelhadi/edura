@@ -4,7 +4,7 @@
 // an enrollment alone, because a refund cancels the subscription and leaves
 // the enrollment in place.
 import { withPlatformContext } from "@repo/database";
-import { canSeeMeetingLink } from "@/lib/services/discovery/meeting-link";
+import { canSeeMeetingLink } from "@repo/server-core/services/discovery/meeting-link";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 

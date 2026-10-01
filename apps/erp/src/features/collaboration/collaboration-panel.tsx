@@ -532,7 +532,7 @@ function CreateCollabDialog({
   const { query: centerRoomsQuery, result: centerRoomsRes } = useCustom({
     url: targetId ? `centers/${targetId}/rooms` : "centers/none/rooms",
     method: "get",
-    queryOptions: { enabled: open && role === "teacher" && !!targetId },
+    queryOptions: { ...QUERY_FRESHNESS.list, enabled: open && role === "teacher" && !!targetId },
   });
   const centerRooms = ((centerRoomsRes as any)?.data?.rooms ?? []) as any[];
   const centerAmenities = orderAmenities(

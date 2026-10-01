@@ -1,0 +1,14 @@
+import { requireSession, type SessionUser } from "../erp-auth/session";
+import { ForbiddenError } from "../errors/classes";
+import type { Role } from "@repo/database";
+
+export async function requireRole(...allowed: Role[]): Promise<SessionUser> {
+  const user = await requireSession();
+  if (!allowed.includes(user.role)) {
+    throw new ForbiddenError(
+      `Role '${user.role}' is not allowed (need one of: ${allowed.join(", ")})`,
+      { reason: "role_mismatch", role: user.role, allowed },
+    );
+  }
+  return user;
+}

@@ -2,6 +2,7 @@
 
 import { api } from "@/lib/api/client";
 import { useCustom } from "@refinedev/core";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 import { ImageUploadField } from "@repo/ui/components/image-upload-field";
 import { SectionHead } from "@repo/ui/components/ledger";
 import { toast } from "@repo/ui/components/sonner";
@@ -40,7 +41,7 @@ export function ProfileImageCard({ variant, name }: { variant: Variant; name?: s
   const t = useTranslations();
   const { mutate, read, pick } = ENDPOINTS[variant];
 
-  const { query, result } = useCustom({ url: read, method: "get" });
+  const { query, result } = useCustom({ url: read, method: "get", queryOptions: QUERY_FRESHNESS.list });
   const value = pick(result?.data as Record<string, unknown> | undefined);
 
   const send = async (method: "POST" | "DELETE", body?: FormData) => {

@@ -33,7 +33,7 @@ import {
   sessionsOnDay,
   weekDayKeys,
 } from "@/features/sessions/session-time";
-import { todayKey } from "@repo/server-core/lib/date-key";
+import { todayKey } from "@repo/shared/date-key";
 
 type Session = {
   id?: string;
@@ -56,14 +56,18 @@ export function ScheduleScreen() {
   const [selectedKey, setSelectedKey] = React.useState(() => todayKey());
   const [selectedSession, setSelectedSession] = React.useState<Session | null>(null);
 
+  const days = weekDayKeys(new Date(), weekOffset);
   const { query: sessionsQuery, result: sessionsResult } = useList({
     resource: "sessions",
-    filters: [{ field: "studentId", operator: "eq", value: "me" }],
+    filters: [
+      { field: "studentId", operator: "eq", value: "me" },
+      { field: "from", operator: "eq", value: days[0] },
+      { field: "to", operator: "eq", value: days[6] },
+    ],
     pagination: { mode: "off" },
   });
 
   const sessions = (sessionsResult?.data ?? []) as Session[];
-  const days = weekDayKeys(new Date(), weekOffset);
   const today = todayKey();
 
   const selected = days.includes(selectedKey) ? selectedKey : days[0]!;

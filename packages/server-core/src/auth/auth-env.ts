@@ -1,10 +1,6 @@
-function firstSet(...names: string[]): string | undefined {
-  for (const n of names) {
-    const v = process.env[n];
-    if (v) return v;
-  }
-  return undefined;
-}
+import { firstSet } from "@repo/shared/app-url";
+
+export { authBaseUrl } from "@repo/shared/app-url";
 
 export function authSecret(): string | undefined {
   return firstSet("BETTER_AUTH_SECRET", "NEXTAUTH_SECRET");
@@ -12,10 +8,6 @@ export function authSecret(): string | undefined {
 
 export function superadminAuthSecret(): string | undefined {
   return firstSet("SUPERADMIN_BETTER_AUTH_SECRET", "SUPERADMIN_NEXTAUTH_SECRET");
-}
-
-export function authBaseUrl(): string | undefined {
-  return firstSet("BETTER_AUTH_URL", "NEXTAUTH_URL");
 }
 
 export function usingLegacyAuthEnvNames(): boolean {

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { todayKey } from "../lib/date-key";
+import { EGYPT_PHONE_RE } from "@repo/shared/phone";
 
 export const passwordSchema = z
   .string()
@@ -13,7 +14,7 @@ export const emailSchema = z
   .toLowerCase()
   .email("Invalid email address");
 
-export const EGYPT_PHONE_RE = /^(?:\+20|0)1[0125]\d{8}$/;
+export { EGYPT_PHONE_RE };
 export const phoneSchema = z
   .string()
   .trim()

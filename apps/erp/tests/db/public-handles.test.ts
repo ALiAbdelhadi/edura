@@ -1,18 +1,18 @@
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
-import type { SessionUser } from "@/lib/auth/session";
-import { BusinessRuleError, ConflictError, ForbiddenError } from "@/lib/errors/classes";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
+import { BusinessRuleError, ConflictError, ForbiddenError } from "@repo/server-core/errors/classes";
 import {
   checkHandleAvailability,
   clearMyHandle,
   findHandleOwner,
   getMyHandle,
   setMyHandle,
-} from "@/lib/services/public-handles/public-handles";
+} from "@repo/server-core/services/public-handles/public-handles";
 import {
   getCenterPublicProfile,
-  resolvePublicProfile,
-} from "@/lib/services/public-handles/public-profiles";
+  readPublicProfile as resolvePublicProfile,
+} from "@repo/server-core/services/public-handles/public-profiles";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 
 const admin = testPool();

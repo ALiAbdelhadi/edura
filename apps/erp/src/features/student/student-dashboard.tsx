@@ -33,10 +33,12 @@ import {
   isHappeningNow,
   upcomingSessions,
 } from "@/features/sessions/session-time";
-import { todayKey } from "@repo/server-core/lib/date-key";
+import { todayKey } from "@repo/shared/date-key";
 import { asRecord } from "@/lib/refine/as-record";
 import { useFormatters } from "@/lib/i18n/use-formatters";
-import type { GradeBandId } from "@repo/database/grading-scale";
+import type { GradeBandId } from "@repo/shared/grading-scale";
+
+const UPCOMING_WINDOW = 50;
 
 type SessionRow = {
   id: string;
@@ -142,7 +144,11 @@ export function StudentDashboard() {
   const { result: walletRes } = useCustom({ url: "me/wallet", method: "get" });
   const { result: sessionsRes } = useList({
     resource: "sessions",
-    filters: [{ field: "studentId", operator: "eq", value: "me" }],
+    filters: [
+      { field: "studentId", operator: "eq", value: "me" },
+      { field: "from", operator: "eq", value: todayKey() },
+      { field: "limit", operator: "eq", value: UPCOMING_WINDOW },
+    ],
     pagination: { mode: "off" },
   });
   const tour = useTourGate();

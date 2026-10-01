@@ -9,8 +9,8 @@ import {
 
 const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
 
-const WWW_DOOR = read("../../src/lib/auth/auth.ts");
-const SUPERADMIN_DOOR = read("../../../superadmin/src/lib/auth/auth.ts");
+const WWW_DOOR = read("../../../../packages/server-core/src/erp-auth/create-auth.ts");
+const SUPERADMIN_DOOR = read("../../../../packages/server-core/src/backoffice-auth/create-auth.ts");
 const SCHEMA = read("../../../../packages/database/prisma/schema.prisma");
 
 function schemaRoles(): string[] {
@@ -99,7 +99,7 @@ describe("C-04 — one shared allowlist for every login door", () => {
         /verifyPassword\(\{\s*hash:\s*DUMMY_HASH,\s*password\s*\}\)/,
       );
       expect(src, `${name} must import DUMMY_HASH from the shared module`).toMatch(
-        /DUMMY_HASH[\s\S]{0,200}from "@repo\/server-core\/auth\/passwords"/,
+        /DUMMY_HASH[\s\S]{0,200}from "(@repo\/server-core|\.\.)\/auth\/passwords"/,
       );
       expect(src, `${name} must not redeclare DUMMY_HASH`).not.toMatch(
         /const DUMMY_HASH\s*=/,

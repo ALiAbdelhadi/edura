@@ -1,16 +1,19 @@
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { prisma, withPlatformContext } from "@repo/database";
-import type { SessionUser } from "@/lib/auth/session";
-import { ValidationError } from "@/lib/errors/classes";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
+import { ValidationError } from "@repo/server-core/errors/classes";
 import {
   completeStudentOnboarding,
   completeTeacherOnboarding,
   completeCenterOnboarding,
   getOnboardingState,
-} from "@/lib/services/catalog/onboarding";
-import { getCatalogTree, getSubjectsForSelection, getSubjectsForGradeLevels } from "@/lib/services/catalog/catalog-read";
+} from "@repo/server-core/services/catalog/onboarding";
+import { getCatalogTree, getSubjectsForGradeLevels } from "@repo/server-core/services/catalog/catalog-cache";
+import { getSubjectsForSelection } from "@repo/server-core/services/catalog/catalog-read";
 import { createSystem, createStage, createGradeLevel, createSubject, createOffering } from "@repo/server-core/services/catalog/catalog-admin";
-import { searchCourses } from "@/lib/services/discovery/discovery";
+import { searchCourses } from "@repo/server-core/services/discovery/discovery";
+import { bumpPublicDataTag } from "@repo/server-core/cache/public-store";
+import { CATALOG_CACHE_TAG } from "@repo/server-core/services/catalog/catalog-cache";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const adminPool = testPool();
@@ -194,6 +197,10 @@ async function main() {
     const subj = await createSubject({ code: `business-${SUFFIX}`, nameAr: "إدارة الأعمال (اختبار)" }, catalogAdmin);
     ids.subjects.push(subj.id);
     await createOffering({ subjectId: subj.id, gradeLevelId: grd.id }, catalogAdmin);
+    // The back-office catalog route follows these writes with a call to the ERP's
+    // /api/v1/internal/revalidate, which expires the catalog tag; the services
+    // called directly here do not, so the test takes that step itself.
+    bumpPublicDataTag(CATALOG_CACHE_TAG);
 
     const tree2 = await getCatalogTree();
     const newSys = tree2.find((s) => s.id === sys.id);

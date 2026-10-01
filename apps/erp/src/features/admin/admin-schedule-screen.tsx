@@ -4,12 +4,12 @@ import { PageSpinner } from "@/components/kit/spinner";
 import { LoadError } from "@repo/ui/components/ledger";
 import { useQueryStrings } from "@repo/ui/components/query-section";
 import { useCustom } from "@refinedev/core";
-import { pickedDateKey, toDateKey, todayKey } from "@repo/server-core/lib/date-key";
+import { pickedDateKey, toDateKey, todayKey } from "@repo/shared/date-key";
 import {
   clashingSessionIds,
   findScheduleClashes,
   type SchedulableSession,
-} from "@repo/server-core/services/sessions/conflict-detector";
+} from "@repo/shared/schedule-clash";
 import { Button } from "@repo/ui/components/button";
 import { ChevronLeft, ChevronRight, TriangleAlert } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";

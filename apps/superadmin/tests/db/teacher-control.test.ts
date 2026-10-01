@@ -5,8 +5,8 @@ import {
   createTeacher,
   setTeacherStatus,
   updateTeacherProfile,
-} from "@/lib/services/admin/teacher-control";
-import type { SessionUser } from "@/lib/auth/session";
+} from "@repo/server-core/backoffice/admin/teacher-control";
+import type { SessionUser } from "@repo/server-core/backoffice-auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const admin = testPool();

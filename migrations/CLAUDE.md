@@ -184,10 +184,10 @@ Edura التعليمية. مهمتك: نقل بيانات معلم جديد أو
    ```bash
    export EDURA_SESSION_COOKIE='<قيمة edura.session_token من المتصفح>'
    python3 migrations/tools/import_students.py \
-       --in 03-output/students.csv --base-url https://app.edura.eg
+       --in 03-output/students.csv --base-url https://edura-erp.vercel.app
    # ثم، بعد مراجعة أرقام المعاينة:
    python3 migrations/tools/import_students.py \
-       --in 03-output/students.csv --base-url https://app.edura.eg \
+       --in 03-output/students.csv --base-url https://edura-erp.vercel.app \
        --commit --out-response 04-reports/import-response.json
    ```
 
@@ -257,7 +257,7 @@ Edura التعليمية. مهمتك: نقل بيانات معلم جديد أو
     cd migrations/tools && python3 -m unittest test_tools
     ```
 
-    27 اختبارًا بالمكتبة القياسية وحدها. أغلبها عيبٌ حقيقي وقع أثناء البناء لا
+    46 اختبارًا بالمكتبة القياسية وحدها (مُتحقَّق 2026-09-27). أغلبها عيبٌ حقيقي وقع أثناء البناء لا
     حالة متخيَّلة — المسافة العادية التي انزلقت في قائمة المحارف غير المرئية
     فحذفت كل المسافات من الأسماء، والرقم المختار الذي كان يُمحى بعد اختياره،
     والربط المنزلق بين الردّ وصفوف الملف.

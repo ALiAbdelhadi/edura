@@ -2,7 +2,7 @@
 
 import { Fragment, useState } from "react";
 import { useCustom } from "@refinedev/core";
-import { todayKey } from "@repo/server-core/lib/date-key";
+import { todayKey } from "@repo/shared/date-key";
 import { useLocale, useTranslations } from "next-intl";
 import { ChevronDown, ChevronRight, Lock, ScrollText } from "lucide-react";
 

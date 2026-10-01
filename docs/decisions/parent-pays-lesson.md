@@ -84,7 +84,7 @@ adds it) and `20260727110100_parent_wallet`.
 The `parent_profiles_wallet_balance_nonneg` CHECK is `convalidated = true` from
 birth in dev and test (every row was 0), unlike the centers wallet CHECK.
 
-Proof: `apps/www/tests/db/parent-pay.test.ts` **60/60** (live DB, real services,
+Proof: `apps/erp/tests/db/parent-pay.test.ts` **60/60** (live DB, real services,
 real webhook + HMAC path). Regressions green: `bun run build` both apps, www unit
 111 pass/1 skip, wallet 20/20, wallet-no-cap 7/7, m1-webhook-atomicity 9/9,
 c04-login-parity 72/72, messaging-scope 87/87, rbac-isolation 11/11 (206

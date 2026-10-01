@@ -8,10 +8,10 @@
 // mechanism shows up here.
 import { withPlatformContext } from "@repo/database";
 import { platformBlacklistUser, removeBlacklistEntry } from "@repo/server-core/services/blacklist/blacklist";
-import { createPointsRule, updatePointsRule, deletePointsRule, adjustStudentPoints } from "@/lib/services/points/points-admin";
-import { getWalletPolicy, updateWalletPolicy } from "@/lib/services/settings/wallet-settings-admin";
-import { approvePayout, rejectPayout } from "@/lib/services/finance/payouts";
-import type { SessionUser } from "@/lib/auth/session";
+import { createPointsRule, updatePointsRule, deletePointsRule, adjustStudentPoints } from "@repo/server-core/backoffice/points/points-admin";
+import { getWalletPolicy, updateWalletPolicy } from "@repo/server-core/backoffice/settings/wallet-settings-admin";
+import { approvePayout, rejectPayout } from "@repo/server-core/backoffice/finance/payouts";
+import type { SessionUser } from "@repo/server-core/backoffice-auth/session";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 

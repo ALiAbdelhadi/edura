@@ -11,7 +11,7 @@ import { TwoFactorCard } from "@/features/settings/two-factor-card";
 import { asKey } from "@/lib/i18n/keys";
 import { usePushSubscription } from "@/lib/pwa/use-push-subscription";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useCustom, useCustomMutation } from "@refinedev/core";
+import { useCustomMutation, useGetIdentity } from "@refinedev/core";
 import { Alert, AlertDescription } from "@repo/ui/components/alert";
 import { Button } from "@repo/ui/components/button";
 import {
@@ -355,9 +355,10 @@ export function SettingsScreen({ roleCards }: { roleCards?: SettingsRoleCards } 
   const queryStrings = useQueryStrings();
   const locale = useLocale();
 
-  const { query, result } = useCustom({
-    url: "me",
-    method: "get",
+  // Shares the shell's identity query (same key): the shell keeps it fresh on
+  // focus, so mounting this screen does not re-ask for /me.
+  const query = useGetIdentity<SettingsMe & Record<string, any>>({
+    queryOptions: { refetchOnMount: false },
   });
 
   const { mutateAsync: updateMe } = useCustomMutation();
@@ -366,7 +367,7 @@ export function SettingsScreen({ roleCards }: { roleCards?: SettingsRoleCards } 
   const [saved, setSaved] = useState(false);
   const [activeSection, setActiveSection] = useState("profile");
 
-  const me = result?.data as any;
+  const me = query.data as any;
 
   const schema = useMemo(
     () =>
@@ -474,7 +475,8 @@ export function SettingsScreen({ roleCards }: { roleCards?: SettingsRoleCards } 
     return <SkeletonRows rows={5} className="max-w-280" />;
   }
 
-  if (query.isError) {
+  // getIdentity swallows a failed /me into null, so "no data" is the error signal.
+  if (query.isError || !me) {
     // A failed `me` read used to render every field blank, as if the profile
     // were empty — an invitation to "fix" data that never loaded.
     return (

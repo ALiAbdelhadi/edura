@@ -6,9 +6,9 @@ import {
   PAYMOB_HMAC_FIELDS,
   paymobDriver,
   paymobTransactionHmac,
-} from "@/lib/services/payments/gateway/paymob-driver";
-import { mockDriver, signMockWebhook } from "@/lib/services/payments/gateway/mock-driver";
-import { deriveEventKind, integrationAllowed } from "@/lib/services/payments/gateway/types";
+} from "@repo/server-core/services/payments/gateway/paymob-driver";
+import { mockDriver, signMockWebhook } from "@repo/server-core/services/payments/gateway/mock-driver";
+import { deriveEventKind, integrationAllowed } from "@repo/server-core/services/payments/gateway/types";
 
 const SECRET = "unit-test-hmac-secret";
 

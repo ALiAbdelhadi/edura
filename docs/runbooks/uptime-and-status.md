@@ -51,8 +51,12 @@
 - **It leaks nothing** — no version, no commit, no environment, no error text.
   It is unauthenticated and internet-facing. Driver errors go to the server log.
 - **It is never cached** (`Cache-Control: no-store`, `dynamic = "force-dynamic"`).
-- **It is not rate-limited.** A monitor polls every minute from rotating IPs; a
-  throttled health check reports outages that are not happening.
+- **The ERP service's `GET` is rate-limited per client IP** (60 requests a
+  minute, `packages/server-core/src/http/health-route.ts`; answers 429 with
+  `retry-after: 60`). One monitor polling each minute from a few regions is far
+  below it; a monitor that hammers it, or many monitors behind one address, will
+  see 429 and report an outage that is not happening. `HEAD` is not limited, and
+  neither is the back-office service's health route.
 
 > The older `/api/v1/_ping` in www returns **200 even when the database is
 > unreachable** (it reports `db: "unreachable"` in the JSON body, which no
@@ -76,12 +80,14 @@ alternative but its free tier has no hosted status page with custom domain.
 |---|---|---|---|
 | Edura — app | `https://<www-domain>/api/health` | 1–3 min | 2 consecutive failures |
 | Edura — back office | `https://<superadmin-domain>/api/health` | 5 min | 2 consecutive failures |
-| Edura — realtime | `https://<realtime-domain>/health` | 5 min | 3 consecutive failures |
+| Edura — realtime | `https://<realtime-domain>/healthz` | 5 min | 3 consecutive failures |
 | Edura — landing | `https://<www-domain>/` | 5 min | 2 consecutive failures |
 
 Configure each with:
 
-- **Expect HTTP 200**, and additionally **expect the body to contain `"db":"up"`**.
+- **Expect HTTP 200**, and additionally **expect the body to contain `"db":"up"`**
+  (the realtime monitor expects `"ok":true` instead — `/healthz` reports no
+  database state).
   The keyword check is what catches a proxy or CDN returning a cached/placeholder
   200 while the app behind it is dead.
 - **Request timeout 15s.** It MUST exceed the endpoint's own 8s bound, or the

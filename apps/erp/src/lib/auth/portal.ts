@@ -2,7 +2,7 @@ import {
   PORTAL_SEGMENT_BY_ROLE,
   portalSegmentForRole,
   type PortalRole,
-} from "@repo/server-core/auth/login-policy";
+} from "@repo/shared/portal-segments";
 
 export type { PortalRole };
 

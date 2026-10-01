@@ -3,8 +3,8 @@
 // the beneficiary rows BEFORE reading the open payouts, so the second run sees
 // the first's row and skips; this pins that ordering.
 import { testPool } from "../../../../packages/database/scripts/test-pool";
-import { generatePayouts } from "@/lib/services/finance/payouts";
-import type { SessionUser } from "@/lib/auth/session";
+import { generatePayouts } from "@repo/server-core/backoffice/finance/payouts";
+import type { SessionUser } from "@repo/server-core/backoffice-auth/session";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { createTeacherFixture } from "../../../../packages/database/scripts/payout-fixtures";

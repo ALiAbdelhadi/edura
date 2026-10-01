@@ -13,6 +13,7 @@ const withNextIntl = createNextIntlPlugin();
 // the transport headers for every path and a locked-down CSP for the API
 // routes the middleware does not match.
 import { buildApiCsp, cspHeaderName as resolveCspHeaderName } from "./src/lib/security/csp";
+import { serviceRewrites } from "./src/lib/http/service-routes";
 
 const cspHeaderName = resolveCspHeaderName();
 const apiCsp = buildApiCsp();
@@ -49,6 +50,11 @@ const withSerwist = withSerwistInit({
   ].map((url) => ({ url, revision: publicFileRevision(url) })),
 });
 
+// Next sets process.env.NEXT_PHASE only AFTER it has loaded this file and read
+// rewrites(), so serviceUrl()'s "is this a build?" test would never be true
+// here. The phase Next hands the exported function is the same value, in time.
+let configPhase: string | undefined;
+
 const nextConfig = {
   agentRules: false,
 
@@ -66,14 +72,6 @@ const nextConfig = {
     webpackMemoryOptimizations: true,
 
     ...(process.env.SERWIST_DISABLE === "1" ? { webpackBuildWorker: false } : {}),
-
-    // Next 16.3 deprecates this in favour of the top-level cacheComponents,
-    // but that option REFUSES any route exporting `dynamic`, and ~340 routes
-    // here do — deliberately, because money, wallets, subscriptions,
-    // attendance, messaging and auth must never be cached. Migrating is a
-    // per-route rendering review, not a rename. Left on the deprecated option
-    // until that review happens.
-    useCache: true,
   },
 
   env: {
@@ -90,10 +88,17 @@ const nextConfig = {
   async rewrites() {
     const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://eu.i.posthog.com";
     const assetHost = posthogHost.replace("//eu.i.", "//eu-assets.i.").replace("//us.i.", "//us-assets.i.");
-    return [
-      { source: "/ingest/static/:path*", destination: `${assetHost}/static/:path*` },
-      { source: "/ingest/:path*", destination: `${posthogHost}/:path*` },
-    ];
+    return {
+      beforeFiles: serviceRewrites({
+        ...process.env,
+        NEXT_PHASE: process.env.NEXT_PHASE ?? configPhase,
+      }),
+      afterFiles: [
+        { source: "/ingest/static/:path*", destination: `${assetHost}/static/:path*` },
+        { source: "/ingest/:path*", destination: `${posthogHost}/:path*` },
+      ],
+      fallback: [],
+    };
   },
   skipTrailingSlashRedirect: true,
 
@@ -114,24 +119,24 @@ const nextConfig = {
 
   transpilePackages: [
     "@repo/client-core",
-    "@repo/database",
     "@repo/ui",
-    "@repo/server-core",
-    "@repo/notifications",
+    "@repo/shared",
     "@repo/observability",
   ],
-  serverExternalPackages: [
-    "bcryptjs",
-    "@prisma/client",
-    ".prisma/client",
-    "@prisma/client-runtime-utils",
-    "@prisma/adapter-neon",
-    "@neondatabase/serverless",
-    "ws",
-    "ioredis",
-    "nodemailer",
-  ],
 };
+
+if (process.env.VERCEL_ENV === "production" && !process.env.API_SERVICE_URL) {
+  throw new Error(
+    [
+      "API_SERVICE_URL is missing, and this is a production deploy.",
+      "",
+      "Every /api request and every server-rendered page reaches apps/api through",
+      "it; without it the ERP has no backend (src/lib/http/service-routes.ts).",
+      "Set it to the service origin (https://…, no trailing path) in Vercel >",
+      "Project > Settings > Environment Variables, scoped to Production.",
+    ].join("\n"),
+  );
+}
 
 if (process.env.VERCEL_ENV === "production" && !process.env.NEXT_PUBLIC_SENTRY_DSN) {
   throw new Error(
@@ -186,4 +191,9 @@ const sentryBuildOptions = {
   },
 };
 
-export default withOptionalSentry(withSerwist(withNextIntl(nextConfig)));
+const wrappedConfig: unknown = withOptionalSentry(withSerwist(withNextIntl(nextConfig)));
+
+export default function eduraNextConfig(phase: string, context: unknown) {
+  configPhase = phase;
+  return typeof wrappedConfig === "function" ? wrappedConfig(phase, context) : wrappedConfig;
+}

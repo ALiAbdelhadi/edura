@@ -90,7 +90,7 @@ route was added or removed and no capability changed — this is navigation only
       inflected form produced is well-formed. `apps/showcase` needed no change —
       it already said مدرّس everywhere.
     - **A BLIND `sed` WOULD HAVE BROKEN A TEST, and that is the lesson.**
-      `apps/www/tests/e2e/smoke.e2e.ts` asserts on the quick-login tile label
+      `apps/erp/tests/e2e/smoke.e2e.ts` asserts on the quick-login tile label
       `"معلم"`, which is rendered FROM `roles.teacher` — so the assertion had to
       move with the string it reads. It was included in the same pass. Grep for
       the literal, not just the key, before renaming any user-visible string.

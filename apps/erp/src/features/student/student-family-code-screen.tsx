@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useList, useCreate, useCustom, useCustomMutation } from "@refinedev/core";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -68,7 +69,7 @@ export function StudentFamilyCodeScreen() {
     method: "get",
   });
   const { mutate: rotateCode, mutation: rotateMutation } = useCustomMutation();
-  const { query: linksQuery, result: linksResult } = useList({ resource: "parent-links" });
+  const { query: linksQuery, result: linksResult } = useList({ resource: "parent-links", queryOptions: QUERY_FRESHNESS.list });
   const { mutate: createLink, mutation: createMutation } = useCreate();
   const { mutate: approveMut, mutation: approveMutation } = useCustomMutation();
   const { mutate: rejectMut, mutation: rejectMutation } = useCustomMutation();
@@ -129,7 +130,6 @@ export function StudentFamilyCodeScreen() {
         onSuccess: () => {
           toast.success(t("studentFamilyCode.linkRequestSent"));
           form.reset({ contact: "" });
-          linksQuery.refetch();
         },
         onError: (err: any) =>
           toast.error(err?.message || t("studentFamilyCode.linkRequestFailed")),

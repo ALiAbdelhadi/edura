@@ -311,7 +311,7 @@ renders.
 **Found:** 2026-09-12, by the first `knip` run in this repo
 (`bun run check:dead-code`).
 
-`blacklistCenter` (`apps/superadmin/src/lib/services/admin/platform.ts:201`) is
+`blacklistCenter` (`packages/server-core/src/backoffice/admin/platform.ts:201`) is
 thirty lines of finished, audited logic: it refuses an empty reason, refuses a
 centre already blacklisted, sets `centers.status = 'blacklisted'`, suspends
 every `center_admin` attached to it, writes a `center.blacklisted` admin audit

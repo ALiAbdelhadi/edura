@@ -1,7 +1,7 @@
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
-import { completeSession } from "@/lib/services/finance/distribution";
-import { refundLessonForStudent } from "@/lib/services/finance/refunds";
+import { completeSession } from "@repo/server-core/services/finance/distribution";
+import { refundLessonForStudent } from "@repo/server-core/backoffice/finance/refunds";
 import { computeNoRoomLessonSplit } from "@repo/server-core/services/finance/fees";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

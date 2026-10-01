@@ -16,7 +16,7 @@ import {
   LoadError,
   SectionHead,
   SkeletonRows,
-} from "./ledger-kit";
+} from "@repo/ui/components/ledger";
 
 type Child = {
   studentId: string;

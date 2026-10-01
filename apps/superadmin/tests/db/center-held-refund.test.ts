@@ -1,7 +1,7 @@
 import { withPlatformContext } from "@repo/database";
 import { completeSession } from "@repo/server-core/services/finance/distribution";
 import { bulkMarkAttendance } from "@repo/server-core/services/attendance/attendance";
-import { refundLessonForStudent } from "@/lib/services/finance/refunds";
+import { refundLessonForStudent } from "@repo/server-core/backoffice/finance/refunds";
 import type { SessionUser } from "@repo/server-core/auth/types";
 
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";

@@ -1,12 +1,12 @@
 import { withPlatformContext } from "@repo/database";
-import { completeSession } from "@/lib/services/finance/distribution";
+import { completeSession } from "@repo/server-core/services/finance/distribution";
 import {
   resolveMethod2Rate,
   resolveMethod2Availability,
   resolveMethod2RatesForRooms,
   resolveCoursePricingSnapshot,
-} from "@/lib/services/finance/commission";
-import { refundLessonForStudent } from "@/lib/services/finance/refunds";
+} from "@repo/server-core/services/finance/commission";
+import { refundLessonForStudent } from "@repo/server-core/backoffice/finance/refunds";
 import {
   updateGlobalSplit,
   updateGlobalM2Rate,
@@ -17,8 +17,8 @@ import {
   clearRoomM2Rate,
   upsertRoomSplit,
   clearRoomSplit,
-} from "@/lib/services/admin/rooms-split";
-import { listSessionSettlements } from "@/lib/services/admin/session-settlements";
+} from "@repo/server-core/backoffice/admin/rooms-split";
+import { listSessionSettlements } from "@repo/server-core/backoffice/admin/session-settlements";
 import {
   setRoomM2RateAsCenter,
   clearRoomM2RateAsCenter,

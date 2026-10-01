@@ -132,6 +132,7 @@
     "@prisma/adapter-pg": "^7.9.0",
     "@prisma/client": "^7.9.0",
     "@prisma/client-runtime-utils": "^7.9.0",
+    "@repo/shared": "workspace:*",
     "bcryptjs": "3.0.3",
     "pg": "^8.22.0",
     "ws": "^8.21.1"

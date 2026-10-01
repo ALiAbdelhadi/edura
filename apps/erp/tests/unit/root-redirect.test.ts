@@ -1,10 +1,14 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import type { SessionUser } from "@repo/server-core/auth/types";
 
-const getSessionUser = vi.fn<() => Promise<SessionUser | null>>();
-vi.mock("@/lib/auth/session", () => ({
-  getSessionUser: () => getSessionUser(),
-  requireSession: vi.fn(),
+// The page reads the session through the one ssr-session route (phase 4).
+const sessionUser = vi.fn<() => SessionUser | null>();
+vi.mock("@/lib/server/service-fetch", () => ({
+  serviceGet: async () => ({
+    status: 200,
+    data: { user: sessionUser(), onboardingComplete: sessionUser() !== null, viewAs: null },
+  }),
+  ServiceError: class extends Error {},
 }));
 
 class RedirectSignal extends Error {
@@ -35,7 +39,7 @@ const student: SessionUser = { id: "u-1", role: "student", locale: "ar" };
 
 const ORIGINAL = process.env.MARKETING_SITE_URL;
 beforeEach(() => {
-  getSessionUser.mockReset();
+  sessionUser.mockReset();
   delete process.env.MARKETING_SITE_URL;
 });
 afterEach(() => {
@@ -46,32 +50,32 @@ afterEach(() => {
 describe("root redirect", () => {
   it("sends a signed-in user to their dashboard, not to marketing", async () => {
     process.env.MARKETING_SITE_URL = "https://edura.eg";
-    getSessionUser.mockResolvedValue(student);
+    sessionUser.mockReturnValue(student);
 
     expect(await landsOn("ar")).toBe("/ar/dashboard");
   });
 
   it("keeps the signed-in user's locale", async () => {
-    getSessionUser.mockResolvedValue(student);
+    sessionUser.mockReturnValue(student);
     expect(await landsOn("en")).toBe("/en/dashboard");
   });
 
   it("sends a signed-out visitor to the marketing site, locale preserved", async () => {
     process.env.MARKETING_SITE_URL = "https://edura.eg";
-    getSessionUser.mockResolvedValue(null);
+    sessionUser.mockReturnValue(null);
 
     expect(await landsOn("ar")).toBe("https://edura.eg/ar");
     expect(await landsOn("en")).toBe("https://edura.eg/en");
   });
 
   it("falls back to the app's own login when marketing is unconfigured", async () => {
-    getSessionUser.mockResolvedValue(null);
+    sessionUser.mockReturnValue(null);
     expect(await landsOn("ar")).toBe("/ar/login");
   });
 
   it("does not double the slash when the configured URL has a trailing one", async () => {
     process.env.MARKETING_SITE_URL = "https://edura.eg/";
-    getSessionUser.mockResolvedValue(null);
+    sessionUser.mockReturnValue(null);
     expect(await landsOn("ar")).toBe("https://edura.eg/ar");
   });
 });

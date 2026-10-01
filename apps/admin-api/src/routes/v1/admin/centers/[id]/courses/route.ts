@@ -1,0 +1,46 @@
+import { withRole } from "@repo/server-core/backoffice-auth/require-role";
+import { toDateKey } from "@repo/server-core/lib/date-key";
+import { ok } from "@repo/server-core/http/envelope";
+import { adminCreateCourse } from "@repo/server-core/backoffice/admin/center-academic";
+import { parseJson } from "@repo/server-core/validation/zod";
+import { isNotPastDate, moneySchema } from "@repo/server-core/validation/common";
+import { z } from "zod";
+
+const schedulePatternSchema = z
+  .object({
+    daysOfWeek: z.array(z.number().int().min(0).max(6)).min(1),
+    startTime: z.string().regex(/^\d{2}:\d{2}$/),
+    endTime: z.string().regex(/^\d{2}:\d{2}$/),
+    startDate: z.coerce.date(),
+    endDate: z.coerce.date(),
+  })
+  .refine((p) => isNotPastDate(toDateKey(p.startDate)), {
+    message: "startDate cannot be in the past",
+    path: ["startDate"],
+  })
+  .refine((p) => p.endDate >= p.startDate, {
+    message: "endDate must be on or after startDate",
+    path: ["endDate"],
+  });
+
+const createSchema = z
+  .object({
+    teacherId: z.uuid(),
+    defaultRoomId: z.uuid().optional(),
+    title: z.string().trim().min(1),
+    subject: z.string().trim().min(1),
+    description: z.string().optional(),
+    gradeTag: z.string().optional(),
+    schedulePattern: schedulePatternSchema,
+    price: moneySchema,
+    maxStudents: z.number().int().positive().max(10000),
+    pricingMethod: z.enum(["whole_room_percent", "per_attending_student"]).nullish(),
+  })
+  .strict();
+
+export const POST = withRole("super_admin", async (user, req, ctx) => {
+  const { id } = await ctx.params;
+  const body = await parseJson(req, createSchema);
+  const result = await adminCreateCourse(user, id, body);
+  return ok(result, { status: 201 });
+});

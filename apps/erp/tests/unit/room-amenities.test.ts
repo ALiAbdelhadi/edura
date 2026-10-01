@@ -5,7 +5,7 @@ import {
   amenityLabel,
   hasAllAmenities,
   orderAmenities,
-} from "@repo/database/room-amenities";
+} from "@repo/shared/room-amenities";
 import { amenityIcon } from "@/lib/rooms/amenities";
 
 describe("room amenity catalogue", () => {

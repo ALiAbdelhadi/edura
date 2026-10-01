@@ -1,0 +1,4544 @@
+[
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/auth/[...all]/route.ts",
+  "path": "/api/auth/[...all]",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "PUBLIC",
+   "POST": "PUBLIC"
+  },
+  "rateLimited": false,
+  "services": [
+   "core/auth/session-cookies"
+  ],
+  "effects": [
+   "auth"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/health/route.ts",
+  "path": "/api/health",
+  "methods": [
+   "GET",
+   "HEAD"
+  ],
+  "tier": {
+   "GET": "PUBLIC",
+   "HEAD": "PUBLIC"
+  },
+  "rateLimited": false,
+  "services": [
+   "core/http/health-route"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/%5Fping/route.ts",
+  "path": "/api/v1/%5Fping",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "PUBLIC"
+  },
+  "rateLimited": false,
+  "services": [],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/affiliations/[id]/route.ts",
+  "path": "/api/v1/affiliations/[id]",
+  "methods": [
+   "DELETE"
+  ],
+  "tier": {
+   "DELETE": "delegated"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:collaboration/affiliation-membership"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/affiliations/[id]/accept/route.ts",
+  "path": "/api/v1/affiliations/[id]/accept",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "delegated"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:collaboration/affiliation-membership"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/affiliations/[id]/decline/route.ts",
+  "path": "/api/v1/affiliations/[id]/decline",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "delegated"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:collaboration/affiliation-membership"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/attendance/[id]/route.ts",
+  "path": "/api/v1/attendance/[id]",
+  "methods": [
+   "PATCH"
+  ],
+  "tier": {
+   "PATCH": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:attendance/attendance"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/auth/invite/accept/route.ts",
+  "path": "/api/v1/auth/invite/accept",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "PUBLIC"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:auth/invite-accept",
+   "core:auth/invite-accepted"
+  ],
+  "effects": [
+   "notify",
+   "auth"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/auth/password/forgot/route.ts",
+  "path": "/api/v1/auth/password/forgot",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "PUBLIC"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:auth/password-reset",
+   "core:auth/reset-throttle"
+  ],
+  "effects": [
+   "auth"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/auth/password/reset/route.ts",
+  "path": "/api/v1/auth/password/reset",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "PUBLIC"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:auth/password-reset"
+  ],
+  "effects": [
+   "auth"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/auth/register/center/route.ts",
+  "path": "/api/v1/auth/register/center",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "PUBLIC"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:auth/register",
+   "core:auth/register-center",
+   "@repo/observability"
+  ],
+  "effects": [
+   "money",
+   "notify",
+   "auth"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/auth/register/parent/route.ts",
+  "path": "/api/v1/auth/register/parent",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "PUBLIC"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:auth/register"
+  ],
+  "effects": [
+   "auth"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/auth/register/student/route.ts",
+  "path": "/api/v1/auth/register/student",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "PUBLIC"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:auth/register",
+   "core:onboarding/welcome-email"
+  ],
+  "effects": [
+   "notify",
+   "auth"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/auth/register/teacher/route.ts",
+  "path": "/api/v1/auth/register/teacher",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "PUBLIC"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:auth/register",
+   "@repo/observability"
+  ],
+  "effects": [
+   "auth"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/auth/view-as/claim/route.ts",
+  "path": "/api/v1/auth/view-as/claim",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "PUBLIC"
+  },
+  "rateLimited": false,
+  "services": [],
+  "effects": [
+   "upload",
+   "auth"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/auth/view-as/stop/route.ts",
+  "path": "/api/v1/auth/view-as/stop",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "optional-session"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:auth/view-as-audit"
+  ],
+  "effects": [
+   "auth"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/catalog/subjects/route.ts",
+  "path": "/api/v1/catalog/subjects",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "erp:catalog/catalog-read",
+   "core:discovery/student-scope"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/catalog/tree/route.ts",
+  "path": "/api/v1/catalog/tree",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "erp:catalog/catalog-read"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/audit-logs/route.ts",
+  "path": "/api/v1/center/audit-logs",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/center-audit"
+  ],
+  "effects": [
+   "audit"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/audit-logs/actors/route.ts",
+  "path": "/api/v1/center/audit-logs/actors",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/center-audit"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/blacklist/route.ts",
+  "path": "/api/v1/center/blacklist",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "requireRole(center_admin)",
+   "POST": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:blacklist/blacklist"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/blacklist/[id]/route.ts",
+  "path": "/api/v1/center/blacklist/[id]",
+  "methods": [
+   "DELETE"
+  ],
+  "tier": {
+   "DELETE": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:blacklist/blacklist"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/checkin/route.ts",
+  "path": "/api/v1/center/checkin",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "centerStaff(allow:RECEPTION)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:attendance/checkin"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/checkin/lookup/route.ts",
+  "path": "/api/v1/center/checkin/lookup",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:RECEPTION)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:attendance/checkin"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/checkin/suggest/route.ts",
+  "path": "/api/v1/center/checkin/suggest",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:RECEPTION)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:attendance/checkin"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/counter/roster/route.ts",
+  "path": "/api/v1/center/counter/roster",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:RECEPTION)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:attendance/counter"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/counter/sessions/route.ts",
+  "path": "/api/v1/center/counter/sessions",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:RECEPTION)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:attendance/counter"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/counter/teachers/route.ts",
+  "path": "/api/v1/center/counter/teachers",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:RECEPTION)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:attendance/counter"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/credit/route.ts",
+  "path": "/api/v1/center/credit",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:wallet/center-credit-topup"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/credit/topup/route.ts",
+  "path": "/api/v1/center/credit/topup",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:wallet/center-credit-topup"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/external-teachers/route.ts",
+  "path": "/api/v1/center/external-teachers",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "requireRole(center_admin) + centerStaff(allow:MANAGER)",
+   "POST": "~requireRole(center_admin) + centerStaff(allow:MANAGER)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:external-teachers/index"
+  ],
+  "effects": [
+   "public-cache"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/route.ts",
+  "path": "/api/v1/center/external-teachers/[teacherId]",
+  "methods": [
+   "GET",
+   "PATCH",
+   "DELETE"
+  ],
+  "tier": {
+   "GET": "requireRole(center_admin) + centerStaff(allow:MANAGER)",
+   "PATCH": "~requireRole(center_admin) + centerStaff(allow:MANAGER)",
+   "DELETE": "~requireRole(center_admin) + centerStaff(allow:MANAGER)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:external-teachers/index"
+  ],
+  "effects": [
+   "public-cache"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/convert/route.ts",
+  "path": "/api/v1/center/external-teachers/[teacherId]/convert",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "~requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:external-teachers/index"
+  ],
+  "effects": [
+   "public-cache"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/grades/route.ts",
+  "path": "/api/v1/center/external-teachers/[teacherId]/grades",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:RECEPTION)",
+   "POST": "centerStaff(allow:RECEPTION)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:external-teachers/index"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/grades/[gradeId]/scores/route.ts",
+  "path": "/api/v1/center/external-teachers/[teacherId]/grades/[gradeId]/scores",
+  "methods": [
+   "PUT"
+  ],
+  "tier": {
+   "PUT": "centerStaff(allow:RECEPTION)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:external-teachers/index"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/invite/route.ts",
+  "path": "/api/v1/center/external-teachers/[teacherId]/invite",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:external-teachers/index"
+  ],
+  "effects": [
+   "notify"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/restore/route.ts",
+  "path": "/api/v1/center/external-teachers/[teacherId]/restore",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "~requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:external-teachers/index"
+  ],
+  "effects": [
+   "public-cache"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/settlements/route.ts",
+  "path": "/api/v1/center/external-teachers/[teacherId]/settlements",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:[...MANAGER,...ACCOUNTANT])",
+   "POST": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:external-teachers/index"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/statement/route.ts",
+  "path": "/api/v1/center/external-teachers/[teacherId]/statement",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:[...MANAGER,...ACCOUNTANT])"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:external-teachers/index"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/students/route.ts",
+  "path": "/api/v1/center/external-teachers/[teacherId]/students",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:RECEPTION)",
+   "POST": "centerStaff(allow:RECEPTION)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:external-teachers/index"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/students/enroll/route.ts",
+  "path": "/api/v1/center/external-teachers/[teacherId]/students/enroll",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "centerStaff(allow:RECEPTION)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:external-teachers/index"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/external-teachers/[teacherId]/students/lookup/route.ts",
+  "path": "/api/v1/center/external-teachers/[teacherId]/students/lookup",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "centerStaff(allow:RECEPTION)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:external-teachers/index"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/external-teachers/balances/route.ts",
+  "path": "/api/v1/center/external-teachers/balances",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:[...MANAGER,...ACCOUNTANT])"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:external-teachers/index"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/external-teachers/gaps/route.ts",
+  "path": "/api/v1/center/external-teachers/gaps",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:[...MANAGER,...ACCOUNTANT])"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:external-teachers/index"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/shifts/route.ts",
+  "path": "/api/v1/center/shifts",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:[receptionist,manager,center_accountant])",
+   "POST": "centerStaff(allow:RECEPTION)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/shifts"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/shifts/[id]/route.ts",
+  "path": "/api/v1/center/shifts/[id]",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:[receptionist,manager,center_accountant])"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/shifts"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/shifts/[id]/close/route.ts",
+  "path": "/api/v1/center/shifts/[id]/close",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "centerStaff(allow:RECEPTION)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/shifts"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/shifts/current/route.ts",
+  "path": "/api/v1/center/shifts/current",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:RECEPTION)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/shifts"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/staff/route.ts",
+  "path": "/api/v1/center/staff",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "requireRole(center_admin)",
+   "POST": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/staff"
+  ],
+  "effects": [
+   "notify"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/staff/[id]/route.ts",
+  "path": "/api/v1/center/staff/[id]",
+  "methods": [
+   "PATCH",
+   "DELETE"
+  ],
+  "tier": {
+   "PATCH": "requireRole(center_admin)",
+   "DELETE": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/staff"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/staff/[id]/invite/route.ts",
+  "path": "/api/v1/center/staff/[id]/invite",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(center_admin)"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:center/staff"
+  ],
+  "effects": [
+   "notify"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/staff/me/route.ts",
+  "path": "/api/v1/center/staff/me",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(center_staff)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/staff"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/students/[id]/guardian-contact/route.ts",
+  "path": "/api/v1/center/students/[id]/guardian-contact",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:RECEPTION)",
+   "POST": "centerStaff(allow:RECEPTION)"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:invites/guardian-contact",
+   "core:students/guardian-contact-access"
+  ],
+  "effects": [
+   "notify"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/students/import/route.ts",
+  "path": "/api/v1/center/students/import",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "centerStaff(allow:MANAGER)"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:center/bulk-import-students"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/subscriptions/route.ts",
+  "path": "/api/v1/center/subscriptions",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:RECEPTION)",
+   "POST": "centerStaff(allow:RECEPTION)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:subscriptions/subscriptions",
+   "core:subscriptions/center-list"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/teacher-agreements/route.ts",
+  "path": "/api/v1/center/teacher-agreements",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "requireRole(center_admin)",
+   "POST": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:finance/agreements"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/temp-students/route.ts",
+  "path": "/api/v1/center/temp-students",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "centerStaff(allow:RECEPTION)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:temp-students/temp-students"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/walk-in/route.ts",
+  "path": "/api/v1/center/walk-in",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "centerStaff(allow:RECEPTION)"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:walk-in/walk-in"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/walk-in/resend/route.ts",
+  "path": "/api/v1/center/walk-in/resend",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "centerStaff(allow:RECEPTION)"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:walk-in/walk-in"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/wallet/route.ts",
+  "path": "/api/v1/center/wallet",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:ACCOUNTANT)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:finance/center-wallet"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/wallet-topup/route.ts",
+  "path": "/api/v1/center/wallet-topup",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "centerStaff(allow:RECEPTION)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:wallet/wallet-facade"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/wallet/payout-request/route.ts",
+  "path": "/api/v1/center/wallet/payout-request",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:finance/center-wallet"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/wallet/payouts/route.ts",
+  "path": "/api/v1/center/wallet/payouts",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:ACCOUNTANT)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:finance/center-wallet"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/wallet/payouts/[id]/cancel/route.ts",
+  "path": "/api/v1/center/wallet/payouts/[id]/cancel",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:finance/payout-cancel"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/center/wallet/transactions/route.ts",
+  "path": "/api/v1/center/wallet/transactions",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:ACCOUNTANT)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:finance/center-wallet"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/centers/[id]/route.ts",
+  "path": "/api/v1/centers/[id]",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "PUBLIC"
+  },
+  "rateLimited": false,
+  "services": [
+   "erp:public-handles/public-profiles-cache"
+  ],
+  "effects": [
+   "public-cache"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/centers/[id]/rooms/route.ts",
+  "path": "/api/v1/centers/[id]/rooms",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(teacher,assistant)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:rooms/browse-center-rooms"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/centers/me/route.ts",
+  "path": "/api/v1/centers/me",
+  "methods": [
+   "GET",
+   "PATCH"
+  ],
+  "tier": {
+   "GET": "requireRole(center_admin)",
+   "PATCH": "~requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/center-profile"
+  ],
+  "effects": [
+   "notify",
+   "public-cache"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/centers/me/admins/route.ts",
+  "path": "/api/v1/centers/me/admins",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/admins"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/centers/me/admins/[userId]/route.ts",
+  "path": "/api/v1/centers/me/admins/[userId]",
+  "methods": [
+   "DELETE"
+  ],
+  "tier": {
+   "DELETE": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/admins"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/centers/me/admins/invite/route.ts",
+  "path": "/api/v1/centers/me/admins/invite",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/admins"
+  ],
+  "effects": [
+   "notify"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/centers/me/logo/route.ts",
+  "path": "/api/v1/centers/me/logo",
+  "methods": [
+   "GET",
+   "POST",
+   "DELETE"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:MANAGER)",
+   "POST": "~centerStaff(allow:MANAGER)",
+   "DELETE": "~centerStaff(allow:MANAGER)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:media/profile-images"
+  ],
+  "effects": [
+   "upload",
+   "public-cache"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/collaboration-requests/route.ts",
+  "path": "/api/v1/collaboration-requests",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "delegatedWithCenter(staff:MANAGER)",
+   "POST": "delegatedWithCenter(staff:MANAGER)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:collaboration/collaboration"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/collaboration-requests/[id]/accept/route.ts",
+  "path": "/api/v1/collaboration-requests/[id]/accept",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "~delegatedWithCenter(staff:MANAGER)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:collaboration/collaboration"
+  ],
+  "effects": [
+   "public-cache"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/collaboration-requests/[id]/cancel/route.ts",
+  "path": "/api/v1/collaboration-requests/[id]/cancel",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "delegatedWithCenter(staff:MANAGER)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:collaboration/collaboration"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/collaboration-requests/[id]/reject/route.ts",
+  "path": "/api/v1/collaboration-requests/[id]/reject",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "delegatedWithCenter(staff:MANAGER)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:collaboration/collaboration"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/contact/route.ts",
+  "path": "/api/v1/contact",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "PUBLIC"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:marketing/contact",
+   "core/rate-limit/token-bucket"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/courses/route.ts",
+  "path": "/api/v1/courses",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "requireRole(center_admin) + toActingUser",
+   "POST": "~requireRole(center_admin) + toActingUser"
+  },
+  "rateLimited": true,
+  "services": [
+   "core/lib/date-key",
+   "core:center/courses",
+   "core:courses/list-courses"
+  ],
+  "effects": [
+   "public-cache"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/courses/[id]/route.ts",
+  "path": "/api/v1/courses/[id]",
+  "methods": [
+   "GET",
+   "PATCH"
+  ],
+  "tier": {
+   "GET": "requireRole(center_admin,teacher) + toActingUser",
+   "PATCH": "~requireRole(center_admin,teacher) + toActingUser"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/courses",
+   "core:courses/get-course"
+  ],
+  "effects": [
+   "money",
+   "public-cache"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/courses/[id]/cancel/route.ts",
+  "path": "/api/v1/courses/[id]/cancel",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "~requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/courses"
+  ],
+  "effects": [
+   "public-cache"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/courses/[id]/reassign-teacher/route.ts",
+  "path": "/api/v1/courses/[id]/reassign-teacher",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "~requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/courses"
+  ],
+  "effects": [
+   "public-cache"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/cron/[job]/route.ts",
+  "path": "/api/v1/cron/[job]",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "cron-secret"
+  },
+  "rateLimited": false,
+  "services": [
+   "core/auth/secret-compare",
+   "core:cron/jobs",
+   "core:payments/payment-intents",
+   "core:subscriptions/subscriptions",
+   "core:collaboration/collaboration",
+   "core:invites/guardian-contact",
+   "core:data-rights/data-export"
+  ],
+  "effects": [
+   "money",
+   "notify",
+   "cron"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/dashboards/admin/route.ts",
+  "path": "/api/v1/dashboards/admin",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:MANAGER)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:reports/reports"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/dashboards/admin/checklist/route.ts",
+  "path": "/api/v1/dashboards/admin/checklist",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:MANAGER)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:activation/center-checklist"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/dashboards/student/route.ts",
+  "path": "/api/v1/dashboards/student",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(student)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:dashboards/student"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/dashboards/teacher/route.ts",
+  "path": "/api/v1/dashboards/teacher",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "delegated"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:reports/reports"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/deletion-requests/route.ts",
+  "path": "/api/v1/deletion-requests",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/deletion-requests"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/deletion-requests/[id]/approve/route.ts",
+  "path": "/api/v1/deletion-requests/[id]/approve",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/deletion-requests"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/deletion-requests/[id]/reject/route.ts",
+  "path": "/api/v1/deletion-requests/[id]/reject",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/deletion-requests"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/door-checkin/route.ts",
+  "path": "/api/v1/door-checkin",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "requireRole(assistant,teacher)",
+   "POST": "requireRole(assistant,teacher)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:attendance/checkin"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/enrollment-requests/route.ts",
+  "path": "/api/v1/enrollment-requests",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "requireSession",
+   "POST": "requireRole(student)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:enrollments/requests"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/enrollment-requests/[id]/route.ts",
+  "path": "/api/v1/enrollment-requests/[id]",
+  "methods": [
+   "DELETE"
+  ],
+  "tier": {
+   "DELETE": "requireRole(student)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:enrollments/requests"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/enrollment-requests/[id]/approve/route.ts",
+  "path": "/api/v1/enrollment-requests/[id]/approve",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/enrollments"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/enrollment-requests/[id]/decline/route.ts",
+  "path": "/api/v1/enrollment-requests/[id]/decline",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/enrollments"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/enrollments/route.ts",
+  "path": "/api/v1/enrollments",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "toActingUser + requireSession",
+   "POST": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/enrollments",
+   "core:enrollments/list"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/enrollments/[id]/route.ts",
+  "path": "/api/v1/enrollments/[id]",
+  "methods": [
+   "DELETE"
+  ],
+  "tier": {
+   "DELETE": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/enrollments"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/expenses/route.ts",
+  "path": "/api/v1/expenses",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:ACCOUNTANT)",
+   "POST": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:expenses/expenses"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/expenses/[id]/route.ts",
+  "path": "/api/v1/expenses/[id]",
+  "methods": [
+   "PATCH",
+   "DELETE"
+  ],
+  "tier": {
+   "PATCH": "requireRole(center_admin)",
+   "DELETE": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:expenses/expenses"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/grades/route.ts",
+  "path": "/api/v1/grades",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "toActingUser + requireSession",
+   "POST": "delegated"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:grades/grades"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/grades/[id]/route.ts",
+  "path": "/api/v1/grades/[id]",
+  "methods": [
+   "GET",
+   "PATCH",
+   "DELETE"
+  ],
+  "tier": {
+   "GET": "toActingUser + requireSession",
+   "PATCH": "delegated",
+   "DELETE": "delegated"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:grades/grades"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/grades/[id]/scores/route.ts",
+  "path": "/api/v1/grades/[id]/scores",
+  "methods": [
+   "PUT"
+  ],
+  "tier": {
+   "PUT": "delegated"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:grades/grades"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/guardian/verify/route.ts",
+  "path": "/api/v1/guardian/verify",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "PUBLIC"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:invites/guardian-verification"
+  ],
+  "effects": [
+   "notify"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/internal/chat-notify/route.ts",
+  "path": "/api/v1/internal/chat-notify",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "internal-secret"
+  },
+  "rateLimited": false,
+  "services": [
+   "core/config/secrets",
+   "core:messages/chat-notify",
+   "core/auth/secret-compare"
+  ],
+  "effects": [
+   "notify",
+   "internal"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/internal/revalidate/route.ts",
+  "path": "/api/v1/internal/revalidate",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "internal-secret"
+  },
+  "rateLimited": false,
+  "services": [
+   "core/config/secrets",
+   "core/cache/public-data",
+   "core/auth/secret-compare"
+  ],
+  "effects": [
+   "notify",
+   "public-cache",
+   "internal"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/materials/route.ts",
+  "path": "/api/v1/materials",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "toActingUser + requireSession",
+   "POST": "delegated"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:materials/materials"
+  ],
+  "effects": [
+   "upload"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/materials/[id]/route.ts",
+  "path": "/api/v1/materials/[id]",
+  "methods": [
+   "PATCH",
+   "DELETE"
+  ],
+  "tier": {
+   "PATCH": "delegated",
+   "DELETE": "delegated"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:materials/materials"
+  ],
+  "effects": [
+   "upload"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/materials/[id]/download/route.ts",
+  "path": "/api/v1/materials/[id]/download",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "toActingUser + requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:materials/materials"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/route.ts",
+  "path": "/api/v1/me",
+  "methods": [
+   "GET",
+   "PATCH"
+  ],
+  "tier": {
+   "GET": "requireSession",
+   "PATCH": "~requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:account/profile"
+  ],
+  "effects": [
+   "public-cache"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/affiliations/route.ts",
+  "path": "/api/v1/me/affiliations",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "delegated"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:teacher/affiliations"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/attendance/route.ts",
+  "path": "/api/v1/me/attendance",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:me/attendance"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/children/route.ts",
+  "path": "/api/v1/me/children",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(parent)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:parent-links/parent-links"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/credentials/route.ts",
+  "path": "/api/v1/me/credentials",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireSession"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:account/credentials"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/data-rights/deletion/route.ts",
+  "path": "/api/v1/me/data-rights/deletion",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "requireSession",
+   "POST": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:data-rights/account-deletion"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/data-rights/deletion/[id]/route.ts",
+  "path": "/api/v1/me/data-rights/deletion/[id]",
+  "methods": [
+   "DELETE"
+  ],
+  "tier": {
+   "DELETE": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:data-rights/account-deletion"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/data-rights/exports/route.ts",
+  "path": "/api/v1/me/data-rights/exports",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "requireSession",
+   "POST": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:data-rights/data-export"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/data-rights/exports/[id]/route.ts",
+  "path": "/api/v1/me/data-rights/exports/[id]",
+  "methods": [
+   "GET",
+   "DELETE"
+  ],
+  "tier": {
+   "GET": "requireSession",
+   "DELETE": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core/lib/date-key",
+   "core:data-rights/data-export"
+  ],
+  "effects": [
+   "stream"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/delete-request/route.ts",
+  "path": "/api/v1/me/delete-request",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:data-rights/deletion-request"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/device-tokens/route.ts",
+  "path": "/api/v1/me/device-tokens",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:notifications/push-registration"
+  ],
+  "effects": [
+   "notify"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/device-tokens/[token]/route.ts",
+  "path": "/api/v1/me/device-tokens/[token]",
+  "methods": [
+   "DELETE"
+  ],
+  "tier": {
+   "DELETE": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:notifications/push-registration"
+  ],
+  "effects": [
+   "notify"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/email/route.ts",
+  "path": "/api/v1/me/email",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireSession"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:account/email"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/email/confirm/route.ts",
+  "path": "/api/v1/me/email/confirm",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "PUBLIC"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:auth/email-change"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/family-code/route.ts",
+  "path": "/api/v1/me/family-code",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(student)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:parent-links/parent-links"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/family-code/rotate/route.ts",
+  "path": "/api/v1/me/family-code/rotate",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(student)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:parent-links/parent-links"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/guardian-contact/route.ts",
+  "path": "/api/v1/me/guardian-contact",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "requireSession",
+   "POST": "requireSession"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:invites/guardian-contact",
+   "core:invites/guardian-contact-target"
+  ],
+  "effects": [
+   "notify"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/guardian-verification/route.ts",
+  "path": "/api/v1/me/guardian-verification",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "requireRole(student)",
+   "POST": "requireRole(student)"
+  },
+  "rateLimited": true,
+  "services": [
+   "@repo/notifications",
+   "core:invites/guardian-verification",
+   "core:invites/guardian-verification-status"
+  ],
+  "effects": [
+   "notify"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/onboarding/route.ts",
+  "path": "/api/v1/me/onboarding",
+  "methods": [
+   "GET",
+   "POST",
+   "PATCH"
+  ],
+  "tier": {
+   "GET": "requireSession",
+   "POST": "~requireSession",
+   "PATCH": "~requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:catalog/onboarding"
+  ],
+  "effects": [
+   "public-cache"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/onboarding-email/route.ts",
+  "path": "/api/v1/me/onboarding-email",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "requireSession",
+   "POST": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:onboarding/welcome-email"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/parent-wallet/route.ts",
+  "path": "/api/v1/me/parent-wallet",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(parent)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:wallet/parent-wallet-facade"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/parent-wallet/history/route.ts",
+  "path": "/api/v1/me/parent-wallet/history",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(parent)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:wallet/parent-wallet-facade"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/password/route.ts",
+  "path": "/api/v1/me/password",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireSession"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:auth/password-reset"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/points/route.ts",
+  "path": "/api/v1/me/points",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(student)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:points/points"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/points/history/route.ts",
+  "path": "/api/v1/me/points/history",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(student)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:points/points"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/prefs/route.ts",
+  "path": "/api/v1/me/prefs",
+  "methods": [
+   "GET",
+   "PATCH"
+  ],
+  "tier": {
+   "GET": "requireSession",
+   "PATCH": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:me/prefs"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/profile-checklist/route.ts",
+  "path": "/api/v1/me/profile-checklist",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:students/student-card"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/public-handle/route.ts",
+  "path": "/api/v1/me/public-handle",
+  "methods": [
+   "GET",
+   "PUT",
+   "DELETE"
+  ],
+  "tier": {
+   "GET": "requireRole(...OWNER_ROLES)",
+   "PUT": "~requireRole(...OWNER_ROLES)",
+   "DELETE": "~requireRole(...OWNER_ROLES)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:public-handles/handle-rules",
+   "core:public-handles/public-handles",
+   "core/http/app-url"
+  ],
+  "effects": [
+   "public-cache"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/public-handle/check/route.ts",
+  "path": "/api/v1/me/public-handle/check",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(center_admin,teacher)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:public-handles/public-handles"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/push-subscription/route.ts",
+  "path": "/api/v1/me/push-subscription",
+  "methods": [
+   "POST",
+   "DELETE"
+  ],
+  "tier": {
+   "POST": "requireSession",
+   "DELETE": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:notifications/push-registration"
+  ],
+  "effects": [
+   "money",
+   "notify"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/roster/choice/route.ts",
+  "path": "/api/v1/me/roster/choice",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(student)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:me/roster-choice"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/student-card/route.ts",
+  "path": "/api/v1/me/student-card",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:students/student-card"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/subject-requests/route.ts",
+  "path": "/api/v1/me/subject-requests",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(teacher)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:catalog/onboarding"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/subjects/route.ts",
+  "path": "/api/v1/me/subjects",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(teacher,assistant) + toActingUser"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:teacher/subjects"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/subscriptions/route.ts",
+  "path": "/api/v1/me/subscriptions",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(student,parent)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:subscriptions/subscriptions"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/unread-counts/route.ts",
+  "path": "/api/v1/me/unread-counts",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:messages/messages"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/wallet/route.ts",
+  "path": "/api/v1/me/wallet",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(student,parent)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:wallet/wallet-facade"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/me/wallet/history/route.ts",
+  "path": "/api/v1/me/wallet/history",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(student,parent)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:wallet/wallet-facade"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/messages/route.ts",
+  "path": "/api/v1/messages",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:messages/messages"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/messages/blocks/route.ts",
+  "path": "/api/v1/messages/blocks",
+  "methods": [
+   "GET",
+   "POST",
+   "DELETE"
+  ],
+  "tier": {
+   "GET": "requireSession",
+   "POST": "requireSession",
+   "DELETE": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:messages/messages"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/messages/contacts/route.ts",
+  "path": "/api/v1/messages/contacts",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:messages/messages"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/messages/conversations/route.ts",
+  "path": "/api/v1/messages/conversations",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "requireSession",
+   "POST": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:messages/messages"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/messages/conversations/[id]/route.ts",
+  "path": "/api/v1/messages/conversations/[id]",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:messages/messages"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/messages/conversations/[id]/read/route.ts",
+  "path": "/api/v1/messages/conversations/[id]/read",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:messages/messages"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/messages/groups/route.ts",
+  "path": "/api/v1/messages/groups",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "requireSession",
+   "POST": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:messages/messages"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/messages/groups/[id]/route.ts",
+  "path": "/api/v1/messages/groups/[id]",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "requireSession",
+   "POST": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:messages/messages"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/messages/groups/[id]/mute/route.ts",
+  "path": "/api/v1/messages/groups/[id]/mute",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:messages/messages"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/messages/groups/[id]/read/route.ts",
+  "path": "/api/v1/messages/groups/[id]/read",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:messages/messages"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/messages/reports/route.ts",
+  "path": "/api/v1/messages/reports",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:messages/messages"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/notifications/route.ts",
+  "path": "/api/v1/notifications",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:notifications/inbox"
+  ],
+  "effects": [
+   "notify"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/notifications/[id]/read/route.ts",
+  "path": "/api/v1/notifications/[id]/read",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:notifications/inbox"
+  ],
+  "effects": [
+   "notify"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/notifications/broadcast/route.ts",
+  "path": "/api/v1/notifications/broadcast",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:notifications/broadcast"
+  ],
+  "effects": [
+   "notify"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/notifications/read-all/route.ts",
+  "path": "/api/v1/notifications/read-all",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:notifications/inbox"
+  ],
+  "effects": [
+   "notify"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/parent-links/route.ts",
+  "path": "/api/v1/parent-links",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "requireRole(parent,student)",
+   "POST": "requireRole(parent,student)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:parent-links/parent-links"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/parent-links/[id]/route.ts",
+  "path": "/api/v1/parent-links/[id]",
+  "methods": [
+   "DELETE"
+  ],
+  "tier": {
+   "DELETE": "requireRole(parent,student)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:parent-links/parent-links"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/parent-links/[id]/approve/route.ts",
+  "path": "/api/v1/parent-links/[id]/approve",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(parent,student)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:parent-links/parent-links"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/parent-links/[id]/reject/route.ts",
+  "path": "/api/v1/parent-links/[id]/reject",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(parent,student)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:parent-links/parent-links"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/parent/oversight/children/route.ts",
+  "path": "/api/v1/parent/oversight/children",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(parent)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:messages/messages"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/parent/oversight/children/[studentId]/conversations/route.ts",
+  "path": "/api/v1/parent/oversight/children/[studentId]/conversations",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(parent)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:messages/messages"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/parent/oversight/children/[studentId]/conversations/[id]/route.ts",
+  "path": "/api/v1/parent/oversight/children/[studentId]/conversations/[id]",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(parent)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:messages/messages"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/payments/route.ts",
+  "path": "/api/v1/payments",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "requireSession",
+   "POST": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:payments/payments"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/payments/[id]/route.ts",
+  "path": "/api/v1/payments/[id]",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:payments/payments"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/payments/[id]/receipt/route.ts",
+  "path": "/api/v1/payments/[id]/receipt",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:payments/payments"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/payments/[id]/refund/route.ts",
+  "path": "/api/v1/payments/[id]/refund",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:payments/refund-payment"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/payments/[id]/refund/confirm/route.ts",
+  "path": "/api/v1/payments/[id]/refund/confirm",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:payments/refund-payment"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/payments/availability/route.ts",
+  "path": "/api/v1/payments/availability",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "PUBLIC"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:payments/gateway/index"
+  ],
+  "effects": [
+   "money",
+   "public-cache"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/payments/initiate/route.ts",
+  "path": "/api/v1/payments/initiate",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(student)"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:payments/payment-intents"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/payments/intents/[id]/route.ts",
+  "path": "/api/v1/payments/intents/[id]",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(student,parent)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:payments/payment-intents"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/payments/intents/[id]/mock-complete/route.ts",
+  "path": "/api/v1/payments/intents/[id]/mock-complete",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(student,parent,center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:payments/gateway/index",
+   "core:payments/mock-complete"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/payments/parent-wallet-topup/initiate/route.ts",
+  "path": "/api/v1/payments/parent-wallet-topup/initiate",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(parent)"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:wallet/parent-wallet-facade"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/payments/paymob/webhook/route.ts",
+  "path": "/api/v1/payments/paymob/webhook",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "PUBLIC"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:payments/gateway/index",
+   "core:payments/payment-intents"
+  ],
+  "effects": [
+   "money",
+   "webhook"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/payments/refunds/unconfirmed/route.ts",
+  "path": "/api/v1/payments/refunds/unconfirmed",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:payments/refund-payment"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/payments/wallet-topup/initiate/route.ts",
+  "path": "/api/v1/payments/wallet-topup/initiate",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(student)"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:wallet/wallet-facade"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/realtime/token/route.ts",
+  "path": "/api/v1/realtime/token",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core/config/secrets"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/reports/attendance-by-course/route.ts",
+  "path": "/api/v1/reports/attendance-by-course",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:MANAGER)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:reports/reports"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/reports/course-fill-rates/route.ts",
+  "path": "/api/v1/reports/course-fill-rates",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:MANAGER)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:reports/reports"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/reports/enrollment-funnel/route.ts",
+  "path": "/api/v1/reports/enrollment-funnel",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:MANAGER)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:reports/reports"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/reports/expenses/route.ts",
+  "path": "/api/v1/reports/expenses",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:ACCOUNTANT)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:reports/reports"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/reports/expenses-timeseries/route.ts",
+  "path": "/api/v1/reports/expenses-timeseries",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:ACCOUNTANT)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:reports/reports"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/reports/export/route.ts",
+  "path": "/api/v1/reports/export",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:[...ACCOUNTANT,...MANAGER])"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:reports/report-export"
+  ],
+  "effects": [
+   "stream"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/reports/net-profit/route.ts",
+  "path": "/api/v1/reports/net-profit",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:ACCOUNTANT)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:reports/reports"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/reports/revenue/route.ts",
+  "path": "/api/v1/reports/revenue",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:ACCOUNTANT)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:reports/reports"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/reports/revenue-timeseries/route.ts",
+  "path": "/api/v1/reports/revenue-timeseries",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:ACCOUNTANT)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:reports/reports"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/reviews/route.ts",
+  "path": "/api/v1/reviews",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "requireRole(student)",
+   "POST": "~requireRole(student)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:reviews/reviews"
+  ],
+  "effects": [
+   "public-cache"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/reviews/[id]/route.ts",
+  "path": "/api/v1/reviews/[id]",
+  "methods": [
+   "PATCH"
+  ],
+  "tier": {
+   "PATCH": "~requireRole(student)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:reviews/reviews"
+  ],
+  "effects": [
+   "public-cache"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/reviews/eligible/route.ts",
+  "path": "/api/v1/reviews/eligible",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(student)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:reviews/reviews"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/rooms/route.ts",
+  "path": "/api/v1/rooms",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:MANAGER)",
+   "POST": "~centerStaff(allow:MANAGER)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:rooms/rooms",
+   "core:rooms/manage-rooms"
+  ],
+  "effects": [
+   "public-cache"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/rooms/[id]/route.ts",
+  "path": "/api/v1/rooms/[id]",
+  "methods": [
+   "PATCH",
+   "DELETE"
+  ],
+  "tier": {
+   "PATCH": "~centerStaff(allow:MANAGER)",
+   "DELETE": "~centerStaff(allow:MANAGER)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:rooms/rooms",
+   "core:rooms/manage-rooms"
+  ],
+  "effects": [
+   "public-cache"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/rooms/[id]/photos/route.ts",
+  "path": "/api/v1/rooms/[id]/photos",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "centerStaff(allow:MANAGER)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:rooms/rooms"
+  ],
+  "effects": [
+   "upload"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/rooms/per-student-availability/route.ts",
+  "path": "/api/v1/rooms/per-student-availability",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:MANAGER)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:rooms/manage-rooms"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/roster/students/route.ts",
+  "path": "/api/v1/roster/students",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:RECEPTION)",
+   "POST": "centerStaff(allow:RECEPTION)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/roster"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/roster/students/[studentId]/route.ts",
+  "path": "/api/v1/roster/students/[studentId]",
+  "methods": [
+   "GET",
+   "PATCH",
+   "DELETE"
+  ],
+  "tier": {
+   "GET": "centerStaff(allow:RECEPTION)",
+   "PATCH": "centerStaff(allow:MANAGER)",
+   "DELETE": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/roster"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/roster/students/invite/route.ts",
+  "path": "/api/v1/roster/students/invite",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "centerStaff(allow:RECEPTION)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/roster"
+  ],
+  "effects": [
+   "notify"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/roster/students/lookup/route.ts",
+  "path": "/api/v1/roster/students/lookup",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "centerStaff(allow:RECEPTION)"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:center/roster"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/roster/teachers/route.ts",
+  "path": "/api/v1/roster/teachers",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/roster"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/roster/teachers/[teacherId]/route.ts",
+  "path": "/api/v1/roster/teachers/[teacherId]",
+  "methods": [
+   "DELETE"
+  ],
+  "tier": {
+   "DELETE": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/roster"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/roster/teachers/invite/route.ts",
+  "path": "/api/v1/roster/teachers/invite",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(center_admin)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:center/roster"
+  ],
+  "effects": [
+   "notify"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/roster/teachers/lookup/route.ts",
+  "path": "/api/v1/roster/teachers/lookup",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(center_admin)"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:center/roster"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/search/route.ts",
+  "path": "/api/v1/search",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "authorizeCenterActor([receptionist,manager,center_accountant]) + toActingUser + requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:search/global-search"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/search/centers/route.ts",
+  "path": "/api/v1/search/centers",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "PUBLIC"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:discovery/discovery"
+  ],
+  "effects": [
+   "public-cache"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/search/courses/route.ts",
+  "path": "/api/v1/search/courses",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "optional-session"
+  },
+  "rateLimited": true,
+  "services": [
+   "erp:discovery/discovery-cache",
+   "core:discovery/student-scope"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/search/teacher-days/route.ts",
+  "path": "/api/v1/search/teacher-days",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "optional-session"
+  },
+  "rateLimited": true,
+  "services": [
+   "erp:discovery/discovery-cache",
+   "core:discovery/student-scope"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/search/teachers/route.ts",
+  "path": "/api/v1/search/teachers",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "PUBLIC"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:discovery/discovery"
+  ],
+  "effects": [
+   "public-cache"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/security/csp-report/route.ts",
+  "path": "/api/v1/security/csp-report",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "PUBLIC"
+  },
+  "rateLimited": true,
+  "services": [],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/sessions/route.ts",
+  "path": "/api/v1/sessions",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "authorizeCenterActor([receptionist,manager,center_accountant]) + toActingUser + requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:sessions/sessions"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/sessions/[id]/route.ts",
+  "path": "/api/v1/sessions/[id]",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "authorizeCenterActor([receptionist,manager,center_accountant]) + toActingUser + requireSession"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:sessions/sessions"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/sessions/[id]/attendance/route.ts",
+  "path": "/api/v1/sessions/[id]/attendance",
+  "methods": [
+   "GET",
+   "PUT"
+  ],
+  "tier": {
+   "GET": "authorizeCenterActor([receptionist,manager,center_accountant]) + toActingUser + requireSession",
+   "PUT": "delegatedWithCenter"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:attendance/attendance",
+   "core:attendance/session-scope"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/sessions/[id]/attendance/reopen/route.ts",
+  "path": "/api/v1/sessions/[id]/attendance/reopen",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "delegatedWithCenter(staff:MANAGER)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:attendance/attendance"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/sessions/[id]/cancel/route.ts",
+  "path": "/api/v1/sessions/[id]/cancel",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "delegatedWithCenter"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:session-actions/session-actions"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/sessions/[id]/complete/route.ts",
+  "path": "/api/v1/sessions/[id]/complete",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "delegatedWithCenter(staff:[receptionist,manager])"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:finance/distribution",
+   "core:session-actions/complete-audit"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/sessions/[id]/postpone/route.ts",
+  "path": "/api/v1/sessions/[id]/postpone",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "delegatedWithCenter"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:session-actions/session-actions"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/sessions/[id]/settlement-preview/route.ts",
+  "path": "/api/v1/sessions/[id]/settlement-preview",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "delegatedWithCenter(staff:[receptionist,manager])"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:finance/distribution"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/subjects/route.ts",
+  "path": "/api/v1/subjects",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "PUBLIC"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:catalog/subjects"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/subscriptions/[id]/cancel/route.ts",
+  "path": "/api/v1/subscriptions/[id]/cancel",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(student,parent)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:subscriptions/subscriptions"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/subscriptions/checkout/route.ts",
+  "path": "/api/v1/subscriptions/checkout",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(student,parent)"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:subscriptions/subscriptions",
+   "core:payments/payment-intents"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/teacher/assistants/route.ts",
+  "path": "/api/v1/teacher/assistants",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "requireRole(teacher)",
+   "POST": "requireRole(teacher)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:teacher/assistants"
+  ],
+  "effects": [
+   "notify"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/teacher/assistants/[id]/route.ts",
+  "path": "/api/v1/teacher/assistants/[id]",
+  "methods": [
+   "DELETE"
+  ],
+  "tier": {
+   "DELETE": "requireRole(teacher)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:teacher/assistants"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/teacher/assistants/[id]/invite/route.ts",
+  "path": "/api/v1/teacher/assistants/[id]/invite",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(teacher)"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:teacher/assistants"
+  ],
+  "effects": [
+   "notify"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/teacher/attendance-mode/route.ts",
+  "path": "/api/v1/teacher/attendance-mode",
+  "methods": [
+   "GET",
+   "PATCH"
+  ],
+  "tier": {
+   "GET": "delegated",
+   "PATCH": "delegated"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:teacher/attendance-mode"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/teacher/attendance/sync/route.ts",
+  "path": "/api/v1/teacher/attendance/sync",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(teacher,assistant)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:attendance/sync"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/teacher/blacklist/route.ts",
+  "path": "/api/v1/teacher/blacklist",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "delegated",
+   "POST": "delegated"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:blacklist/blacklist"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/teacher/blacklist/[id]/route.ts",
+  "path": "/api/v1/teacher/blacklist/[id]",
+  "methods": [
+   "DELETE"
+  ],
+  "tier": {
+   "DELETE": "delegated"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:blacklist/blacklist"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/teacher/coverage/route.ts",
+  "path": "/api/v1/teacher/coverage",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "delegated"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:subscriptions/teacher-coverage"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/teacher/temp-students/route.ts",
+  "path": "/api/v1/teacher/temp-students",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "delegated"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:temp-students/temp-students"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/teacher/wallet/route.ts",
+  "path": "/api/v1/teacher/wallet",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(teacher)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:finance/teacher-wallet"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/teacher/wallet/payout-request/route.ts",
+  "path": "/api/v1/teacher/wallet/payout-request",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(teacher)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:finance/teacher-wallet"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/teacher/wallet/payouts/route.ts",
+  "path": "/api/v1/teacher/wallet/payouts",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(teacher)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:finance/teacher-wallet"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/teacher/wallet/payouts/[id]/cancel/route.ts",
+  "path": "/api/v1/teacher/wallet/payouts/[id]/cancel",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(teacher)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:finance/payout-cancel"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/teacher/wallet/transactions/route.ts",
+  "path": "/api/v1/teacher/wallet/transactions",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "requireRole(teacher)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:finance/teacher-wallet"
+  ],
+  "effects": [
+   "money"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/teachers/[teacherId]/route.ts",
+  "path": "/api/v1/teachers/[teacherId]",
+  "methods": [
+   "GET"
+  ],
+  "tier": {
+   "GET": "PUBLIC"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:reviews/reviews"
+  ],
+  "effects": [
+   "public-cache"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/teachers/me/photo/route.ts",
+  "path": "/api/v1/teachers/me/photo",
+  "methods": [
+   "GET",
+   "POST",
+   "DELETE"
+  ],
+  "tier": {
+   "GET": "requireRole(teacher)",
+   "POST": "~requireRole(teacher)",
+   "DELETE": "~requireRole(teacher)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:media/profile-images",
+   "core:teacher/profile-photo"
+  ],
+  "effects": [
+   "upload",
+   "public-cache"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/team-notes/route.ts",
+  "path": "/api/v1/team-notes",
+  "methods": [
+   "GET",
+   "POST"
+  ],
+  "tier": {
+   "GET": "delegatedWithCenter(staff:STAFF_ALL)",
+   "POST": "delegatedWithCenter(staff:RECEPTION)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:team-notes/team-notes"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/team-notes/[id]/route.ts",
+  "path": "/api/v1/team-notes/[id]",
+  "methods": [
+   "PATCH",
+   "DELETE"
+  ],
+  "tier": {
+   "PATCH": "delegatedWithCenter(staff:RECEPTION)",
+   "DELETE": "delegatedWithCenter(staff:RECEPTION)"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:team-notes/team-notes"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/temp-students/route.ts",
+  "path": "/api/v1/temp-students",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "delegatedWithCenter"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:temp-students/temp-students"
+  ],
+  "effects": [],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/temp-students/[id]/send-invite/route.ts",
+  "path": "/api/v1/temp-students/[id]/send-invite",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "delegatedWithCenter"
+  },
+  "rateLimited": false,
+  "services": [
+   "core:temp-students/temp-students"
+  ],
+  "effects": [
+   "notify"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ },
+ {
+  "app": "erp",
+  "file": "apps/erp/src/app/api/v1/temp-students/claim/route.ts",
+  "path": "/api/v1/temp-students/claim",
+  "methods": [
+   "POST"
+  ],
+  "tier": {
+   "POST": "requireRole(student)"
+  },
+  "rateLimited": true,
+  "services": [
+   "core:temp-students/temp-students"
+  ],
+  "effects": [
+   "notify"
+  ],
+  "dynamic": "dynamic = \"force-dynamic\""
+ }
+]

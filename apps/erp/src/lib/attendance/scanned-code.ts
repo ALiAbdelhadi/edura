@@ -1,4 +1,4 @@
-import { resolveStudentCode } from "@repo/database/student-code";
+import { resolveStudentCode } from "@repo/shared/student-code";
 
 export function codeFromScan(raw: string): string | null {
   const text = raw?.trim();

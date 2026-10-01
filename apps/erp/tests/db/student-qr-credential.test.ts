@@ -2,8 +2,8 @@ import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
 import { finalizeStudentCode } from "@repo/database/student-code-issue";
 import { buildStudentCode } from "@repo/database/student-code";
-import { BusinessRuleError, ForbiddenError } from "@/lib/errors/classes";
-import type { SessionUser } from "@/lib/auth/session";
+import { BusinessRuleError, ForbiddenError } from "@repo/server-core/errors/classes";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
 import {
   buildProfileChecklist,
   buildStudentCard,

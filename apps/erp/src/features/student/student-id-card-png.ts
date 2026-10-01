@@ -1,8 +1,8 @@
 import { guillochePasses, studentIdentity } from "@repo/ui/lib/student-identity";
 import { EDURA_MARK_PATHS, EDURA_MARK_STROKE, EDURA_MARK_VIEWBOX } from "@repo/ui/lib/edura-mark";
-import { formatStudentCode } from "@repo/database/student-code";
+import { formatStudentCode } from "@repo/shared/student-code";
 import type { StudentCard } from "@repo/server-core/services/students/student-card";
-import { CARD_H, CARD_W, WORDMARK } from "./student-id-card";
+import { CARD_H, CARD_W, WORDMARK } from "@repo/ui/components/student-id-card";
 
 const SCALE = 2;
 

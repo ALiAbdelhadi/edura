@@ -2,7 +2,7 @@ import { AppProviders } from "@/components/providers/app-providers";
 import { isRtlLocale, routing } from "@/i18n/routing";
 import { baseMessages } from "@/lib/i18n/scope";
 import { AnalyticsProvider } from "@/lib/observability/analytics-provider";
-import { appBaseUrl } from "@repo/server-core/http/app-url";
+import { appBaseUrl } from "@repo/shared/app-url";
 import type { Metadata, Viewport } from "next";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";

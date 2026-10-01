@@ -2,7 +2,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const SRC_DIRS = ["src/features", "src/components", "src/app"];
-const API_DIR = "src/app/api/v1";
+const API_DIR = "../api/src/routes/v1";
 
 function walk(dir) {
   const out = [];

@@ -1,13 +1,14 @@
+import "./helpers/bind-auth";
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { z } from "zod";
-import type { SessionUser } from "@/lib/auth/session";
-import { __setSessionOverrideForTests } from "@/lib/auth/session";
-import { POST as checkinRoute } from "@/app/api/v1/center/checkin/route";
-import { POST as centerSubscriptionsRoute } from "@/app/api/v1/center/subscriptions/route";
-import { POST as checkoutRoute } from "@/app/api/v1/subscriptions/checkout/route";
-import { POST as paymentsInitiateRoute } from "@/app/api/v1/payments/initiate/route";
-import { POST as conversationsRoute } from "@/app/api/v1/messages/conversations/route";
-import { POST as messageReportsRoute } from "@/app/api/v1/messages/reports/route";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
+import { __setSessionOverrideForTests } from "@repo/server-core/erp-auth/session";
+import { POST as checkinRoute } from "api/routes/v1/center/checkin/route";
+import { POST as centerSubscriptionsRoute } from "api/routes/v1/center/subscriptions/route";
+import { POST as checkoutRoute } from "api/routes/v1/subscriptions/checkout/route";
+import { POST as paymentsInitiateRoute } from "api/routes/v1/payments/initiate/route";
+import { POST as conversationsRoute } from "api/routes/v1/messages/conversations/route";
+import { POST as messageReportsRoute } from "api/routes/v1/messages/reports/route";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const pool = testPool();

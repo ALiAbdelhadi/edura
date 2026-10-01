@@ -1,8 +1,8 @@
 import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
-import { completeSession } from "@/lib/services/finance/distribution";
-import { refundLessonForStudent } from "@/lib/services/finance/refunds";
-import { refundsReport } from "@/lib/services/finance/finance-reports";
+import { completeSession } from "@repo/server-core/services/finance/distribution";
+import { refundLessonForStudent } from "@repo/server-core/backoffice/finance/refunds";
+import { refundsReport } from "@repo/server-core/backoffice/finance/finance-reports";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const adminPool = testPool();

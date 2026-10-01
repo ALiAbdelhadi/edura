@@ -1,5 +1,5 @@
 import { withPlatformContext } from "@repo/database";
-import { unlinkParent } from "@/lib/services/admin/platform";
+import { unlinkParent } from "@repo/server-core/backoffice/admin/platform";
 
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

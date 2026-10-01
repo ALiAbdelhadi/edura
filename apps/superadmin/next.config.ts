@@ -13,6 +13,13 @@ import {
   cspHeaderName as resolveCspHeaderName,
   erpFormActionFromEnv,
 } from "./src/lib/security/csp";
+import { serviceRewrites } from "./src/lib/http/service-routes";
+
+// Next hands the phase to a function-shaped config (below) but sets NEXT_PHASE
+// only after loading it; serviceRewrites() reads the phase from here so a
+// production BUILD without ADMIN_API_SERVICE_URL still resolves the dev URL
+// (the Vercel-production check further down refuses that build itself).
+let configPhase: string | undefined;
 
 const cspHeaderName = resolveCspHeaderName();
 const apiCsp = buildApiCsp();
@@ -32,6 +39,10 @@ const nextConfig = {
   agentRules: false,
 
   reactStrictMode: true,
+
+  // The hop launch config builds into .next-hop so a parallel `next dev` does
+  // not fight the default dev server over one directory.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
 
   experimental: {
     useTypeScriptCli: true,
@@ -57,26 +68,39 @@ const nextConfig = {
     ];
   },
 
-  transpilePackages: [
-    "@repo/client-core",
-    "@repo/database",
-    "@repo/ui",
-    "@repo/server-core",
-    "@repo/notifications",
-    "@repo/observability",
-  ],
-  serverExternalPackages: [
-    "bcryptjs",
-    "@prisma/client",
-    ".prisma/client",
-    "@prisma/client-runtime-utils",
-    "@prisma/adapter-neon",
-    "@neondatabase/serverless",
-    "ws",
-    "ioredis",
-    "nodemailer",
-  ],
+  // Phase 5 (docs/decisions/backend-separation.md): every /api prefix in
+  // src/lib/http/service-routes.ts is proxied to apps/admin-api,
+  // unconditionally — this app has no route files. `beforeFiles` so the rewrite
+  // wins over any page or static match; src/proxy.ts stamps the client IP on
+  // the way through.
+  async rewrites() {
+    return {
+      beforeFiles: serviceRewrites({ ...process.env, NEXT_PHASE: process.env.NEXT_PHASE ?? configPhase }),
+      afterFiles: [],
+      fallback: [],
+    };
+  },
+
+  // Server packages left with the routes: the frontend bundles only what the
+  // browser and the page shell need.
+  transpilePackages: ["@repo/client-core", "@repo/ui", "@repo/shared", "@repo/observability"],
 };
+
+if (process.env.VERCEL_ENV === "production" && !process.env.ADMIN_API_SERVICE_URL) {
+  throw new Error(
+    [
+      "ADMIN_API_SERVICE_URL is missing, and this is a production deploy.",
+      "",
+      "apps/superadmin has no API routes (phase 5): every /api prefix in",
+      "src/lib/http/service-routes.ts is rewritten to apps/admin-api, and the",
+      "dashboard layout reads the session through it. Without the URL the",
+      "rewrites would point at localhost.",
+      "",
+      "Set it in Vercel > Project > Settings > Environment Variables, scoped to",
+      "Production, to the apps/admin-api origin (http(s)://, no trailing slash).",
+    ].join("\n"),
+  );
+}
 
 if (process.env.VERCEL_ENV === "production" && !process.env.NEXT_PUBLIC_SENTRY_DSN) {
   throw new Error(
@@ -126,6 +150,10 @@ const sentryBuildOptions = {
 
 const baseConfig = withNextIntl(nextConfig);
 
-export default sentryEnabled
-  ? withSentryConfig(baseConfig, sentryBuildOptions)
-  : baseConfig;
+const wrappedConfig: unknown = sentryEnabled ? withSentryConfig(baseConfig, sentryBuildOptions) : baseConfig;
+
+// Function-shaped so the phase reaches serviceRewrites() (see configPhase).
+export default function superadminNextConfig(phase: string, context: unknown) {
+  configPhase = phase;
+  return typeof wrappedConfig === "function" ? wrappedConfig(phase, context) : wrappedConfig;
+}

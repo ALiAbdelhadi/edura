@@ -46,7 +46,7 @@ new surfaces, two new packages, and NO schema migration.
    is a list of children's names). `beforeSend` deletes cookies/headers/bodies
    and redacts the single-use TOKENS that ride in claim/reset/onboarding query
    strings; if scrubbing itself throws it returns null and DROPS the event.
-   Proof: `apps/www/tests/unit/observability.test.ts` 26/26.
+   Proof: `apps/erp/tests/unit/observability.test.ts` 26/26.
 
 4. **The PostHog funnel is the CENTER/TEACHER activation journey**, so the
    minor rule costs it nothing — a student appears only as the OBJECT of "first

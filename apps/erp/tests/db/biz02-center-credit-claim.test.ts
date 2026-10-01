@@ -7,9 +7,9 @@
 // is why nothing was red. This one drives the webhook.
 // Runs with PAYMENTS_MODE=mock.
 import { withPlatformContext } from "@repo/database";
-import { initiateCenterCreditTopUp } from "@/lib/services/wallet/center-credit-topup";
-import { processWebhookEvent } from "@/lib/services/payments/payment-intents";
-import { signMockWebhook, resolveDriver } from "@/lib/services/payments/gateway";
+import { initiateCenterCreditTopUp } from "@repo/server-core/services/wallet/center-credit-topup";
+import { processWebhookEvent } from "@repo/server-core/services/payments/payment-intents";
+import { signMockWebhook, resolveDriver } from "@repo/server-core/services/payments/gateway/index";
 import type { SessionUser } from "@repo/server-core/auth/types";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";

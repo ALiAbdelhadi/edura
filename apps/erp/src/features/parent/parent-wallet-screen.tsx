@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useOnlineCheckout } from "@/lib/payments/use-online-checkout";
-import { useCustom, useCustomMutation } from "@refinedev/core";
+import { useCustom, useCustomMutation, useList } from "@refinedev/core";
 import { Wallet, Plus, ArrowUpRight, ArrowDownRight, ChevronDown, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@repo/ui/components/button";
@@ -83,9 +83,11 @@ export function ParentWalletScreen() {
   // refund can land in it. Shown here read-only so the money is never
   // invisible to the person who is owed it.
   const [openChildId, setOpenChildId] = useState<string | null>(null);
-  const { query: childrenQuery, result: childrenRes } = useCustom({
-    url: "me/children",
-    method: "get",
+  // Same key as the shell's ChildSelectorProvider (components/ui/child-selector.tsx),
+  // so the children list is fetched once for both.
+  const { query: childrenQuery, result: childrenRes } = useList({
+    resource: "me-children",
+    queryOptions: { networkMode: "always", refetchOnMount: false },
   });
   const { query: childHistQuery, result: childHistRes } = useCustom({
     url: "me/wallet/history",

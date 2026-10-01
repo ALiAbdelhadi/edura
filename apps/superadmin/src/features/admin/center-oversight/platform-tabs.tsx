@@ -61,7 +61,10 @@ export function ReportsTab({ centerId, enabled }: { centerId: string; enabled: b
 
   if (!enabled) return null;
 
-  const d = (dash.data ?? {}) as Record<string, number | undefined>;
+  const d = (dash.data ?? {}) as {
+    totals?: { students?: number; activeCourses?: number; revenue?: number };
+    attendanceRate?: number;
+  };
   const num = (v: unknown) => (typeof v === "number" ? v : 0);
 
   return (
@@ -82,9 +85,9 @@ export function ReportsTab({ centerId, enabled }: { centerId: string; enabled: b
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard label={t("rp_students")} value={<Num.Figure value={num(d.totalStudents)} locale={locale} />} />
-          <MetricCard label={t("rp_activeClasses")} value={<Num.Figure value={num(d.activeClasses)} locale={locale} />} />
-          <MetricCard label={t("rp_revenue")} value={<Num.Money piasters={num(d.totalRevenue)} locale={locale} sign={false} short align="start" />} />
+          <MetricCard label={t("rp_students")} value={<Num.Figure value={num(d.totals?.students)} locale={locale} />} />
+          <MetricCard label={t("rp_activeClasses")} value={<Num.Figure value={num(d.totals?.activeCourses)} locale={locale} />} />
+          <MetricCard label={t("rp_revenue")} value={<Num.Money piasters={num(d.totals?.revenue)} locale={locale} sign={false} short align="start" />} />
           <MetricCard
             label={t("rp_attendanceRate")}
             value={<Num>{formatPercent(Math.round(num(d.attendanceRate)), locale)}</Num>}

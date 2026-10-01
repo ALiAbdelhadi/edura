@@ -11,7 +11,7 @@
 //   [5] a code for an already-claimed profile, or a bogus code, is refused
 //       with one message — no oracle for which case it was.
 import { withPlatformContext } from "@repo/database";
-import { registerStudent, registerTeacher } from "@/lib/services/auth/register";
+import { registerStudent, registerTeacher } from "@repo/server-core/services/auth/register";
 import { sweepTagQuietly } from "../../../../packages/database/scripts/test-cleanup";
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 

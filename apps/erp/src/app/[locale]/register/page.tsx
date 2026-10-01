@@ -7,7 +7,7 @@ import { Link } from "@/i18n/navigation";
 import { api } from "@/lib/api/client";
 import { authClient } from "@/lib/auth/client";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { EGYPT_PHONE_RE } from "@repo/server-core/validation/common";
+import { EGYPT_PHONE_RE } from "@repo/shared/phone";
 import {
   Form,
   FormControl,

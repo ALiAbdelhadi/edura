@@ -208,20 +208,29 @@ jobs:
       - name: Unit tests (www) — UTC clock
         run: bun run --filter edura test:unit:utc
 
+      - name: Unit tests (superadmin)
+        run: bun run --filter superadmin test:unit
+
+      - name: Unit tests (api service)
+        run: bun run --filter api test:unit
+
+      - name: Unit tests (admin-api service)
+        run: bun run --filter admin-api test:unit
+
+      # The services mount a generated route table. A route file added without
+      # regenerating it is a route that exists on disk and answers 404.
+      - name: Generated route tables are current
+        run: |
+          set -euo pipefail
+          bun apps/api/scripts/gen-routes.ts --check
+          bun apps/admin-api/scripts/gen-routes.ts --check
+
       - name: Migration tool tests
         run: python3 -m unittest discover -s migrations/tools -p 'test_*.py'
 
+      # No secret or database URL is passed: the frontends hold none, and the
+      # services are not built (they run from source).
       - name: Build both apps
-        env:
-          NEXTAUTH_SECRET: ci-placeholder-secret-not-used-at-runtime-000
-          SUPERADMIN_NEXTAUTH_SECRET: ci-placeholder-secret-DIFFERENT-value-111
-          REALTIME_JWT_SECRET: ci-placeholder-secret-realtime-2222222222222
-          INTERNAL_API_SECRET: ci-placeholder-secret-internal-3333333333333
-          CRON_SECRET: ci-placeholder-secret-cron-44444444444444444444
-          NEXTAUTH_URL: http://localhost:3002
-          APP_BASE_URL: http://localhost:3002
-          DATABASE_URL: postgresql://user:pass@localhost:5432/db?sslmode=disable
-          DIRECT_URL: postgresql://user:pass@localhost:5432/db?sslmode=disable
         run: bun run build
 
   db:
@@ -314,8 +323,43 @@ jobs:
       - name: DB suites — superadmin
         run: bun run --filter superadmin test:db:ci
 
+      # Each suite calls every moved route twice — as a bare handler and through
+      # the service stack — and compares status, body, headers and audit rows.
+      # They read apps/erp/.env.test and apps/superadmin/.env.test (written
+      # above); the URLs below are the ones the redirect assertions compare.
+      - name: Parity — api service
+        env:
+          NEXTAUTH_URL: http://localhost:3002
+          SUPERADMIN_BASE_URL: http://localhost:3004
+        run: bun run --filter api test:parity
+
+      - name: Parity — admin-api service
+        env:
+          NEXTAUTH_URL: http://localhost:3004
+          ERP_BASE_URL: http://localhost:3002
+        run: bun run --filter admin-api test:parity
+
       - name: Install Playwright Chromium
         run: bunx playwright install --with-deps chromium
+
+      # apps/erp has no routes of its own: every /api call is rewritten to the
+      # API service (http://localhost:3006 in dev), so it boots first, on the
+      # same env file the frontend reads.
+      - name: Boot the API service against the seeded container
+        working-directory: apps/api
+        run: |
+          set -euo pipefail
+          {
+            echo "NEXTAUTH_URL=http://localhost:${E2E_PORT}"
+            echo "APP_BASE_URL=http://localhost:${E2E_PORT}"
+          } >> ../erp/.env.local
+          (NODE_ENV=development EDURA_DEV_COOKIE_PORT="${E2E_PORT}" PORT=3006 \
+            bun --env-file=../erp/.env.local src/server.ts > /tmp/e2e-api.log 2>&1 &)
+          for i in $(seq 1 30); do
+            curl -sf "http://localhost:3006/api/health" -o /dev/null && exit 0
+            sleep 2
+          done
+          echo "the API service never became healthy on 3006"; tail -50 /tmp/e2e-api.log; exit 1
 
       - name: Boot erp against the seeded container
         working-directory: apps/erp
@@ -323,10 +367,6 @@ jobs:
           WWW_PORT: ${{ env.E2E_PORT }}
         run: |
           set -euo pipefail
-          {
-            echo "NEXTAUTH_URL=http://localhost:${E2E_PORT}"
-            echo "APP_BASE_URL=http://localhost:${E2E_PORT}"
-          } >> .env.local
           (bun run dev > /tmp/e2e-server.log 2>&1 &)
           for i in $(seq 1 60); do
             curl -sf "http://localhost:${E2E_PORT}/ar/login" -o /dev/null && exit 0
@@ -350,14 +390,16 @@ jobs:
 
       - name: Show server log on smoke failure
         if: failure()
-        run: tail -100 /tmp/e2e-server.log || true
+        run: |
+          tail -100 /tmp/e2e-server.log || true
+          echo "--- api service"; tail -100 /tmp/e2e-api.log || true
 
       - name: Sweep any residue
         if: always()
         run: |
           bun run --filter edura test:db:sweep \
             wallet- nocap- roomown- share- msgtest- \
-            shadm- commaud- split- m2- wref- wpol- dbtest- || true
+            shadm- commaud- split- m2- wref- wpol- dbtest- par- || true
 
       - name: Remove generated env files
         if: always()
@@ -450,16 +492,31 @@ jobs:
       - name: Install Playwright Chrome
         run: bunx playwright install --with-deps chrome
 
+      # apps/erp has no routes of its own: every /api call is rewritten to the
+      # API service (http://localhost:3006 in dev), so it boots first, on the
+      # same env file the frontend reads.
+      - name: Boot the API service against the seeded container
+        working-directory: apps/api
+        run: |
+          set -euo pipefail
+          {
+            echo "NEXTAUTH_URL=http://localhost:${E2E_PORT}"
+            echo "APP_BASE_URL=http://localhost:${E2E_PORT}"
+          } >> ../erp/.env.local
+          (NODE_ENV=development EDURA_DEV_COOKIE_PORT="${E2E_PORT}" PORT=3006 \
+            bun --env-file=../erp/.env.local src/server.ts > /tmp/pw-api.log 2>&1 &)
+          for i in $(seq 1 30); do
+            curl -sf "http://localhost:3006/api/health" -o /dev/null && exit 0
+            sleep 2
+          done
+          echo "the API service never became healthy on 3006"; tail -50 /tmp/pw-api.log; exit 1
+
       - name: Boot erp against the seeded container
         working-directory: apps/erp
         env:
           WWW_PORT: ${{ env.E2E_PORT }}
         run: |
           set -euo pipefail
-          {
-            echo "NEXTAUTH_URL=http://localhost:${E2E_PORT}"
-            echo "APP_BASE_URL=http://localhost:${E2E_PORT}"
-          } >> .env.local
           (bun run dev > /tmp/pw-server.log 2>&1 &)
           for i in $(seq 1 60); do
             curl -sf "http://localhost:${E2E_PORT}/ar/login" -o /dev/null && exit 0
@@ -506,7 +563,9 @@ jobs:
 
       - name: Show server log on failure
         if: failure()
-        run: tail -100 /tmp/pw-server.log || true
+        run: |
+          tail -100 /tmp/pw-server.log || true
+          echo "--- api service"; tail -100 /tmp/pw-api.log || true
 
       - name: Remove generated env files
         if: always()

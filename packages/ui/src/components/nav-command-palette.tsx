@@ -8,7 +8,7 @@ import {
   CommandItem,
   CommandList,
 } from "@repo/ui/components/command";
-import { matchesSearchTerms, searchTerms } from "@repo/database/search-text";
+import { matchesSearchTerms, searchTerms } from "@repo/shared/search-text";
 import { formatEGP, type Locale } from "@repo/ui/lib/format";
 import * as React from "react";
 

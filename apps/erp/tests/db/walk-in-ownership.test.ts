@@ -2,7 +2,7 @@ import { testPool } from "../../../../packages/database/scripts/test-pool";
 import { withPlatformContext, prisma } from "@repo/database";
 import { registerWalkIn, resendWalkIn } from "@repo/server-core/services/walk-in/walk-in";
 import { maskName } from "@repo/server-core/services/students/disclosure";
-import type { SessionUser } from "@/lib/auth/session";
+import type { SessionUser } from "@repo/server-core/erp-auth/session";
 
 import { assertDbEnv } from "../../../../packages/database/scripts/db-guard";
 const admin = testPool();

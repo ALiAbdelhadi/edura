@@ -1,4 +1,4 @@
-import { bandForPercent, percentOf, type GradeBand } from "@repo/database/grading-scale";
+import { bandForPercent, percentOf, type GradeBand } from "@repo/shared/grading-scale";
 
 export type GradeRow = {
   id: string;
