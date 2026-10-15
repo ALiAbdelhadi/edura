@@ -1,15 +1,13 @@
-import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-
-import { Button } from "@repo/ui/components/button";
-
 import { ContactForm } from "@/components/contact-form";
 import { PageFrame, PageHero } from "@/components/page-frame";
 import { Section, SectionTitle } from "@/components/section";
-import { appUrl } from "@/lib/app-origin";
 import { LOCALES, isLocale } from "@/i18n/config";
 import { getMessages } from "@/i18n/messages";
 import { getPages } from "@/i18n/pages";
+import { appUrl } from "@/lib/app-origin";
+import { Button } from "@repo/ui/components/button";
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 
 export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }));
