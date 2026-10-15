@@ -105,15 +105,20 @@ describe("CSP — cross-app invariants", () => {
   });
 
   it("the Vercel build only forgives a signal death after a completed next build", () => {
-    for (const app of ["erp", "superadmin"] as const) {
-      expect(read(`${app}/vercel.json`)).toContain("bash ../../scripts/vercel-build.sh");
+    const builds = [
+      ["vercel.json", "erp"],
+      ["vercel.backoffice.json", "superadmin"],
+    ].map(([file, service]) => {
+      const cfg = JSON.parse(readFileSync(path.resolve(ROOT, "..", file), "utf8"));
+      return cfg.services[service].buildCommand as string;
+    });
+    for (const cmd of builds) {
+      expect(cmd).toContain("bash ../../scripts/vercel-build.sh");
+      expect(cmd).not.toMatch(/\|\| \(\[ -f \.next\/BUILD_ID/);
     }
     const sh = readFileSync(path.resolve(ROOT, "../scripts/vercel-build.sh"), "utf8");
     expect(sh).toContain('[ "$rc" -ge 128 ]');
     expect(sh).toMatch(/Compiled successfully/);
-    for (const app of ["erp", "superadmin"] as const) {
-      expect(read(`${app}/vercel.json`)).not.toMatch(/\|\| \(\[ -f \.next\/BUILD_ID/);
-    }
   });
 });
 
