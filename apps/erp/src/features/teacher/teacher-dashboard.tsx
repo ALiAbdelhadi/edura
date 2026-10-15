@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useCustom, useList } from "@refinedev/core";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 import { Link } from "@/i18n/navigation";
 import {
   AlertTriangle,
@@ -77,36 +78,10 @@ export function TeacherDashboard() {
   });
   const sessions = asArray<SessionRow>(sessionsResult?.data);
 
-  const { result: coursesResult } = useList<CourseRow>({
-    resource: "courses",
-    pagination: { mode: "off" },
-  });
-  const { result: affiliationsResult } = useCustom<any[]>({
-    url: "me/affiliations",
-    method: "get",
-  });
-
   const { query: walletQuery, result: walletResult } = useCustom<{
     balance: number;
     available: number;
   }>({ url: "teacher/wallet", method: "get" });
-
-  const placeOf = useMemo(() => {
-    const centerNames = new Map<string, string>();
-    for (const a of asArray<any>(affiliationsResult?.data)) {
-      if (a?.center?.id && a?.center?.name) centerNames.set(a.center.id, a.center.name);
-    }
-    const byCourse = new Map<string, string>();
-    for (const c of asArray<CourseRow>(coursesResult?.data)) {
-      const id = c.id;
-      if (!id) continue;
-      const label = c.centerId
-        ? (centerNames.get(c.centerId) ?? "")
-        : (c.location?.trim() || t("teacher.yourGroup"));
-      if (label) byCourse.set(id, label);
-    }
-    return byCourse;
-  }, [coursesResult?.data, affiliationsResult?.data, t]);
 
   const liveSessions = useMemo(
     () => sessions.filter((s) => s.status !== "cancelled"),
@@ -136,6 +111,34 @@ export function TeacherDashboard() {
       }) ?? null
     );
   }, [liveSessions, today]);
+
+  const { result: coursesResult } = useList<CourseRow>({
+    resource: "courses",
+    pagination: { mode: "off" },
+    queryOptions: { ...QUERY_FRESHNESS.list, enabled: !!nextSession },
+  });
+  const { result: affiliationsResult } = useCustom<any[]>({
+    url: "me/affiliations",
+    method: "get",
+    queryOptions: { enabled: !!nextSession },
+  });
+
+  const placeOf = useMemo(() => {
+    const centerNames = new Map<string, string>();
+    for (const a of asArray<any>(affiliationsResult?.data)) {
+      if (a?.center?.id && a?.center?.name) centerNames.set(a.center.id, a.center.name);
+    }
+    const byCourse = new Map<string, string>();
+    for (const c of asArray<CourseRow>(coursesResult?.data)) {
+      const id = c.id;
+      if (!id) continue;
+      const label = c.centerId
+        ? (centerNames.get(c.centerId) ?? "")
+        : (c.location?.trim() || t("teacher.yourGroup"));
+      if (label) byCourse.set(id, label);
+    }
+    return byCourse;
+  }, [coursesResult?.data, affiliationsResult?.data, t]);
 
   const isRunningNow = useMemo(() => {
     if (!nextSession || dayKeyOf(nextSession) !== today) return false;

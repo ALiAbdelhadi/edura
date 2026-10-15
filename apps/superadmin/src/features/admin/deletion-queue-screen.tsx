@@ -1,5 +1,6 @@
 "use client";
 
+import { QUERY_FRESHNESS } from "@repo/client-core/refine/freshness";
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { ShieldOff, TriangleAlert } from "lucide-react";
@@ -54,6 +55,7 @@ export function DeletionQueueScreen() {
 
   const list = useCustomListScreen<Row>({
     url: "admin/deletion-requests",
+    freshness: QUERY_FRESHNESS.list,
     initialFilters: { status: "pending" },
     select: (data) => {
       const d = data as { data?: Row[]; total?: number } | undefined;

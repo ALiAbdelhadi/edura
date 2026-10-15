@@ -50,8 +50,9 @@ import {
   Undo2,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useParamSeed } from "@/lib/api/use-param-seed";
+import { useVisibilityTrigger } from "@/lib/api/use-on-demand";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Amount, Badge, Computation, DateText, Eyebrow, FinalityNotice, Num, PageHead, Sheet, SheetHead, TwoStepCommit, postMoney, readApiError } from "./ledger";
@@ -135,10 +136,13 @@ export function AdminFeesScreen() {
     pagination: { mode: "off" },
     queryOptions: { ...QUERY_FRESHNESS.list, enabled: pickersWanted },
   });
+  const [trendWanted, setTrendWanted] = useState(false);
+  const trendRef = useVisibilityTrigger(useCallback(() => setTrendWanted(true), []));
   const { result: enrollmentsResult } = useList({
     resource: "enrollments",
     filters: [{ field: "status", operator: "eq", value: "active" }],
     pagination: { mode: "off" },
+    queryOptions: { enabled: trendWanted },
   });
 
   const { query: walletQuery, result: walletRes } = useCustom({ url: "center/wallet", method: "get" });
@@ -1227,7 +1231,7 @@ export function AdminFeesScreen() {
           </CardAction>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Card>
+          <Card ref={trendRef}>
             <CardHeader>
               <CardTitle className="text-base">
                 {t("adminManage.fees.paidVsOutstanding")}

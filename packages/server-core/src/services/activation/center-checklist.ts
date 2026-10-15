@@ -12,33 +12,41 @@ export type CenterChecklist = {
   complete: boolean;
 };
 
+type ChecklistRow = {
+  center: { address: string | null; phone: string | null; governorate: string | null; area: string | null } | null;
+  activeCourse: boolean;
+  enrollment: boolean;
+  payment: boolean;
+};
+
 export async function getCenterChecklist(user: SessionUser): Promise<CenterChecklist> {
   const centerId = user.centerId as string;
 
   const flags = await scopedDb(user, async (tx) => {
-    const center = await tx.center.findUnique({
-      where: { id: centerId },
-      select: { address: true, phone: true, governorate: true, area: true },
-    });
+    const [row] = await tx.$queryRaw<ChecklistRow[]>`
+      SELECT
+        (SELECT json_build_object('address', address, 'phone', phone,
+                                  'governorate', governorate, 'area', area)
+           FROM centers WHERE id = ${centerId}::uuid) AS center,
+        EXISTS (SELECT 1 FROM courses WHERE center_id = ${centerId}::uuid AND status = 'active') AS "activeCourse",
+        EXISTS (SELECT 1 FROM enrollments WHERE center_id = ${centerId}::uuid AND status = 'active') AS enrollment,
+        EXISTS (SELECT 1 FROM payments WHERE center_id = ${centerId}::uuid) AS payment`;
+
+    const center = row?.center;
     if (!center) throw new NotFoundError("Center not found");
 
     const profileDone = Boolean(
       center.address?.trim() && center.phone?.trim() && (center.governorate?.trim() || center.area?.trim()),
     );
 
-    const [teacherGroups, courses, enrollments, payments] = await Promise.all([
-      tx.course.groupBy({ by: ["teacherId"], where: { centerId, status: "active" } }),
-      tx.course.count({ where: { centerId, status: "active" } }),
-      tx.enrollment.count({ where: { centerId, status: "active" } }),
-      tx.payment.count({ where: { centerId } }),
-    ]);
-
+    // Every course has a teacher (`teacher_id` is NOT NULL), so "a teacher runs
+    // an active course here" and "an active course exists" are the same fact.
     return {
       profile: profileDone,
-      teacher: teacherGroups.length > 0,
-      group: courses > 0,
-      student: enrollments > 0,
-      payment: payments > 0,
+      teacher: row.activeCourse,
+      group: row.activeCourse,
+      student: row.enrollment,
+      payment: row.payment,
     } satisfies Record<ChecklistStep, boolean>;
   });
 

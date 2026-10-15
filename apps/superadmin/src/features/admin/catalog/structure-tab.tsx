@@ -4,6 +4,7 @@ import { EmptyState } from "@/components/kit/empty-state";
 import { StatusBadge } from "@/components/kit/status-badge";
 import { TableSkeleton } from "@/components/ui/skeletons";
 import { useCustom } from "@refinedev/core";
+import { QUERY_FRESHNESS } from "@repo/client-core/refine/freshness";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
@@ -50,24 +51,28 @@ export function StructureTab() {
   const [stageId, setStageId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
 
-  const systemsQ = useCustom<SystemRow[]>({ url: "admin/catalog/systems", method: "get" });
+  const systemsQ = useCustom<SystemRow[]>({
+    url: "admin/catalog/systems",
+    method: "get",
+    queryOptions: QUERY_FRESHNESS.reference,
+  });
   const stagesQ = useCustom<StageRow[]>({
     url: "admin/catalog/stages",
     method: "get",
     config: { query: systemId ? { systemId } : {} },
-    queryOptions: { enabled: !!systemId },
+    queryOptions: { ...QUERY_FRESHNESS.reference, enabled: !!systemId },
   });
   const gradesQ = useCustom<GradeRow[]>({
     url: "admin/catalog/grade-levels",
     method: "get",
     config: { query: stageId ? { stageId } : {} },
-    queryOptions: { enabled: !!stageId },
+    queryOptions: { ...QUERY_FRESHNESS.reference, enabled: !!stageId },
   });
   const tracksQ = useCustom<TrackRow[]>({
     url: "admin/catalog/tracks",
     method: "get",
     config: { query: stageId ? { stageId } : {} },
-    queryOptions: { enabled: !!stageId },
+    queryOptions: { ...QUERY_FRESHNESS.reference, enabled: !!stageId },
   });
 
   const systems = asArray<SystemRow>(systemsQ.result?.data);
@@ -75,10 +80,12 @@ export function StructureTab() {
   const grades = asArray<GradeRow>(gradesQ.result?.data);
   const tracks = asArray<TrackRow>(tracksQ.result?.data);
 
-  const refreshAll = () => {
-    void systemsQ.query.refetch();
-    if (systemId) void stagesQ.query.refetch();
-    if (stageId) {
+  const refresh = (kind: NonNullable<DialogState>["kind"] | "link") => {
+    if (kind === "system" || kind === "stage") void systemsQ.query.refetch();
+    if (systemId && kind !== "system" && kind !== "track" && kind !== "link") {
+      void stagesQ.query.refetch();
+    }
+    if (stageId && kind !== "system" && kind !== "stage") {
       void gradesQ.query.refetch();
       void tracksQ.query.refetch();
     }
@@ -138,7 +145,7 @@ export function StructureTab() {
     });
     if (res.ok) {
       setDialog(null);
-      refreshAll();
+      refresh(kind);
     }
     // Returned so the dialog can put a 422's `fields` on the offending input.
     return res;
@@ -151,7 +158,7 @@ export function StructureTab() {
       values: { gradeLevelId, trackId },
       successMsg: t("catalog.toasts.created"),
     });
-    if (res.ok) refreshAll();
+    if (res.ok) refresh("link");
   }
 
   async function unlinkTrack(linkId: string) {
@@ -161,7 +168,7 @@ export function StructureTab() {
       method: "delete",
       successMsg: t("catalog.toasts.deleted"),
     });
-    if (res.ok) refreshAll();
+    if (res.ok) refresh("link");
   }
 
   const loadError = (q: { isError: boolean; error: unknown; refetch: () => unknown }) => {

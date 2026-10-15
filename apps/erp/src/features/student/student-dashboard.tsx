@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { ChevronRight, IdCard, MapPin, Sparkles, User } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { useCustom, useList } from "@refinedev/core";
@@ -36,6 +36,7 @@ import {
 import { todayKey } from "@repo/shared/date-key";
 import { asRecord } from "@/lib/refine/as-record";
 import { useFormatters } from "@/lib/i18n/use-formatters";
+import { useVisibilityTrigger } from "@/lib/api/use-on-demand";
 import type { GradeBandId } from "@repo/shared/grading-scale";
 
 const UPCOMING_WINDOW = 50;
@@ -141,7 +142,13 @@ export function StudentDashboard() {
   const { formatPercent, formatDate, locale } = useFormatters();
   const queryStrings = useQueryStrings();
   const { query, result } = useCustom({ url: "dashboards/student", method: "get" });
-  const { result: walletRes } = useCustom({ url: "me/wallet", method: "get" });
+  const [recordWanted, setRecordWanted] = useState(false);
+  const recordRef = useVisibilityTrigger(useCallback(() => setRecordWanted(true), []));
+  const { result: walletRes } = useCustom({
+    url: "me/wallet",
+    method: "get",
+    queryOptions: { enabled: recordWanted },
+  });
   const { result: sessionsRes } = useList({
     resource: "sessions",
     filters: [
@@ -285,7 +292,7 @@ export function StudentDashboard() {
             })}
           />
 
-      <div className="grid grid-cols-3 gap-2 sm:gap-4" data-tour="student-record">
+      <div ref={recordRef} className="grid grid-cols-3 gap-2 sm:gap-4" data-tour="student-record">
         <RecordCard
           href="/dashboard/student/attendance"
           eyebrow={t("studentDashboard.recordEyebrow")}

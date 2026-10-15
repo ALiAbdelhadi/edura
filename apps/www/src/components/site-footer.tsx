@@ -70,7 +70,7 @@ export function SiteFooter({ t, locale }: { t: Messages; locale: Locale }) {
         </div>
 
         <p className="mt-12 border-t border-rule pt-6 text-[0.8125rem] text-ink-3">
-          <span className="figure">2026</span> Edura · {t.footer.rights}
+          <span className="figure">2026</span> Linktich · {t.footer.rights}
         </p>
       </div>
     </footer>

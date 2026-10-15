@@ -36,6 +36,10 @@ export const PUBLIC_CACHE = {
   // redeploy, and a deploy gives the CDN a fresh cache, so the hour is a ceiling
   // that never actually binds.
   deployment: { sMaxAge: 3600, staleWhileRevalidate: 60 },
+  // The permanent education catalog. Written only by the back office; the
+  // shared store (CATALOG_CACHE_LIFE.revalidate) already holds it for 60s, so
+  // the CDN keeps the same guarantee.
+  catalog: { sMaxAge: 60, staleWhileRevalidate: 60 },
 } as const satisfies Record<string, PublicCacheProfile>;
 
 export function publicCacheControl(profile: PublicCacheProfile): string {

@@ -1,5 +1,6 @@
 "use client";
 
+import { QUERY_FRESHNESS } from "@repo/client-core/refine/freshness";
 import { useCustom } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
 import { Flag, TriangleAlert } from "lucide-react";
@@ -31,7 +32,11 @@ export function FeatureFlagsScreen() {
   const queryStrings = useQueryStrings();
   const locale = useLocale() as Locale;
 
-  const { query, result } = useCustom({ url: "admin/feature-flags", method: "get" });
+  const { query, result } = useCustom({
+    url: "admin/feature-flags",
+    method: "get",
+    queryOptions: QUERY_FRESHNESS.list,
+  });
   const { run, busyKey } = useAction({
     url: "admin/feature-flags",
     method: "put",

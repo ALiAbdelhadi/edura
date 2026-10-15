@@ -8,8 +8,10 @@ vi.mock("@repo/server-core/erp-auth/session", () => ({
 }));
 
 const platformDb = vi.fn();
+const queryRaw = vi.fn();
 vi.mock("@repo/server-core/db/scope", () => ({
   platformDb: (cb: (tx: unknown) => unknown) => platformDb(cb),
+  prisma: { $queryRaw: (...a: unknown[]) => queryRaw(...(a as [])) },
   scopedDb: vi.fn(),
 }));
 
@@ -38,7 +40,7 @@ const staff: SessionUser = { id: "s1", role: "center_staff", locale: "ar" };
 
 function asStaff(role: "manager" | "center_accountant" | "receptionist") {
   requireSession.mockResolvedValue(staff);
-  platformDb.mockImplementation(async () => ({ centerId: "c1", role }));
+  queryRaw.mockImplementation(async () => [{ link: { centerId: "c1", role } }]);
 }
 
 const hit = (qs: string) =>

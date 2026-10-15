@@ -1,5 +1,6 @@
 "use client";
 
+import { QUERY_FRESHNESS } from "@repo/client-core/refine/freshness";
 import React, { useEffect, useMemo, useState } from "react";
 import { useInvalidate } from "@refinedev/core";
 import { api } from "@/lib/api/client";
@@ -64,6 +65,7 @@ export function RegistrationsQueue() {
 
   const list = useCustomListScreen<CenterRow | TeacherRow>({
     url: "admin/registrations",
+    freshness: QUERY_FRESHNESS.list,
     pageSize: PAGE_SIZE,
     initialFilters: { status: "pending" },
     // `rows` exists so the shared shell knows whether the page is empty; the

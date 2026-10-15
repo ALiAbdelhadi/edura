@@ -106,4 +106,8 @@ describe("serviceRewrites", () => {
   it("refuses a URL that is not http(s)", () => {
     expect(() => serviceRewrites({ API_SERVICE_URL: "api.example.test" })).toThrow();
   });
+
+  it("writes no rewrites in Vercel Services mode, where the platform routes /api", () => {
+    expect(serviceRewrites({ NODE_ENV: "production", NEXT_PHASE: "phase-production-build", EDURA_SERVICE_BINDINGS: "1" })).toEqual([]);
+  });
 });

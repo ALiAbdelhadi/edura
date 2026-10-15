@@ -176,6 +176,7 @@ const PUBLIC_ROUTES: Record<string, PublicEntry> = {
   "v1/subjects": {
     reason: "public education-catalog read (permanent reference data)",
     getOnly: true,
+    cdnCache: true,
   },
   "v1/teachers/[teacherId]": {
     reason: "public teacher profile for discovery/browse",

@@ -80,7 +80,7 @@
   "pdfLinkLabel": "رابط PDF",
   "pdfLinkRequired": "يرجى إدخال رابط ملف PDF",
   "pdfStorage": "تخزين PDF",
-  "pdfStorageDesc": "يخزّن الرفع ملفات PDF في Cloudinary. إذا لم يتم تكوين التخزين بعد، اختر رابط PDF والصق رابط ملف PDF مشترك كحل مؤقت.",
+  "pdfStorageDesc": "يخزّن الرفع ملفات PDF في خدمة تخزين الوسائط. إذا لم يتم تكوين التخزين بعد، اختر رابط PDF والصق رابط ملف PDF مشترك كحل مؤقت.",
   "pending": "قيد الانتظار",
   "pendingGrades": "درجات معلّقة",
   "pendingLabel": "معلّقة",

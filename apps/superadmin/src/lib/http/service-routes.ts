@@ -27,6 +27,7 @@ export type ServiceEnv = {
   ADMIN_API_PORT?: string;
   NODE_ENV?: string;
   NEXT_PHASE?: string;
+  EDURA_SERVICE_BINDINGS?: string;
 };
 
 export function serviceUrl(env: ServiceEnv = process.env): string {
@@ -43,6 +44,10 @@ export function serviceUrl(env: ServiceEnv = process.env): string {
 }
 
 export function serviceRewrites(env: ServiceEnv = process.env): Rewrite[] {
+  // Vercel Services mode (vercel.json at the project root): the platform routes
+  // /api straight to the backend service, and ADMIN_API_SERVICE_URL is a service binding
+  // that resolves at runtime only, so there is nothing to rewrite at build time.
+  if (env.EDURA_SERVICE_BINDINGS === "1") return [];
   const base = serviceUrl(env);
   // `:path*` also matches the prefix itself; the query string is forwarded as is.
   return SERVICE_PREFIXES.map((prefix) => ({

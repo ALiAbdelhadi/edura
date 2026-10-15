@@ -259,3 +259,90 @@ describe("query freshness presets stay inside their allowlist", () => {
     }
   });
 });
+
+// Every other shape a grant can take: the call-site scanner above only sees
+// `const { ... } = useList/useCustom({`, so a preset on `const q = useCustom(`,
+// `freshness: QUERY_FRESHNESS.x`, `...QUERY_FRESHNESS.x` or a literal staleTime
+// (the "me/prefs" miss) would pass it. This one reads the grant itself.
+type GrantSite = { file: string; kind: string; targets: string[] };
+
+export function grantSites(file: string, text: string): GrantSite[] {
+  const out: GrantSite[] = [];
+  const re = /QUERY_FRESHNESS\.(\w+)|staleTime\s*:\s*(?!0\b)([^,}\n]+)/g;
+  for (const m of text.matchAll(re)) {
+    const at = m.index!;
+    const lineStart = text.lastIndexOf("\n", at) + 1;
+    const line = text.slice(lineStart, text.indexOf("\n", at) === -1 ? undefined : text.indexOf("\n", at));
+    if (/^\s*(import|export)\b/.test(line) || /\btypeof\s+QUERY_FRESHNESS/.test(line)) continue;
+    out.push({ file, kind: m[1] ? `preset:${m[1]}` : `staleTime:${m[2]!.trim()}`, targets: grantTargets(text, at) });
+  }
+  return out;
+}
+
+// Walks outward through the enclosing `{ }` blocks until one names a url or
+// resource, and returns every string literal on that property's line.
+function grantTargets(text: string, at: number): string[] {
+  let i = at;
+  while (i >= 0) {
+    let depth = 0;
+    let start = -1;
+    for (; i >= 0; i--) {
+      if (text[i] === "}") depth++;
+      else if (text[i] === "{") {
+        if (depth === 0) {
+          start = i;
+          break;
+        }
+        depth--;
+      }
+    }
+    if (start < 0) return [];
+    let end = start + 1;
+    let d = 1;
+    for (; end < text.length && d > 0; end++) {
+      if (text[end] === "{") d++;
+      else if (text[end] === "}") d--;
+    }
+    const block = text.slice(start, end);
+    const prop = /\b(?:url|resource)\s*:\s*([^\n]*)/.exec(block);
+    if (prop) {
+      return [...prop[1]!.matchAll(/"([^"]*)"|'([^']*)'|`([^`]*)`/g)]
+        .map((x) => (x[1] ?? x[2] ?? x[3] ?? "").replace(/\$\{[^}]*\}/g, "*"))
+        .filter((x) => x.length > 0);
+    }
+    i = start - 1;
+  }
+  return [];
+}
+
+
+const grantAll: GrantSite[] = [];
+for (const f of walk(SRC, [])) {
+  grantAll.push(...grantSites(relative(SRC, f), readFileSync(f, "utf8")));
+}
+const grantLabel = (s: GrantSite) => `${s.file} ${s.kind} -> ${s.targets.join(" | ") || "<unattributed>"}`;
+
+describe("every grant shape stays off never-cached data", () => {
+  const forbidden = (t: string) => [...NEVER_CACHED, "prefs"].some((p) => t.includes(p));
+
+  it("finds grants at all", () => {
+    expect(grantAll.length).toBeGreaterThan(10);
+  });
+
+  it("attributes every grant to an endpoint", () => {
+    expect(grantAll.filter((s) => s.targets.length === 0).map(grantLabel)).toEqual([]);
+  });
+
+  it("never grants freshness to forbidden data, in any shape", () => {
+    expect(grantAll.filter((s) => s.targets.some(forbidden)).map(grantLabel)).toEqual([]);
+  });
+
+  it("bites on each shape, including the me/prefs miss", () => {
+    const caught = (s: string) => grantSites("f.tsx", s).filter((x) => x.targets.some(forbidden));
+    expect(caught(`const q = useCustom({ url: "me/prefs", queryOptions: QUERY_FRESHNESS.list });`)).toHaveLength(1);
+    expect(caught(`useList({ resource: "wallets", queryOptions: { ...QUERY_FRESHNESS.list, enabled: o } })`)).toHaveLength(1);
+    expect(caught(`useX({ url: "payments", freshness: QUERY_FRESHNESS.list })`)).toHaveLength(1);
+    expect(caught(`useCustom({ url: "messages", queryOptions: { staleTime: 60_000 } })`)).toHaveLength(1);
+    expect(caught(`useCustom({ url: "catalog/x", queryOptions: { staleTime: 0 } })`)).toHaveLength(0);
+  });
+});

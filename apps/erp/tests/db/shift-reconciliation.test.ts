@@ -32,6 +32,8 @@ function assert(cond: boolean, msg: string) {
 }
 
 const rid = () => Math.floor(Math.random() * 1e9).toString(36);
+const cashNetOfBuckets = (buckets: { method: string; net: number }[]) =>
+  buckets.find((b) => b.method === "cash")?.net ?? 0;
 const DAY = 24 * 60 * 60 * 1000;
 
 async function caught(fn: () => Promise<unknown>): Promise<unknown | null> {
@@ -155,6 +157,27 @@ async function main() {
   assert(
     live?.expectedCashNow === 20000,
     "[3] expected = float 100 + cash net 100 = 200 EGP — instapay absent, the refund already subtracted",
+  );
+
+  console.log("\n[2b] the batched list equals the per-shift summary, shift by shift");
+  await recordPayment({ studentId: fx.students[2], amount: 1500 }, colleague);
+  await recordPayment({ studentId: fx.students[1], amount: 2500, paymentMethod: "instapay" }, colleague);
+  const listed = await listShiftReconciliation(owner, {});
+  const ours = listed.filter((r) => r.id === shift.id || r.id === colleagueShift.id);
+  assert(ours.length === 2, "both open drawers appear in the reconciliation list");
+  let sameAsSummary = true;
+  for (const row of ours) {
+    const summary = await getShiftSummary(owner, row.id);
+    sameAsSummary &&=
+      JSON.stringify(row.buckets) === JSON.stringify(summary.buckets) &&
+      row.cashNet === cashNetOfBuckets(summary.buckets) &&
+      row.expectedCash === summary.expectedCashNow;
+  }
+  assert(sameAsSummary, "list row buckets / cashNet / expectedCash equal each shift's own summary");
+  const colleagueRow = ours.find((r) => r.id === colleagueShift.id);
+  assert(
+    colleagueRow?.cashNet === 1500 && colleagueRow?.bankNet === 2500 && colleagueRow?.expectedCash === 1500,
+    "colleague row: cash 15 / bank 25 EGP — not mixed into the owner's drawer",
   );
 
   console.log("\n[4] a short count freezes a negative variance");

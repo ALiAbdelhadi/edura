@@ -55,6 +55,33 @@ describe("requireTeacherActor", () => {
     expect(actor.actorId).toBe("a-1");
     expect(actor.onBehalfOf).toBe("t-1");
     expect(actor.caller).toBe(assistant);
+    expect(actor.acting).toMatchObject({ name: "Teacher One", email: "t@x.t" });
+  });
+
+  it("the assistant path opens ONE platformDb transaction for both reads", async () => {
+    requireSession.mockResolvedValue(assistant);
+    const findUnique = vi.fn(async () => ({ name: "Teacher One", email: "t@x.t", locale: "ar" }));
+    const tx = { user: { findUnique } };
+    platformDb.mockImplementation(async (cb: (tx: unknown) => unknown) => cb(tx));
+    await requireTeacherActor();
+    expect(platformDb).toHaveBeenCalledTimes(1);
+    expect(resolveActingTeacher).toHaveBeenCalledWith(tx, assistant);
+    expect(findUnique).toHaveBeenCalledTimes(1);
+    expect(findUnique.mock.invocationCallOrder[0]).toBeGreaterThan(
+      resolveActingTeacher.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it("an unlinked assistant is refused before the teacher row is read", async () => {
+    requireSession.mockResolvedValue(assistant);
+    const findUnique = vi.fn();
+    platformDb.mockImplementation(async (cb: (tx: unknown) => unknown) =>
+      cb({ user: { findUnique } }),
+    );
+    resolveActingTeacher.mockRejectedValue(new ForbiddenError());
+    await expect(requireTeacherActor()).rejects.toBeInstanceOf(ForbiddenError);
+    expect(platformDb).toHaveBeenCalledTimes(1);
+    expect(findUnique).not.toHaveBeenCalled();
   });
 
   it("every other role is rejected default-closed", async () => {

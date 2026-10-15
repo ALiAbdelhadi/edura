@@ -175,8 +175,9 @@ export async function suggestSessions(studentId: string, admin: SessionUser) {
     });
     if (sessions.length === 0) return { suggested: [], today: [] };
 
+    const courseIds = [...new Set(sessions.map((s) => s.courseId))];
     const courses = await tx.course.findMany({
-      where: { id: { in: [...new Set(sessions.map((s) => s.courseId))] } },
+      where: { id: { in: courseIds } },
       select: { id: true, title: true, pricePerSession: true },
     });
     const courseMap = new Map(courses.map((c) => [c.id, c]));
@@ -197,19 +198,39 @@ export async function suggestSessions(studentId: string, admin: SessionUser) {
       pricePerSession: number | null;
       checkinStatus: string | null;
     }[];
-    for (const s of sessions) {
-      const covered = await coveredStudentIds(
-        tx,
-        { id: s.id, courseId: s.courseId, date: s.date },
-        [studentId],
+    const subs = await tx.subscription.findMany({
+      where: {
+        studentId,
+        status: "active",
+        OR: [
+          { plan: "per_session", sessionId: { in: sessions.map((s) => s.id) } },
+          { plan: "monthly", courseId: { in: courseIds } },
+        ],
+      },
+      select: { plan: true, sessionId: true, courseId: true, periodStart: true, periodEnd: true },
+    });
+    const passSessionIds = new Set(
+      subs.filter((x) => x.plan === "per_session").map((x) => x.sessionId),
+    );
+    const monthly = subs.filter((x) => x.plan === "monthly");
+    const isCovered = (s: (typeof sessions)[number]) =>
+      passSessionIds.has(s.id) ||
+      monthly.some(
+        (m) =>
+          m.courseId === s.courseId &&
+          m.periodStart !== null &&
+          m.periodEnd !== null &&
+          m.periodStart <= s.date &&
+          m.periodEnd >= s.date,
       );
+    for (const s of sessions) {
       enriched.push({
         sessionId: s.id,
         courseId: s.courseId,
         courseTitle: courseMap.get(s.courseId)?.title ?? "—",
         startTime: s.startTime,
         endTime: s.endTime,
-        covered: covered.has(studentId),
+        covered: isCovered(s),
         pricePerSession: courseMap.get(s.courseId)?.pricePerSession ?? null,
         checkinStatus: attendanceMap.get(s.id) ?? null,
       });

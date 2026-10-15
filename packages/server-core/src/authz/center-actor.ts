@@ -1,6 +1,6 @@
 import { withErrors } from "../errors/http";
 import { requireRole } from "./require-role";
-import { platformDb } from "../db/scope";
+import { platformDb, prisma } from "../db/scope";
 import { ForbiddenError } from "../errors/classes";
 import type { CenterStaffRole } from "@repo/database";
 import type { SessionUser } from "../erp-auth/session";
@@ -27,12 +27,21 @@ export async function resolveCenterActorContext(
     return { centerId: user.centerId, staffRole: null };
   }
   if (user.role !== "center_staff") throw new ForbiddenError();
-  const link = await platformDb((tx) =>
-    tx.centerStaff.findFirst({
-      where: { staffUserId: user.id, removedAt: null },
-      select: { centerId: true, role: true },
-    }),
-  );
+  // One statement, no transaction: set_config(..., true) lives only inside this
+  // statement's implicit transaction, and the SubPlan is correlated on b.v so it
+  // runs after it. A wrong order can only yield NULL (403), never a foreign row.
+  const [row] = await prisma.$queryRaw<
+    { link: { centerId: string; role: CenterStaffRole } | null }[]
+  >`
+    SELECT (
+      SELECT json_build_object('centerId', cs."center_id", 'role', cs."role")
+      FROM "center_staff" cs
+      WHERE cs."staff_user_id" = ${user.id}::uuid
+        AND cs."removed_at" IS NULL
+        AND b.v = 'on'
+    ) AS link
+    FROM (SELECT set_config('app.bypass_rls', 'on', true) AS v) AS b`;
+  const link = row?.link ?? null;
   if (!link) throw new ForbiddenError("Staff account is not linked to a center");
   return { centerId: link.centerId, staffRole: link.role };
 }

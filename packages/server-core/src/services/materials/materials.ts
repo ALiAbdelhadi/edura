@@ -1,12 +1,7 @@
 import { scopedDb } from "../../db/scope";
 import type { SessionUser as AuthUser } from "../../auth/types";
 import type { TenantTx } from "../../db/scope";
-import {
-  uploadBuffer,
-  generateSignedUrl,
-  deleteResource,
-  isCloudinaryConfigured,
-} from "../../media/cloudinary";
+import { resolveMediaDriver } from "../../media/storage";
 import { notify } from "../notifications/notify";
 import {
   ForbiddenError,
@@ -107,9 +102,9 @@ export async function uploadMaterial(formData: FormData, user: SessionUser) {
   } else {
     const uploadFile = file;
     if (!uploadFile) throw new BusinessRuleError("file is required");
-    if (!isCloudinaryConfigured()) {
+    if (!resolveMediaDriver().uploadsEnabled()) {
       throw new BusinessRuleError(
-        "File uploads need Cloudinary storage configured. Add Cloudinary env vars or use a PDF link for now.",
+        "File uploads need media storage configured. Configure it or use a PDF link for now.",
       );
     }
     if (uploadFile.type !== "application/pdf")
@@ -122,7 +117,7 @@ export async function uploadMaterial(formData: FormData, user: SessionUser) {
     // SECURITY_AUDIT.md (2026-09-11) OPS-01: paid material is `authenticated`
     // on Cloudinary — served only through a signed URL minted per download —
     // and no public URL is persisted for it.
-    const uploaded = await uploadBuffer(buffer, {
+    const uploaded = await resolveMediaDriver().upload(buffer, {
       folder: `edura/materials/${courseId}`,
       resource_type: "raw",
       type: "authenticated",
@@ -292,7 +287,7 @@ export async function getMaterialDownloadUrl(
   if (!material.cloudinaryPublicId)
     throw new NotFoundError("Material file not found");
 
-  return { url: generateSignedUrl(material.cloudinaryPublicId) };
+  return { url: resolveMediaDriver().signedUrl(material.cloudinaryPublicId) };
 }
 
 export async function updateMaterial(
@@ -326,7 +321,7 @@ export async function updateMaterial(
 
   if (externalUrl) {
     if (material.cloudinaryPublicId) {
-      await deleteResource(material.cloudinaryPublicId).catch(() => {});
+      await resolveMediaDriver().destroy(material.cloudinaryPublicId).catch(() => {});
     }
     data.storageProvider = "external";
     data.externalUrl = externalUrl;
@@ -334,9 +329,9 @@ export async function updateMaterial(
     data.cloudinaryUrl = null;
     data.fileSizeBytes = null;
   } else if (file) {
-    if (!isCloudinaryConfigured()) {
+    if (!resolveMediaDriver().uploadsEnabled()) {
       throw new BusinessRuleError(
-        "File uploads need Cloudinary storage configured. Add Cloudinary env vars or use a PDF link for now.",
+        "File uploads need media storage configured. Configure it or use a PDF link for now.",
       );
     }
     if (file.type !== "application/pdf")
@@ -348,10 +343,10 @@ export async function updateMaterial(
     assertPdfBytes(buffer);
 
     if (material.cloudinaryPublicId) {
-      await deleteResource(material.cloudinaryPublicId).catch(() => {});
+      await resolveMediaDriver().destroy(material.cloudinaryPublicId).catch(() => {});
     }
 
-    const uploaded = await uploadBuffer(buffer, {
+    const uploaded = await resolveMediaDriver().upload(buffer, {
       folder: `edura/materials/${material.courseId}`,
       resource_type: "raw",
       type: "authenticated", // OPS-01, as in createMaterial
@@ -378,7 +373,7 @@ export async function deleteMaterial(materialId: string, user: SessionUser) {
   });
 
   if (material.cloudinaryPublicId) {
-    await deleteResource(material.cloudinaryPublicId).catch(() => {});
+    await resolveMediaDriver().destroy(material.cloudinaryPublicId).catch(() => {});
   }
   await scopedDb(asAuthUser(user), (tx) =>
     tx.material.delete({ where: { id: materialId } }),

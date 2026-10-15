@@ -1,5 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
+type Captured = { sql: string; values: unknown[] };
+
 const {
   requireSession,
   toActingUser,
@@ -11,7 +13,7 @@ const {
   toActingUser: vi.fn(),
   assertApprovedChild: vi.fn(async () => undefined),
   approvedChildIds: vi.fn(async () => ["child-a", "child-b"]),
-  state: { enrollmentWhere: null as any, sessionWhere: null as any },
+  state: { queries: [] as Captured[] },
 }));
 
 vi.mock("@repo/server-core/erp-auth/session", () => ({ requireSession, getSessionUser: vi.fn() }));
@@ -21,29 +23,17 @@ vi.mock("@repo/server-core/services/wallet/parent-wallet-facade", () => ({
   assertApprovedChild,
   approvedChildIds,
 }));
-vi.mock("@repo/server-core/db/scope", () => ({
-  scopedDb: async (_user: unknown, fn: (tx: any) => Promise<unknown>) => {
-    const tx = {
-      enrollment: {
-        findMany: async ({ where }: { where: any }) => {
-          state.enrollmentWhere = where;
-          return [{ courseId: "course-1" }];
-        },
-      },
-      session: {
-        findMany: async ({ where }: { where: any }) => {
-          state.sessionWhere = where;
-          return [];
-        },
-      },
-      course: { findMany: async () => [] },
-      user: { findMany: async () => [] },
-      room: { findMany: async () => [] },
-      parentStudentLink: { findMany: async () => [] },
-    };
-    return fn(tx);
-  },
-}));
+vi.mock("@repo/server-core/db/scope", async () => {
+  const { Prisma } = await import("@repo/database");
+  const $queryRaw = async (first: any, ...values: unknown[]) => {
+    const q = Array.isArray(first) ? Prisma.sql(first as any, ...values) : first;
+    state.queries.push({ sql: q.text, values: q.values });
+    return [];
+  };
+  return {
+    scopedDb: async (_user: unknown, fn: (tx: any) => Promise<unknown>) => fn({ $queryRaw }),
+  };
+});
 
 const { GET } = await import("../../src/routes/v1/sessions/route");
 
@@ -53,6 +43,17 @@ function req(qs = "") {
   return new Request(`http://localhost/api/v1/sessions${qs}`);
 }
 
+/** The enrollment subquery that scopes the session read: its student ids + its text. */
+function enrollmentScope(): { studentIds: unknown; sql: string } {
+  expect(state.queries).toHaveLength(1);
+  const q = state.queries[0];
+  const m = q.sql.match(
+    /s\.course_id IN \(SELECT course_id FROM enrollments\s+WHERE student_id = ANY\(\$(\d+)::uuid\[\]\)[^)]*\)/,
+  );
+  expect(m).not.toBeNull();
+  return { studentIds: q.values[Number(m![1]) - 1], sql: m![0] };
+}
+
 beforeEach(() => {
   requireSession.mockResolvedValue(PARENT);
   toActingUser.mockResolvedValue(PARENT);
@@ -60,8 +61,7 @@ beforeEach(() => {
   assertApprovedChild.mockResolvedValue(undefined);
   approvedChildIds.mockClear();
   approvedChildIds.mockResolvedValue(["child-a", "child-b"]);
-  state.enrollmentWhere = null;
-  state.sessionWhere = null;
+  state.queries = [];
 });
 
 describe("GET /api/v1/sessions — a parent may narrow to one child", () => {
@@ -69,7 +69,7 @@ describe("GET /api/v1/sessions — a parent may narrow to one child", () => {
     const res = await GET(req("?studentId=child-a"), {} as any);
 
     expect(res.status).toBe(200);
-    expect(state.enrollmentWhere.studentId).toEqual({ in: ["child-a"] });
+    expect(enrollmentScope().studentIds).toEqual(["child-a"]);
   });
 
   it("it goes through assertApprovedChild — the shared gate, not a local lookup", async () => {
@@ -77,6 +77,7 @@ describe("GET /api/v1/sessions — a parent may narrow to one child", () => {
 
     expect(assertApprovedChild).toHaveBeenCalledTimes(1);
     expect(assertApprovedChild.mock.calls[0].slice(1)).toEqual(["parent-1", "child-a"]);
+    expect(state.queries[0].sql).not.toMatch(/parent_student_links/);
   });
 
   it("a child the parent has no APPROVED link to is refused, not silently widened", async () => {
@@ -87,8 +88,7 @@ describe("GET /api/v1/sessions — a parent may narrow to one child", () => {
     const res = await GET(req("?studentId=someone-elses-child"), {} as any);
 
     expect(res.status).toBeGreaterThanOrEqual(400);
-    expect(state.sessionWhere).toBeNull();
-    expect(state.enrollmentWhere).toBeNull();
+    expect(state.queries).toHaveLength(0);
   });
 
   it("NO WIDENING: a refused child does not fall back to the all-children union", async () => {
@@ -105,14 +105,14 @@ describe("GET /api/v1/sessions — the parent default is unchanged", () => {
     const res = await GET(req(), {} as any);
 
     expect(res.status).toBe(200);
-    expect(state.enrollmentWhere.studentId).toEqual({ in: ["child-a", "child-b"] });
+    expect(enrollmentScope().studentIds).toEqual(["child-a", "child-b"]);
     expect(assertApprovedChild).not.toHaveBeenCalled();
   });
 
   it("`studentId=me` is meaningless for a parent and falls back to the union", async () => {
     await GET(req("?studentId=me"), {} as any);
 
-    expect(state.enrollmentWhere.studentId).toEqual({ in: ["child-a", "child-b"] });
+    expect(enrollmentScope().studentIds).toEqual(["child-a", "child-b"]);
     expect(assertApprovedChild).not.toHaveBeenCalled();
   });
 
@@ -122,14 +122,15 @@ describe("GET /api/v1/sessions — the parent default is unchanged", () => {
     const res = await GET(req(), {} as any);
 
     expect(res.status).toBeGreaterThanOrEqual(400);
-    expect(state.sessionWhere).toBeNull();
+    expect(state.queries).toHaveLength(0);
   });
 
   it("only active enrollments count, for both the narrowed and the union case", async () => {
     await GET(req("?studentId=child-a"), {} as any);
-    expect(state.enrollmentWhere.status).toBe("active");
+    expect(enrollmentScope().sql).toMatch(/AND status = 'active'\)$/);
 
+    state.queries = [];
     await GET(req(), {} as any);
-    expect(state.enrollmentWhere.status).toBe("active");
+    expect(enrollmentScope().sql).toMatch(/AND status = 'active'\)$/);
   });
 });

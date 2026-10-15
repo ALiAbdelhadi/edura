@@ -1,5 +1,6 @@
 "use client";
 
+import { QUERY_FRESHNESS } from "@repo/client-core/refine/freshness";
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { ChevronDown, ChevronRight, Inbox, Lock, Mail, Phone } from "lucide-react";
@@ -39,6 +40,7 @@ export function ContactInboxScreen() {
 
   const list = useCustomListScreen<Submission>({
     url: "admin/contact-submissions",
+    freshness: QUERY_FRESHNESS.list,
     initialFilters: { status: "new" },
     select: (data) => {
       const d = data as { data?: Submission[]; total?: number } | undefined;

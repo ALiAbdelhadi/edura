@@ -16,7 +16,8 @@ import {
 } from "@repo/ui/components/dialog";
 import { toast } from "@repo/ui/components/sonner";
 import { Spinner } from "@/components/kit/spinner";
-import { api } from "@/lib/api/client";
+import { useCustom } from "@refinedev/core";
+import { QUERY_FRESHNESS } from "@/lib/refine";
 import { useRouter } from "@/i18n/navigation";
 import {
   OptionChip,
@@ -49,7 +50,6 @@ export function TeacherWizard({ initial }: { initial?: OnboardingInitial<Teacher
   const [gradeIds, setGradeIds] = useState<string[]>([]);
   const [subjectIds, setSubjectIds] = useState<string[]>([]);
   const [restored, setRestored] = useState(false);
-  const [subjects, setSubjects] = useState<CatalogSubject[] | null>(null);
   const [search, setSearch] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [requestOpen, setRequestOpen] = useState(false);
@@ -76,19 +76,26 @@ export function TeacherWizard({ initial }: { initial?: OnboardingInitial<Teacher
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, restored]);
 
+  const subjectsQuery = useCustom({
+    url: "catalog/subjects",
+    method: "get",
+    config: { query: { gradeLevelIds: gradeIds.join(",") } },
+    queryOptions: { ...QUERY_FRESHNESS.reference, enabled: stepId === "subjects" && gradeIds.length > 0 },
+  });
+  const subjectsData = subjectsQuery.result?.data as unknown;
+  const { isError, isSuccess } = subjectsQuery.query;
+  const subjects = useMemo<CatalogSubject[] | null>(
+    () => (isError ? [] : Array.isArray(subjectsData) ? (subjectsData as CatalogSubject[]) : isSuccess ? [] : null),
+    [isError, isSuccess, subjectsData],
+  );
+
   useEffect(() => {
-    if (stepId !== "subjects" || gradeIds.length === 0) return;
-    setSubjects(null);
-    api
-      .get(`catalog/subjects?gradeLevelIds=${gradeIds.join(",")}`)
-      .json<{ data: unknown }>()
-      .then((j) => {
-        const list: CatalogSubject[] = Array.isArray(j.data) ? (j.data as CatalogSubject[]) : [];
-        setSubjects(list);
-        setSubjectIds((prev) => prev.filter((id) => list.some((s) => s.id === id)));
-      })
-      .catch(() => setSubjects([]));
-  }, [stepId, gradeIds]);
+    if (!subjects) return;
+    setSubjectIds((prev) => {
+      const next = prev.filter((id) => subjects.some((s) => s.id === id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [subjects]);
 
   const steps: StepId[] = ["grades", "subjects", "review"];
   const stepIndex = steps.indexOf(stepId);

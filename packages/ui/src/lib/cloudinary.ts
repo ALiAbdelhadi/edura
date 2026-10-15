@@ -1,3 +1,5 @@
+import { MEDIA_DELIVERY_HOST } from "@repo/shared/media-delivery";
+
 export type CldCrop = "fill" | "fit" | "limit" | "thumb" | "scale" | "pad";
 export type CldGravity = "auto" | "face" | "faces" | "center";
 export type CldFormat = "auto" | "webp" | "avif" | "jpg" | "png";
@@ -15,7 +17,7 @@ export type CldOptions = {
   background?: string;
 };
 
-const CLOUDINARY_HOST = "res.cloudinary.com";
+const CLOUDINARY_HOST = MEDIA_DELIVERY_HOST;
 
 declare const process: { env: Record<string, string | undefined> } | undefined;
 

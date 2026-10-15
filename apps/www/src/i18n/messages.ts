@@ -2,7 +2,7 @@ import type { Locale } from "./config";
 
 const ar = {
   meta: {
-    title: "إدورا — كل حصة لها سطر",
+    title: "لينكتيتش — كل حصة لها سطر",
     description:
       "منصّة تشغيل السناتر والدروس الخصوصية في مصر: حجز، حضور على الكاونتر، تحصيل كاش أو أونلاين، وتقسيم حصيلة كل حصة في دفتر واحد لا يُمحى.",
   },
@@ -27,7 +27,7 @@ const ar = {
 
   hero: {
     headline: "كل حصة لها سطر.",
-    lede: "إدورا يشغّل السنتر والمدرّس من أول الحجز لآخر جنيه: حضور يتسجّل على الكاونتر، تحصيل كاش أو أونلاين، وحصيلة كل حصة تتقسّم لحظة ما تُقفل — مكتوبة مرة واحدة، ومفيش حد يقدر يمحيها.",
+    lede: "لينكتيتش يشغّل السنتر والمدرّس من أول الحجز لآخر جنيه: حضور يتسجّل على الكاونتر، تحصيل كاش أو أونلاين، وحصيلة كل حصة تتقسّم لحظة ما تُقفل — مكتوبة مرة واحدة، ومفيش حد يقدر يمحيها.",
     primary: "سجّل سنترك",
     secondary: "شوف الحساب",
     assurances: [
@@ -238,7 +238,7 @@ const ar = {
     body: "التسجيل مجاني، والعمولة مش بتتحسب غير على الحصص اللي اتسلّمت فعلًا.",
     primary: "سجّل سنترك",
     secondary: "أنا مدرّس مستقل",
-    sealTop: "إدورا",
+    sealTop: "لينكتيتش",
     sealBottom: "مصر",
   },
 
@@ -263,7 +263,7 @@ type Messages = typeof ar;
 
 const en: Messages = {
   meta: {
-    title: "Edura — every lesson gets a line",
+    title: "Linktich — every lesson gets a line",
     description:
       "The operating layer for Egypt's teaching centers and private tutors: booking, counter check-in, cash or online collection, and every lesson's revenue split written into one ledger that cannot be erased.",
   },
@@ -288,7 +288,7 @@ const en: Messages = {
 
   hero: {
     headline: "Every lesson gets a line.",
-    lede: "Edura runs a center or a tutor from the first booking to the last pound: check-in recorded at the counter, cash or online collection, and each lesson's takings split the moment it closes — written once, and beyond anyone's reach to erase.",
+    lede: "Linktich runs a center or a tutor from the first booking to the last pound: check-in recorded at the counter, cash or online collection, and each lesson's takings split the moment it closes — written once, and beyond anyone's reach to erase.",
     primary: "Register your center",
     secondary: "See the account",
     assurances: [
@@ -500,7 +500,7 @@ const en: Messages = {
     body: "Registration is free, and commission is only ever charged on lessons actually delivered.",
     primary: "Register your center",
     secondary: "I'm an independent teacher",
-    sealTop: "EDURA",
+    sealTop: "LINKTICH",
     sealBottom: "EGYPT",
   },
 

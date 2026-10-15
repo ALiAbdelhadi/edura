@@ -5,6 +5,8 @@
  * framable, no cross-origin frames, no realtime socket, and one cross-origin
  * form destination (the ERP, for the "view as" handoff).
  */
+import { MEDIA_IMG_SRC } from "@repo/shared/media-delivery";
+
 export function cspHeaderName(env: NodeJS.ProcessEnv = process.env): string {
   return env.CSP_MODE === "report-only"
     ? "Content-Security-Policy-Report-Only"
@@ -28,7 +30,7 @@ export function buildPageCsp(opts: CspOptions): string {
     `object-src 'none'`,
     `frame-ancestors 'none'`,
     `form-action 'self'${opts.erpFormAction ? ` ${opts.erpFormAction}` : ""}`,
-    `img-src 'self' data: blob: https://res.cloudinary.com`,
+    `img-src 'self' data: blob: ${MEDIA_IMG_SRC}`,
     `font-src 'self' data:`,
     `style-src 'self' 'unsafe-inline'`,
     scriptSrc,

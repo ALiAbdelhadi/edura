@@ -16,13 +16,28 @@ export type MeResponse = {
   centerId: string | null;
 };
 
-async function currentSession() {
-  const { data } = await authClient.getSession();
+let sessionInflight: ReturnType<typeof authClient.getSession> | null = null;
+let sessionAt = 0;
+const SESSION_REUSE_MS = 2000;
+
+export function resetSessionMemo() {
+  sessionInflight = null;
+  sessionAt = 0;
+}
+
+export async function currentSession() {
+  const now = Date.now();
+  if (!sessionInflight || now - sessionAt > SESSION_REUSE_MS) {
+    sessionAt = now;
+    sessionInflight = authClient.getSession();
+  }
+  const { data } = await sessionInflight;
   return data;
 }
 
 export const authProvider: AuthProvider = {
   login: async ({ email, password }) => {
+    resetSessionMemo();
     if (typeof window !== "undefined") {
       try {
         if (await currentSession()) await authClient.signOut();
@@ -31,6 +46,7 @@ export const authProvider: AuthProvider = {
     }
 
     const { error } = await authClient.signIn.email({ email, password });
+    resetSessionMemo();
 
     if (error) {
       return {
@@ -49,6 +65,7 @@ export const authProvider: AuthProvider = {
   },
 
   logout: async () => {
+    resetSessionMemo();
     if (typeof window !== "undefined") {
       try {
         const session = await currentSession();
@@ -60,6 +77,7 @@ export const authProvider: AuthProvider = {
     try {
       await authClient.signOut();
     } catch {}
+    resetSessionMemo();
 
     if (typeof window !== "undefined") {
       localStorage.removeItem("edura_state");

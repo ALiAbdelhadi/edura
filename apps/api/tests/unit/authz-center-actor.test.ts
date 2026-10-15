@@ -2,8 +2,10 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { SessionUser } from "@repo/server-core/auth/types";
 
 const platformDb = vi.fn();
+const queryRaw = vi.fn();
 vi.mock("@repo/server-core/db/scope", () => ({
   platformDb: (...args: unknown[]) => platformDb(...(args as [])),
+  prisma: { $queryRaw: (...args: unknown[]) => queryRaw(...(args as [])) },
 }));
 vi.mock("@repo/server-core/erp-auth/session", () => ({}));
 
@@ -27,10 +29,13 @@ const owner: SessionUser = {
 const staff: SessionUser = { id: "staff-1", role: "center_staff", locale: "ar" };
 
 function linkResolvesTo(link: { centerId: string; role: string } | null) {
-  platformDb.mockImplementation(async () => link);
+  queryRaw.mockImplementation(async () => [{ link }]);
 }
 
-beforeEach(() => platformDb.mockReset());
+beforeEach(() => {
+  platformDb.mockReset();
+  queryRaw.mockReset();
+});
 
 describe("authorizeCenterActor — owner (center_admin)", () => {
   it("passes regardless of the route's allow list, without any DB read", async () => {
@@ -38,6 +43,7 @@ describe("authorizeCenterActor — owner (center_admin)", () => {
     expect(actor.staffRole).toBeNull();
     expect(actor.onBehalfOf).toBeNull();
     expect(platformDb).not.toHaveBeenCalled();
+    expect(queryRaw).not.toHaveBeenCalled();
   });
 
   it("rejects a center_admin with no centerId", async () => {
@@ -66,6 +72,13 @@ describe("authorizeCenterActor — staff sub-role gate", () => {
     expect(actor.onBehalfOf).toBe("c-9");
   });
 
+  it("resolves the link in ONE bare statement — no platformDb transaction", async () => {
+    linkResolvesTo({ centerId: "c-9", role: "manager" });
+    await authorizeCenterActor(staff, { allow: MANAGER });
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+    expect(platformDb).not.toHaveBeenCalled();
+  });
+
   it("staff with a role NOT in allow → 403 (receptionist on a MANAGER route)", async () => {
     linkResolvesTo({ centerId: "c-9", role: "receptionist" });
     await expect(
@@ -90,6 +103,7 @@ describe("authorizeCenterActor — staff sub-role gate", () => {
       authorizeCenterActor({ ...staff, role: "teacher" }, { allow: RECEPTION }),
     ).rejects.toBeInstanceOf(ForbiddenError);
     expect(platformDb).not.toHaveBeenCalled();
+    expect(queryRaw).not.toHaveBeenCalled();
   });
 });
 

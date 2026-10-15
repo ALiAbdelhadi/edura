@@ -14,6 +14,7 @@ const withNextIntl = createNextIntlPlugin();
 // routes the middleware does not match.
 import { buildApiCsp, cspHeaderName as resolveCspHeaderName } from "./src/lib/security/csp";
 import { serviceRewrites } from "./src/lib/http/service-routes";
+import { mediaImageRemotePatterns } from "@repo/shared/media-delivery";
 
 const cspHeaderName = resolveCspHeaderName();
 const apiCsp = buildApiCsp();
@@ -108,13 +109,7 @@ const nextConfig = {
     // other account's upload can be fed to the optimizer; the demo image host
     // is gone. An unset cloud name fails closed (nothing matches) rather than
     // widening to the whole CDN.
-    remotePatterns: [
-      {
-        protocol: "https" as const,
-        hostname: "res.cloudinary.com",
-        pathname: `/${process.env.CLOUDINARY_CLOUD_NAME || "cloud-name-unset"}/**`,
-      },
-    ],
+    remotePatterns: mediaImageRemotePatterns(process.env.CLOUDINARY_CLOUD_NAME),
   },
 
   transpilePackages: [
@@ -125,7 +120,13 @@ const nextConfig = {
   ],
 };
 
-if (process.env.VERCEL_ENV === "production" && !process.env.API_SERVICE_URL) {
+// In Vercel Services mode the URL is a runtime-only service binding, absent
+// at build time by design (see serviceRewrites).
+if (
+  process.env.VERCEL_ENV === "production" &&
+  process.env.EDURA_SERVICE_BINDINGS !== "1" &&
+  !process.env.API_SERVICE_URL
+) {
   throw new Error(
     [
       "API_SERVICE_URL is missing, and this is a production deploy.",

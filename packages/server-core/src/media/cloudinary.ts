@@ -1,21 +1,21 @@
 import { createHash } from "crypto";
+import type {
+  DeleteOutcome,
+  MediaDeliveryType,
+  MediaResourceType,
+  MediaUploadOptions,
+  StoredMedia,
+} from "./storage/types";
 
-export type CloudinaryResourceType = "image" | "raw" | "video";
+export type CloudinaryResourceType = MediaResourceType;
+export type CloudinaryDeliveryType = MediaDeliveryType;
+export type UploadedAsset = StoredMedia;
+export type UploadOptions = Omit<MediaUploadOptions, "fit"> & { transformation?: string };
+export type { DeleteOutcome };
 
 // SECURITY_AUDIT.md (2026-09-11) NET-03: a hung upstream must not pin a
 // lambda to the platform maximum.
 const OUTBOUND_TIMEOUT_MS = 15_000;
-
-export type UploadedAsset = {
-  public_id: string;
-  secure_url: string;
-  bytes: number;
-  format: string | null;
-  width: number | null;
-  height: number | null;
-  version: number | null;
-  resource_type: CloudinaryResourceType;
-};
 
 type CloudinaryConfig = { cloud_name: string; api_key: string; api_secret: string };
 
@@ -52,27 +52,6 @@ function signParams(params: Record<string, string | number>, apiSecret: string):
     .join("&");
   return sha1(`${toSign}${apiSecret}`);
 }
-
-export type CloudinaryDeliveryType = "upload" | "authenticated" | "private";
-
-export type UploadOptions = {
-  folder?: string;
-  public_id?: string;
-  resource_type?: CloudinaryResourceType;
-  /**
-   * Cloudinary delivery type. `upload` (the default) is served to anyone who
-   * holds the URL; `authenticated` is served only through a URL carrying a
-   * valid signature (see `generateSignedUrl`). Paid material lives behind
-   * `authenticated` — SECURITY_AUDIT.md (2026-09-11) OPS-01.
-   */
-  type?: CloudinaryDeliveryType;
-  filename?: string;
-  contentType?: string;
-  overwrite?: boolean;
-  invalidate?: boolean;
-  transformation?: string;
-  tags?: string[];
-};
 
 export async function uploadBuffer(buffer: Buffer, options: UploadOptions): Promise<UploadedAsset> {
   const { cloud_name, api_key, api_secret } = getConfig();
@@ -164,8 +143,6 @@ export function generateSignedUrl(
     .slice(0, 8);
   return `https://res.cloudinary.com/${cloud_name}/${resource_type}/${type}/s--${signature}--/${publicId}`;
 }
-
-export type DeleteOutcome = "deleted" | "not_found" | "failed";
 
 export async function deleteResource(
   publicId: string,

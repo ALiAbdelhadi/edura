@@ -1,6 +1,6 @@
 "use client";
 
-const STORAGE_KEY = "edura-v2-theme";
+const STORAGE_KEY = "linktich-v2-theme";
 
 export function ThemeToggle({ label }: { label: string }) {
   function toggle() {

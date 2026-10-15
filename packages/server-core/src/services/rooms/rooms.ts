@@ -2,7 +2,7 @@ import { z } from "zod";
 import { scopedDb } from "../../db/scope";
 import type { SessionUser } from "../../auth/types";
 import { requireCenterScope } from "../../authz/center-scope";
-import { uploadBuffer, isCloudinaryConfigured } from "../../media/cloudinary";
+import { resolveMediaDriver } from "../../media/storage";
 import {
   validateImageFile,
   ImageValidationError,
@@ -65,7 +65,7 @@ export {
 } from "./room-rate";
 
 export async function uploadRoomPhoto(roomId: string, file: File, user: SessionUser) {
-  if (!isCloudinaryConfigured()) {
+  if (!resolveMediaDriver().uploadsEnabled()) {
     throw new BusinessRuleError(
       "Image uploads are not configured on this server. Add a photo URL instead, or set CLOUDINARY_* env vars.",
       { reason: "uploads_not_configured" },
@@ -98,12 +98,12 @@ export async function uploadRoomPhoto(roomId: string, file: File, user: SessionU
     });
   }
 
-  const { secure_url } = await uploadBuffer(buffer, {
+  const { secure_url } = await resolveMediaDriver().upload(buffer, {
     folder: roomPhotoFolder(roomId),
     resource_type: "image",
     contentType,
     filename: `room.${ext}`,
-    transformation: "c_limit,w_2048,h_2048,q_auto:good",
+    fit: { maxWidth: 2048, maxHeight: 2048, quality: "good" },
     tags: ["edura", "room"],
   });
 

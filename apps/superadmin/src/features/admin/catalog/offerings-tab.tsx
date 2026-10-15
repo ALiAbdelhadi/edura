@@ -7,6 +7,7 @@ import { Spinner } from "@/components/kit/spinner";
 import { StatusBadge } from "@/components/kit/status-badge";
 import { TableSkeleton } from "@/components/ui/skeletons";
 import { useCustom } from "@refinedev/core";
+import { QUERY_FRESHNESS } from "@repo/client-core/refine/freshness";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import {
@@ -47,7 +48,11 @@ export function OfferingsTab() {
   const [addOpen, setAddOpen] = useState(false);
   const [draft, setDraft] = useState<{ subjectId?: string; gradeLevelId?: string; trackId?: string }>({});
 
-  const subjectsQ = useCustom<SubjectRow[]>({ url: "admin/catalog/subjects", method: "get" });
+  const subjectsQ = useCustom<SubjectRow[]>({
+    url: "admin/catalog/subjects",
+    method: "get",
+    queryOptions: QUERY_FRESHNESS.reference,
+  });
   const gradesQ = useCustom<GradeRow[]>({ url: "admin/catalog/grade-levels", method: "get" });
   const query: Record<string, string> = {};
   if (subjectFilter !== ALL) query.subjectId = subjectFilter;

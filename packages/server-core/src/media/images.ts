@@ -1,11 +1,5 @@
-import {
-  deleteResource,
-  isCloudinaryConfigured,
-  publicIdFromUrl,
-  uploadBuffer,
-  type DeleteOutcome,
-  type UploadedAsset,
-} from "./cloudinary";
+import { isCloudinaryConfigured, publicIdFromUrl } from "./cloudinary";
+import { resolveMediaDriver, type DeleteOutcome, type MediaImageFit, type StoredMedia } from "./storage";
 
 export const PLATFORM_BODY_LIMIT_BYTES = 4.5 * 1024 * 1024;
 
@@ -84,11 +78,11 @@ export async function validateImageFile(
 
 export type ImageKind = "avatar" | "logo" | "cover" | "photo";
 
-const KIND_CONFIG: Record<ImageKind, { folder: string; storeTransform: string }> = {
-  avatar: { folder: "edura/avatars", storeTransform: "c_limit,w_1024,h_1024,q_auto:good" },
-  logo: { folder: "edura/logos", storeTransform: "c_limit,w_1024,h_1024,q_auto:good" },
-  cover: { folder: "edura/covers", storeTransform: "c_limit,w_2048,h_1152,q_auto:good" },
-  photo: { folder: "edura/photos", storeTransform: "c_limit,w_2048,h_2048,q_auto:good" },
+const KIND_CONFIG: Record<ImageKind, { folder: string; fit: MediaImageFit }> = {
+  avatar: { folder: "edura/avatars", fit: { maxWidth: 1024, maxHeight: 1024, quality: "good" } },
+  logo: { folder: "edura/logos", fit: { maxWidth: 1024, maxHeight: 1024, quality: "good" } },
+  cover: { folder: "edura/covers", fit: { maxWidth: 2048, maxHeight: 1152, quality: "good" } },
+  photo: { folder: "edura/photos", fit: { maxWidth: 2048, maxHeight: 2048, quality: "good" } },
 };
 
 export function imageFolder(kind: ImageKind): string {
@@ -106,9 +100,9 @@ export function imageSlot(kind: ImageKind, entityKey: string, variant?: string):
 export async function uploadEntityImage(
   image: ValidatedImage,
   opts: { kind: ImageKind; entityKey: string; variant?: string; tags?: string[] },
-): Promise<UploadedAsset> {
-  const { folder, storeTransform } = KIND_CONFIG[opts.kind];
-  return uploadBuffer(image.buffer, {
+): Promise<StoredMedia> {
+  const { folder, fit } = KIND_CONFIG[opts.kind];
+  return resolveMediaDriver().upload(image.buffer, {
     folder,
     public_id: slotId(opts.entityKey, opts.variant),
     resource_type: "image",
@@ -116,7 +110,7 @@ export async function uploadEntityImage(
     filename: `${opts.kind}.${image.extension}`,
     overwrite: true,
     invalidate: true,
-    transformation: storeTransform,
+    fit,
     tags: opts.tags,
   });
 }
@@ -131,14 +125,16 @@ export async function deleteImageByUrl(
   url: string | null | undefined,
   { owned }: OwnedSlot,
 ): Promise<DeleteOutcome | "skipped"> {
-  if (!url || !isCloudinaryConfigured()) return "skipped";
-  const publicId = publicIdFromUrl(url);
+  if (!url) return "skipped";
+  const media = resolveMediaDriver();
+  if (!media.uploadsEnabled()) return "skipped";
+  const publicId = media.publicIdFromUrl(url);
   if (!publicId) return "skipped";
   if (!isOwned(publicId, owned)) {
     console.warn(`[media] refused to delete ${publicId}: outside the caller's slot (${owned})`);
     return "skipped";
   }
-  return deleteResource(publicId, "image");
+  return media.destroy(publicId, "image");
 }
 
 export async function deleteReplacedImage(
@@ -147,8 +143,9 @@ export async function deleteReplacedImage(
   slot: OwnedSlot,
 ): Promise<DeleteOutcome | "skipped"> {
   if (!previousUrl || previousUrl === nextUrl) return "skipped";
-  const previousId = publicIdFromUrl(previousUrl);
-  const nextId = nextUrl ? publicIdFromUrl(nextUrl) : null;
+  const media = resolveMediaDriver();
+  const previousId = media.publicIdFromUrl(previousUrl);
+  const nextId = nextUrl ? media.publicIdFromUrl(nextUrl) : null;
   if (previousId && previousId === nextId) return "skipped";
   return deleteImageByUrl(previousUrl, slot);
 }

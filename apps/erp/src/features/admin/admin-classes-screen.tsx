@@ -73,16 +73,6 @@ export function AdminClassesScreen() {
   const queryStrings = useQueryStrings();
   const { formatEGP, formatClockRange, locale } = useFormatters();
   const { query, result } = useList({ resource: "courses", queryOptions: QUERY_FRESHNESS.list });
-  const { result: teachersResult } = useList({
-    resource: "teachers",
-    pagination: { mode: "off" },
-    queryOptions: QUERY_FRESHNESS.list,
-  });
-  const { result: roomsResult } = useList({
-    resource: "rooms",
-    pagination: { mode: "off" },
-    queryOptions: QUERY_FRESHNESS.list,
-  });
   const { mutate: cancelCourse, mutation: cancelMutation } =
     useCustomMutation();
   const { mutate: createCourse, mutation: createMutation } = useCreate();
@@ -101,6 +91,17 @@ export function AdminClassesScreen() {
   const [cancelReason, setCancelReason] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<any | null>(null);
+  const dialogsWanted = isCreateOpen || !!editTarget;
+  const { query: teachersQuery, result: teachersResult } = useList({
+    resource: "teachers",
+    pagination: { mode: "off" },
+    queryOptions: { ...QUERY_FRESHNESS.list, enabled: dialogsWanted },
+  });
+  const { result: roomsResult } = useList({
+    resource: "rooms",
+    pagination: { mode: "off" },
+    queryOptions: { ...QUERY_FRESHNESS.list, enabled: dialogsWanted },
+  });
 
   const dayLabels = [
     t("adminManage.classes.daySun"),
@@ -770,7 +771,7 @@ export function AdminClassesScreen() {
               {t("adminManage.classes.createCourseTitle")}
             </DialogTitle>
           </DialogHeader>
-          {activeTeachers.length === 0 && (
+          {teachersQuery.isSuccess && activeTeachers.length === 0 && (
             <p className="text-sm text-destructive">
               {t("adminManage.classes.noActiveTeachers")}
             </p>

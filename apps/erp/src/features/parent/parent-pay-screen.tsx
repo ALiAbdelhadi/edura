@@ -281,6 +281,7 @@ export function ParentPayScreen() {
   const { query: walletQuery, result: walletRes } = useCustom({
     url: "me/parent-wallet",
     method: "get",
+    queryOptions: { enabled: Boolean(pending) },
   });
   const walletBalance: number | null = walletQuery.isError
     ? null

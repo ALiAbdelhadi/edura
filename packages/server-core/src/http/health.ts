@@ -1,4 +1,5 @@
 import { prisma } from "@repo/database";
+import { keyValueMode } from "../kv";
 import { rateLimiterDegraded } from "../rate-limit/token-bucket";
 
 const DB_TIMEOUT_MS = 8_000;
@@ -38,7 +39,7 @@ export async function healthResponse(opts?: { deepMail?: boolean }): Promise<Res
     const { verifySmtp } = await import("@repo/notifications/transport/smtp");
     mail = await verifySmtp();
   }
-  const limitsShared = Boolean(process.env.REDIS_URL) && !rateLimiterDegraded();
+  const limitsShared = keyValueMode() === "redis" && !rateLimiterDegraded();
   const body: HealthBody = {
     status: dbUp ? "ok" : "degraded",
     db: dbUp ? "up" : "down",

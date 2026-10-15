@@ -340,6 +340,10 @@ jobs:
         run: bun run --filter admin-api test:parity
 
       - name: Install Playwright Chromium
+        # From apps/erp, so bunx runs the workspace's pinned Playwright. At the
+        # repo root it fetches the latest release, whose browser build is not
+        # the one the tests launch.
+        working-directory: apps/erp
         run: bunx playwright install --with-deps chromium
 
       # apps/erp has no routes of its own: every /api call is rewritten to the
@@ -490,6 +494,10 @@ jobs:
         run: bash .github/scripts/write-env-local.sh apps/erp
 
       - name: Install Playwright Chrome
+        # From apps/erp, so bunx runs the workspace's pinned Playwright. At the
+        # repo root it fetches the latest release, whose browser build is not
+        # the one the tests launch.
+        working-directory: apps/erp
         run: bunx playwright install --with-deps chrome
 
       # apps/erp has no routes of its own: every /api call is rewritten to the

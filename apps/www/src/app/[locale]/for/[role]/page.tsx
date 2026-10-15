@@ -30,7 +30,7 @@ export async function generateMetadata({
   const page = getRolePage(locale, role);
 
   return {
-    title: `${page.headline} — Edura`,
+    title: `${page.headline} — Linktich`,
     description: page.lede,
     alternates: {
       languages: Object.fromEntries(LOCALES.map((l) => [l, `/${l}/for/${role}`])),

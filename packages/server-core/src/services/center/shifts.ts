@@ -24,13 +24,22 @@ export type ShiftMethodBucket = {
   count: number;
 };
 
-async function methodBuckets(tx: TenantTx, shiftId: string): Promise<ShiftMethodBucket[]> {
+const METHOD_ORDER = ["cash", "instapay", "pos_card", "mobile_wallet", "online_paymob", "online_fawry", "wallet", "unknown"];
+
+async function methodBucketsByShift(
+  tx: TenantTx,
+  shiftIds: string[],
+): Promise<Map<string, ShiftMethodBucket[]>> {
+  const out = new Map<string, ShiftMethodBucket[]>();
+  if (shiftIds.length === 0) return out;
   const rows = await tx.payment.findMany({
-    where: { shiftId },
-    select: { amount: true, paymentMethod: true },
+    where: { shiftId: { in: shiftIds } },
+    select: { shiftId: true, amount: true, paymentMethod: true },
   });
-  const map = new Map<string, ShiftMethodBucket>();
+  const maps = new Map<string, Map<string, ShiftMethodBucket>>();
   for (const r of rows) {
+    const shiftId = r.shiftId as string;
+    const map = maps.get(shiftId) ?? new Map<string, ShiftMethodBucket>();
     const key = r.paymentMethod;
     const b = map.get(key) ?? { method: key, received: 0, refunded: 0, net: 0, count: 0 };
     if (r.amount >= 0) b.received += r.amount;
@@ -38,11 +47,21 @@ async function methodBuckets(tx: TenantTx, shiftId: string): Promise<ShiftMethod
     b.net = b.received - b.refunded;
     b.count += 1;
     map.set(key, b);
+    maps.set(shiftId, map);
   }
-  const order = ["cash", "instapay", "pos_card", "mobile_wallet", "online_paymob", "online_fawry", "wallet", "unknown"];
-  return [...map.values()].sort(
-    (a, b) => (order.indexOf(a.method) + 1 || 99) - (order.indexOf(b.method) + 1 || 99),
-  );
+  for (const [shiftId, map] of maps) {
+    out.set(
+      shiftId,
+      [...map.values()].sort(
+        (a, b) => (METHOD_ORDER.indexOf(a.method) + 1 || 99) - (METHOD_ORDER.indexOf(b.method) + 1 || 99),
+      ),
+    );
+  }
+  return out;
+}
+
+async function methodBuckets(tx: TenantTx, shiftId: string): Promise<ShiftMethodBucket[]> {
+  return (await methodBucketsByShift(tx, [shiftId])).get(shiftId) ?? [];
 }
 
 function cashNetOf(buckets: ShiftMethodBucket[]): number {
@@ -162,9 +181,10 @@ export async function listShiftReconciliation(
       select: { id: true, name: true },
     });
     const names = new Map(staff.map((u) => [u.id, u.name]));
+    const bucketsByShift = await methodBucketsByShift(tx, shifts.map((s) => s.id));
     const out = [];
     for (const s of shifts) {
-      const buckets = await methodBuckets(tx, s.id);
+      const buckets = bucketsByShift.get(s.id) ?? [];
       const bank = buckets
         .filter((b) => b.method === "instapay" || b.method === "pos_card")
         .reduce((sum, b) => sum + b.net, 0);

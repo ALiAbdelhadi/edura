@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useOnlineCheckout } from "@/lib/payments/use-online-checkout";
 import { useCustom, useCustomMutation, useList } from "@refinedev/core";
 import { Wallet, Plus, ArrowUpRight, ArrowDownRight, ChevronDown, Users } from "lucide-react";
@@ -33,6 +33,7 @@ import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { goToCheckout } from "@/lib/payments/checkout-redirect";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { asArray } from "@/lib/refine/as-array";
+import { useVisibilityTrigger } from "@/lib/api/use-on-demand";
 
 type WalletInfo = {
   balance: number;
@@ -68,6 +69,8 @@ export function ParentWalletScreen() {
   const t = useTranslations();
   const { formatEGP, formatDate } = useFormatters();
 
+  const [historyWanted, setHistoryWanted] = useState(false);
+  const historyRef = useVisibilityTrigger(useCallback(() => setHistoryWanted(true), []));
   const { query: walletQuery, result: walletRes } = useCustom({
     url: "me/parent-wallet",
     method: "get",
@@ -76,6 +79,7 @@ export function ParentWalletScreen() {
     url: "me/parent-wallet/history",
     method: "get",
     config: { query: { take: 50 } },
+    queryOptions: { enabled: historyWanted },
   });
   const { mutateAsync: mutate } = useCustomMutation();
 
@@ -272,7 +276,7 @@ export function ParentWalletScreen() {
         </Card>
       </QuerySection>
 
-      <Card>
+      <Card ref={historyRef}>
         <CardHeader>
           <CardTitle>{t("parentWallet.history")}</CardTitle>
         </CardHeader>

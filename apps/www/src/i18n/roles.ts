@@ -112,7 +112,7 @@ const ar: Record<RoleSlug, RolePage> = {
       },
       {
         title: "الدفتر لا يُمحى",
-        detail: "جداول الفلوس مسحوب منها إذن التعديل والحذف — للتطبيق كله، بما فيه إدارة إدورا نفسها.",
+        detail: "جداول الفلوس مسحوب منها إذن التعديل والحذف — للتطبيق كله، بما فيه إدارة لينكتيتش نفسها.",
       },
       {
         title: "العمولة على المُسلَّم بس",
@@ -510,7 +510,7 @@ const en: Record<RoleSlug, RolePage> = {
       },
       {
         title: "The ledger cannot be erased",
-        detail: "The money tables have UPDATE and DELETE revoked — for the whole application, Edura's own back office included.",
+        detail: "The money tables have UPDATE and DELETE revoked — for the whole application, Linktich's own back office included.",
       },
       {
         title: "Commission on delivered lessons only",

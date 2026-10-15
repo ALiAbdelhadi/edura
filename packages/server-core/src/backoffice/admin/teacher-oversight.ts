@@ -89,122 +89,165 @@ async function centerNames(tx: TenantTx, ids: string[]) {
   return new Map(rows.map((c) => [c.id, c.name]));
 }
 
+type OverviewTeacher = Omit<
+  Prisma.UserGetPayload<{
+    select: {
+      id: true; name: true; email: true; phone: true; role: true; status: true; locale: true;
+      emailVerified: true; twoFactorEnabled: true; isDemo: true; createdAt: true; updatedAt: true; deletedAt: true;
+    };
+  }>,
+  "createdAt" | "updatedAt" | "deletedAt"
+> & { createdAt: string; updatedAt: string; deletedAt: string | null };
+
+type OverviewProfile = Omit<Prisma.TeacherProfileGetPayload<object>, "createdAt" | "updatedAt"> & {
+  createdAt: string;
+  updatedAt: string;
+};
+
+type OverviewRow = {
+  teacher: OverviewTeacher | null;
+  profile: OverviewProfile | null;
+  managedByCenter: Prisma.CenterGetPayload<{ select: { id: true; name: true; status: true } }> | null;
+  counts: {
+    courses: number;
+    activeCourses: number;
+    sessions: number;
+    students: number;
+    activeSubscriptions: number;
+    centers: number;
+    assistants: number;
+    pendingCollaborations: number;
+    settlements: number;
+  };
+};
+
+const ISO_MS = `'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'`;
+
 export function teacherOverview(teacherId: string) {
   return platformDb(async (tx) => {
-    const teacher = await tx.user.findUnique({
-      where: { id: teacherId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        status: true,
-        locale: true,
-        emailVerified: true,
-        twoFactorEnabled: true,
-        isDemo: true,
-        createdAt: true,
-        updatedAt: true,
-        deletedAt: true,
-      },
-    });
-    if (!teacher || teacher.deletedAt || teacher.role !== "teacher") {
-      throw new NotFoundError("Teacher not found");
-    }
-    const profile = await tx.teacherProfile.findUnique({ where: { userId: teacherId } });
-    const courseIds = await teacherCourseIds(tx, teacherId);
+    const [row] = await tx.$queryRaw<OverviewRow[]>`
+      WITH t AS (
+        SELECT u.* FROM users u
+         WHERE u.id = ${teacherId}::uuid AND u.deleted_at IS NULL AND u.role = 'teacher'
+      ), p AS (
+        SELECT tp.* FROM teacher_profiles tp JOIN t ON tp.user_id = t.id
+      )
+      SELECT
+        (SELECT json_build_object(
+          'id', t.id, 'name', t.name, 'email', t.email, 'phone', t.phone, 'role', t.role,
+          'status', t.status, 'locale', t.locale, 'emailVerified', t.email_verified,
+          'twoFactorEnabled', t.two_factor_enabled, 'isDemo', t.is_demo,
+          'createdAt', to_char(t.created_at AT TIME ZONE 'UTC', ${Prisma.raw(ISO_MS)}),
+          'updatedAt', to_char(t.updated_at AT TIME ZONE 'UTC', ${Prisma.raw(ISO_MS)}),
+          'deletedAt', NULL
+        ) FROM t) AS teacher,
+        (SELECT json_build_object(
+          'id', p.id, 'userId', p.user_id, 'bio', p.bio, 'subjects', coalesce(p.subjects, '{}'),
+          'qualifications', p.qualifications, 'experienceYears', p.experience_years,
+          'photoUrl', p.photo_url, 'lessonPrice', p.lesson_price, 'ratingAvg', p.rating_avg,
+          'ratingCount', p.rating_count, 'walletBalance', p.wallet_balance,
+          'certificates', p.certificates, 'onboardingCompleted', p.onboarding_completed,
+          'onboardingDraft', p.onboarding_draft, 'attendanceMode', p.attendance_mode,
+          'systemStatus', p.system_status, 'accessLevel', p.access_level,
+          'managedByCenterId', p.managed_by_center_id, 'dataSource', p.data_source,
+          'createdAt', to_char(p.created_at AT TIME ZONE 'UTC', ${Prisma.raw(ISO_MS)}),
+          'updatedAt', to_char(p.updated_at AT TIME ZONE 'UTC', ${Prisma.raw(ISO_MS)})
+        ) FROM p) AS profile,
+        (SELECT json_build_object('id', c.id, 'name', c.name, 'status', c.status)
+           FROM p JOIN centers c ON c.id = p.managed_by_center_id) AS "managedByCenter",
+        json_build_object(
+          'courses', (SELECT count(*)::int FROM courses WHERE teacher_id = ${teacherId}::uuid),
+          'activeCourses', (SELECT count(*)::int FROM courses
+                            WHERE teacher_id = ${teacherId}::uuid AND status = 'active'),
+          'sessions', (SELECT count(*)::int FROM sessions s JOIN courses co ON co.id = s.course_id
+                       WHERE co.teacher_id = ${teacherId}::uuid),
+          'students', (SELECT count(DISTINCT e.student_id)::int FROM enrollments e
+                       JOIN courses co ON co.id = e.course_id
+                       WHERE co.teacher_id = ${teacherId}::uuid AND e.status = 'active'),
+          'activeSubscriptions', (SELECT count(*)::int FROM subscriptions
+                                  WHERE teacher_id = ${teacherId}::uuid AND status = 'active'),
+          'centers', (SELECT count(*)::int FROM center_teacher_affiliations
+                      WHERE teacher_id = ${teacherId}::uuid AND status = 'active' AND removed_at IS NULL),
+          'assistants', (SELECT count(*)::int FROM teacher_assistants
+                         WHERE teacher_id = ${teacherId}::uuid AND removed_at IS NULL),
+          'pendingCollaborations', (SELECT count(*)::int FROM collaboration_requests
+                                    WHERE teacher_id = ${teacherId}::uuid AND status = 'pending'),
+          'settlements', (SELECT count(*)::int FROM session_settlements
+                          WHERE teacher_id = ${teacherId}::uuid)
+        ) AS counts`;
 
-    const [
-      courseCount,
-      activeCourseCount,
-      sessionCount,
-      studentCount,
-      activeSubs,
-      affiliationCount,
-      assistantCount,
-      pendingCollabs,
-      settlementCount,
-    ] = await Promise.all([
-      tx.course.count({ where: { teacherId } }),
-      tx.course.count({ where: { teacherId, status: "active" } }),
-      courseIds.length ? tx.session.count({ where: { courseId: { in: courseIds } } }) : 0,
-      courseIds.length
-        ? tx.enrollment
-            .findMany({
-              where: { courseId: { in: courseIds }, status: "active" },
-              select: { studentId: true },
-              distinct: ["studentId"],
-            })
-            .then((r) => r.length)
-        : 0,
-      tx.subscription.count({ where: { teacherId, status: "active" } }),
-      tx.centerTeacherAffiliation.count({
-        where: { teacherId, status: "active", removedAt: null },
-      }),
-      tx.teacherAssistant.count({ where: { teacherId, removedAt: null } }),
-      tx.collaborationRequest.count({ where: { teacherId, status: "pending" } }),
-      tx.sessionSettlement.count({ where: { teacherId } }),
-    ]);
-
-    const managedByCenter = profile?.managedByCenterId
-      ? await tx.center.findUnique({
-          where: { id: profile.managedByCenterId },
-          select: { id: true, name: true, status: true },
-        })
-      : null;
+    if (!row?.teacher) throw new NotFoundError("Teacher not found");
+    const { teacher, profile, managedByCenter, counts } = row;
 
     return {
-      teacher,
-      profile,
-      managedByCenter,
-      counts: {
-        courses: courseCount,
-        activeCourses: activeCourseCount,
-        sessions: sessionCount,
-        students: studentCount,
-        activeSubscriptions: activeSubs,
-        centers: affiliationCount,
-        assistants: assistantCount,
-        pendingCollaborations: pendingCollabs,
-        settlements: settlementCount,
+      teacher: {
+        ...teacher,
+        createdAt: new Date(teacher.createdAt),
+        updatedAt: new Date(teacher.updatedAt),
+        deletedAt: null as Date | null,
       },
+      profile: profile
+        ? { ...profile, createdAt: new Date(profile.createdAt), updatedAt: new Date(profile.updatedAt) }
+        : null,
+      managedByCenter,
+      counts,
     };
   });
 }
 
+type CentersRow = {
+  teacherOk: boolean;
+  data: {
+    id: string;
+    centerId: string;
+    centerName: string | null;
+    status: Prisma.CenterTeacherAffiliationGetPayload<{ select: { status: true } }>["status"];
+    centerShare: number | null;
+    dataSource: Prisma.CenterTeacherAffiliationGetPayload<{ select: { dataSource: true } }>["dataSource"];
+    invitedAt: string;
+    respondedAt: string | null;
+    removedAt: string | null;
+    expiresAt: string;
+    courses: number;
+  }[];
+};
+
 export function teacherCenters(teacherId: string, args: { includeRemoved?: boolean } = {}) {
   return platformDb(async (tx) => {
-    await assertTeacher(tx, teacherId);
-    const rows = await tx.centerTeacherAffiliation.findMany({
-      where: { teacherId, ...(args.includeRemoved ? {} : { removedAt: null }) },
-      orderBy: { createdAt: "desc" },
-    });
-    const names = await centerNames(tx, rows.map((r) => r.centerId));
-    const courseCounts = rows.length
-      ? await tx.course.groupBy({
-          by: ["centerId"],
-          where: { teacherId, centerId: { in: rows.map((r) => r.centerId) } },
-          _count: { _all: true },
-        })
-      : [];
-    const byCenter = new Map(courseCounts.map((c) => [c.centerId ?? "", c._count._all]));
+    const removedSql = args.includeRemoved ? Prisma.empty : Prisma.sql`AND a.removed_at IS NULL`;
+    const iso = (col: string) =>
+      Prisma.sql`to_char(${Prisma.raw(col)} AT TIME ZONE 'UTC', ${Prisma.raw(ISO_MS)})`;
 
+    const [row] = await tx.$queryRaw<CentersRow[]>`
+      SELECT
+        EXISTS (SELECT 1 FROM users WHERE id = ${teacherId}::uuid
+                 AND deleted_at IS NULL AND role = 'teacher') AS "teacherOk",
+        (SELECT coalesce(json_agg(json_build_object(
+            'id', a.id, 'centerId', a.center_id, 'centerName', ce.name,
+            'status', a.status, 'centerShare', a.center_share, 'dataSource', a.data_source,
+            'invitedAt', ${iso("a.invited_at")},
+            'respondedAt', ${iso("a.responded_at")},
+            'removedAt', ${iso("a.removed_at")},
+            'expiresAt', ${iso("a.expires_at")},
+            'courses', (SELECT COUNT(*)::int FROM courses c
+                         WHERE c.teacher_id = ${teacherId}::uuid AND c.center_id = a.center_id)
+          ) ORDER BY a.created_at DESC), '[]'::json)
+           FROM center_teacher_affiliations a
+           LEFT JOIN centers ce ON ce.id = a.center_id
+          WHERE a.teacher_id = ${teacherId}::uuid ${removedSql}) AS data`;
+
+    if (!row?.teacherOk) throw new NotFoundError("Teacher not found");
+
+    const date = (v: string | null) => (v === null ? null : new Date(v));
     return {
-      data: rows.map((a) => ({
-        id: a.id,
-        centerId: a.centerId,
-        centerName: names.get(a.centerId) ?? null,
-        status: a.status,
-        centerShare: a.centerShare,
-        dataSource: a.dataSource,
-        invitedAt: a.invitedAt,
-        respondedAt: a.respondedAt,
-        removedAt: a.removedAt,
-        expiresAt: a.expiresAt,
-        courses: byCenter.get(a.centerId) ?? 0,
+      data: row.data.map((a) => ({
+        ...a,
+        invitedAt: new Date(a.invitedAt),
+        respondedAt: date(a.respondedAt),
+        removedAt: date(a.removedAt),
+        expiresAt: new Date(a.expiresAt),
       })),
-      total: rows.length,
+      total: row.data.length,
     };
   });
 }
@@ -327,18 +370,29 @@ export function teacherSessions(teacherId: string, args: PageArgs & { status?: s
   });
 }
 
+type StudentsRow = {
+  teacherOk: boolean;
+  total: number;
+  data: {
+    id: string;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    status: Prisma.UserGetPayload<{ select: { status: true } }>["status"];
+    createdAt: string;
+    studentCode: string | null;
+    courses: { courseId: string; title: string | null }[];
+  }[];
+};
+
 export function teacherStudents(teacherId: string, args: PageArgs & { q?: string } = {}) {
   const { page, limit, skip, take } = paging(args);
   return platformDb(async (tx) => {
-    await assertTeacher(tx, teacherId);
-    const courseIds = await teacherCourseIds(tx, teacherId);
-    if (!courseIds.length) return { data: [], total: 0, page, limit };
-
     // Distinct students across every course this teacher runs. The page is cut
     // at the database rather than by reading every enrollment into memory --
     // a teacher's roster grows without bound, unlike their course list.
     const conds: Prisma.Sql[] = [
-      Prisma.sql`e.course_id = ANY(${courseIds}::uuid[])`,
+      Prisma.sql`e.course_id IN (SELECT id FROM tc)`,
       Prisma.sql`e.status = 'active'`,
     ];
     // `users.search_text` is a STORED generated column holding the normalized
@@ -352,64 +406,42 @@ export function teacherStudents(teacherId: string, args: PageArgs & { q?: string
     }
     const whereSql = Prisma.sql`WHERE ${Prisma.join(conds, " AND ")}`;
 
-    const [idRows, countRows] = await Promise.all([
-      tx.$queryRaw<{ student_id: string }[]>`
-        SELECT e.student_id
+    const [row] = await tx.$queryRaw<StudentsRow[]>`
+      WITH tc AS (SELECT id FROM courses WHERE teacher_id = ${teacherId}::uuid),
+      pg AS (
+        SELECT e.student_id, row_number() OVER (ORDER BY MAX(e.enrolled_at) DESC) AS rn
           FROM enrollments e
           JOIN users u ON u.id = e.student_id
           ${whereSql}
          GROUP BY e.student_id
-         ORDER BY MAX(e.enrolled_at) DESC
-         LIMIT ${take} OFFSET ${skip}`,
-      tx.$queryRaw<{ n: bigint }[]>`
-        SELECT COUNT(DISTINCT e.student_id)::bigint AS n
-          FROM enrollments e
-          JOIN users u ON u.id = e.student_id
-          ${whereSql}`,
-    ]);
+         ORDER BY rn
+         LIMIT ${take} OFFSET ${skip}
+      )
+      SELECT
+        EXISTS (SELECT 1 FROM users WHERE id = ${teacherId}::uuid
+                 AND deleted_at IS NULL AND role = 'teacher') AS "teacherOk",
+        (SELECT COUNT(DISTINCT e.student_id)::int
+           FROM enrollments e
+           JOIN users u ON u.id = e.student_id
+           ${whereSql}) AS total,
+        (SELECT coalesce(json_agg(json_build_object(
+            'id', u.id, 'name', u.name, 'email', u.email, 'phone', u.phone, 'status', u.status,
+            'createdAt', to_char(u.created_at AT TIME ZONE 'UTC', ${Prisma.raw(ISO_MS)}),
+            'studentCode', sp.student_code,
+            'courses', (SELECT coalesce(json_agg(json_build_object('courseId', e2.course_id, 'title', c2.title)), '[]'::json)
+                          FROM enrollments e2 JOIN courses c2 ON c2.id = e2.course_id
+                         WHERE e2.student_id = pg.student_id AND c2.teacher_id = ${teacherId}::uuid
+                           AND e2.status = 'active')
+          ) ORDER BY pg.rn), '[]'::json)
+           FROM pg
+           JOIN users u ON u.id = pg.student_id AND u.deleted_at IS NULL
+           LEFT JOIN student_profiles sp ON sp.user_id = u.id) AS data`;
 
-    const total = Number(countRows[0]?.n ?? 0);
-    if (!idRows.length) return { data: [], total, page, limit };
-
-    const studentIds = idRows.map((r) => r.student_id);
-    const [students, enrollments, profiles] = await Promise.all([
-      tx.user.findMany({
-        where: { id: { in: studentIds } },
-        select: { id: true, name: true, email: true, phone: true, status: true, createdAt: true },
-      }),
-      tx.enrollment.findMany({
-        where: { studentId: { in: studentIds }, courseId: { in: courseIds }, status: "active" },
-        select: { studentId: true, courseId: true, enrolledAt: true },
-      }),
-      tx.studentProfile.findMany({
-        where: { userId: { in: studentIds } },
-        select: { userId: true, studentCode: true },
-      }),
-    ]);
-    const titles = await courseTitles(tx, enrollments.map((e) => e.courseId));
-    const codeByUser = new Map(profiles.map((p) => [p.userId, p.studentCode]));
-    const byStudent = new Map<string, { courseId: string; title: string | null }[]>();
-    for (const e of enrollments) {
-      const list = byStudent.get(e.studentId) ?? [];
-      list.push({ courseId: e.courseId, title: titles.get(e.courseId) ?? null });
-      byStudent.set(e.studentId, list);
-    }
-    const byId = new Map(students.map((s) => [s.id, s]));
+    if (!row?.teacherOk) throw new NotFoundError("Teacher not found");
 
     return {
-      // Ordered by the id query, not by the hydrating findMany.
-      data: studentIds.flatMap((id) => {
-        const s = byId.get(id);
-        if (!s) return [];
-        return [
-          {
-            ...s,
-            studentCode: codeByUser.get(id) ?? null,
-            courses: byStudent.get(id) ?? [],
-          },
-        ];
-      }),
-      total,
+      data: row.data.map((s) => ({ ...s, createdAt: new Date(s.createdAt) })),
+      total: row.total,
       page,
       limit,
     };

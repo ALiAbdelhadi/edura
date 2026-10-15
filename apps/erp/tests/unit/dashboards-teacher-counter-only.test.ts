@@ -1,64 +1,94 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const { captured } = vi.hoisted(() => ({
-  captured: { counts: [] as any[], groupBys: [] as any[] },
+type Captured = { sql: string; values: unknown[] };
+
+const { captured, canned } = vi.hoisted(() => ({
+  captured: { base: [] as Captured[] },
+  canned: {
+    base: {
+      activeCourses: [],
+      activeStudents: 0,
+      todaySessions: [],
+      attendanceTotal: 4,
+      attendancePresent: 3,
+      counterOnlyToday: 2,
+      rooms: [],
+    },
+  },
 }));
 
-vi.mock("@repo/server-core/db/scope", () => ({
-  scopedDb: async (_u: unknown, fn: (tx: any) => Promise<unknown>) =>
-    fn({
-      course: { findMany: async () => [] },
-      enrollment: { count: async () => 0 },
-      session: { findMany: async () => [], groupBy: async () => [] },
-      attendanceRecord: {
-        count: async ({ where }: any) => {
-          captured.counts.push(where);
-          return 2;
-        },
-        groupBy: async (args: any) => {
-          captured.groupBys.push(args);
-          return [
-            { status: "present", _count: 3 },
-            { status: "absent", _count: 1 },
-          ];
-        },
-        findMany: async () => [],
-      },
-      room: { findMany: async () => [] },
-      grade: { findMany: async () => [] },
-      gradeScore: { findMany: async () => [], groupBy: async () => [] },
-    }),
-  platformDb: async (fn: (tx: any) => Promise<unknown>) => fn({}),
-}));
+vi.mock("@repo/server-core/db/scope", async () => {
+  const { Prisma } = await import("@repo/database");
+  const queryRaw = async (strings: TemplateStringsArray, ...values: unknown[]) => {
+    const q = Prisma.sql(strings, ...values);
+    if (q.sql.includes("'counterOnlyToday'")) {
+      captured.base.push({ sql: q.text, values: q.values });
+      return [{ base: canned.base }];
+    }
+    return [];
+  };
+  return {
+    scopedDb: async (_u: unknown, fn: (tx: any) => Promise<unknown>) =>
+      fn({
+        $queryRaw: queryRaw,
+        course: { findMany: async () => [] },
+        grade: { findMany: async () => [] },
+        attendanceRecord: { findMany: async () => [] },
+      }),
+    platformDb: async (fn: (tx: any) => Promise<unknown>) => fn({ $queryRaw: async () => [] }),
+  };
+});
 
 const { getTeacherDashboard } = await import("@repo/server-core/services/reports/reports");
 
 const TEACHER = { id: "teacher-1", role: "teacher" } as any;
 
+/** The text of one `'key', (SELECT …)` entry of the json_build_object. */
+function section(q: Captured, key: string): string {
+  const start = q.sql.indexOf(`'${key}',`);
+  expect(start).toBeGreaterThan(-1);
+  const rest = q.sql.slice(start + key.length + 3);
+  const next = rest.search(/\n\s*'[a-zA-Z]+', \(SELECT/);
+  return next === -1 ? rest : rest.slice(0, next);
+}
+
+function bound(q: Captured, text: string, m: RegExpMatchArray | null): unknown {
+  expect(m, text).not.toBeNull();
+  return q.values[Number(m![1]) - 1];
+}
+
 beforeEach(() => {
-  captured.counts = [];
-  captured.groupBys = [];
+  captured.base = [];
 });
 
-describe("getTeacherDashboard — counter-only arrivals ride in the payload", () => {
+describe("getTeacherDashboard — counter-only count", () => {
   it("one count over today's non-cancelled sessions of THIS teacher", async () => {
     const r = await getTeacherDashboard(TEACHER);
 
     expect(r.counterOnlyToday).toBe(2);
-    const where = captured.counts.find((w) => w.status === "counter_only");
-    expect(where.session.teacherId).toBe("teacher-1");
-    expect(where.session.status).toEqual({ not: "cancelled" });
-    expect(where.session.date.gte).toBeInstanceOf(Date);
-    expect(where.session.date.lt).toBeInstanceOf(Date);
+    expect(captured.base).toHaveLength(1);
+    const [base] = captured.base;
+    const sql = section(base, "counterOnlyToday");
+
+    expect(sql).toMatch(/a\.status = 'counter_only'/);
+    expect(sql).toMatch(/a\.session_id IN \(SELECT s\.id FROM sessions s/);
+    expect(sql).toMatch(/s\.status <> 'cancelled'/);
+    expect(bound(base, "teacher", sql.match(/s\.teacher_id = \$(\d+)::uuid/))).toBe("teacher-1");
+
+    const from = bound(base, "from", sql.match(/s\.date >= \$(\d+)/));
+    const to = bound(base, "to", sql.match(/s\.date < \$(\d+)/));
+    expect(from).toBeInstanceOf(Date);
+    expect(to).toBeInstanceOf(Date);
+    expect((to as Date).getTime() - (from as Date).getTime()).toBe(24 * 60 * 60 * 1000);
   });
 
-  it("the attendance rate comes from one status groupBy", async () => {
+  it("the attendance rate is present over every status, from the same base query", async () => {
     const r = await getTeacherDashboard(TEACHER);
 
-    const statusPass = captured.groupBys.filter(
-      (a) => a.by.length === 1 && a.by[0] === "status",
-    );
-    expect(statusPass).toHaveLength(1);
+    expect(captured.base).toHaveLength(1);
+    const [base] = captured.base;
+    expect(section(base, "attendanceTotal")).not.toMatch(/a\.status/);
+    expect(section(base, "attendancePresent")).toMatch(/a\.status = 'present'/);
     expect(r.avgAttendanceRate).toBe(75);
   });
 });

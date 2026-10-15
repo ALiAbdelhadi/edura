@@ -2,7 +2,10 @@
 
 import { useCustom, useList } from "@refinedev/core";
 import { useDebounced } from "@repo/ui/hooks/use-debounced";
+import type { QUERY_FRESHNESS } from "@repo/client-core/refine/freshness";
 import { useCallback, useEffect, useMemo, useState } from "react";
+
+export type Freshness = (typeof QUERY_FRESHNESS)[keyof typeof QUERY_FRESHNESS];
 
 export type ListQuery = {
   isLoading: boolean;
@@ -134,6 +137,7 @@ export function useListScreen<TRow>({
   textFilters = [],
   initialFilters,
   enabled = true,
+  freshness,
 }: {
   resource: string;
   pageSize?: number;
@@ -141,6 +145,7 @@ export function useListScreen<TRow>({
   textFilters?: readonly string[];
   initialFilters?: Record<string, string | null>;
   enabled?: boolean;
+  freshness?: Freshness;
 }): ListScreen<TRow> {
   const state = useListState(textFilters, initialFilters);
 
@@ -159,7 +164,7 @@ export function useListScreen<TRow>({
     resource,
     filters: activeFilters,
     pagination: { currentPage: state.page, pageSize },
-    queryOptions: { enabled },
+    queryOptions: { ...freshness, enabled },
   });
 
   const rows = (result?.data ?? []) as TRow[];
@@ -199,6 +204,7 @@ export function useCustomListScreen<TRow>({
   select,
   extraQuery,
   enabled = true,
+  freshness,
 }: {
   url: string;
   pageSize?: number;
@@ -214,6 +220,7 @@ export function useCustomListScreen<TRow>({
   select: (data: unknown) => { rows: TRow[]; total: number };
   extraQuery?: Record<string, string>;
   enabled?: boolean;
+  freshness?: Freshness;
 }): ListScreen<TRow> {
   const state = useListState(textFilters, initialFilters);
 
@@ -226,7 +233,12 @@ export function useCustomListScreen<TRow>({
     if (value && value.trim()) query[field] = value.trim();
   }
 
-  const req = useCustom({ url, method: "get", config: { query }, queryOptions: { enabled } });
+  const req = useCustom({
+    url,
+    method: "get",
+    config: { query },
+    queryOptions: { ...freshness, enabled },
+  });
   const { rows, total } = select(req.result?.data);
 
   return {
@@ -271,6 +283,8 @@ export function useCursorListScreen<TRow extends { id: string }>({
   textFilters = [],
   initialFilters,
   select,
+  enabled = true,
+  freshness,
 }: {
   url: string;
   take?: number;
@@ -278,6 +292,8 @@ export function useCursorListScreen<TRow extends { id: string }>({
   textFilters?: readonly string[];
   initialFilters?: Record<string, string | null>;
   select: (data: unknown) => { rows: TRow[]; nextCursor: string | null };
+  enabled?: boolean;
+  freshness?: Freshness;
 }): CursorListScreen<TRow> {
   const state = useListState(textFilters, initialFilters);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -298,7 +314,12 @@ export function useCursorListScreen<TRow extends { id: string }>({
     setNextCursor(null);
   }, [filterKey]);
 
-  const req = useCustom({ url, method: "get", config: { query } });
+  const req = useCustom({
+    url,
+    method: "get",
+    config: { query },
+    queryOptions: { ...freshness, enabled },
+  });
   const payload = req.result?.data;
 
   useEffect(() => {

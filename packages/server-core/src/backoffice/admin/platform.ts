@@ -101,19 +101,37 @@ export function listRegistrations(
   });
 }
 
-export function listCenters(filters: { status?: string; take?: number; cursor?: string }) {
-  const { take } = parsePageLimit({ limit: filters.take }, 50);
+export function listCenters(filters: {
+  status?: string;
+  q?: string;
+  page?: string;
+  limit?: string;
+  take?: number;
+}) {
+  const { page, limit, skip, take } = parsePageLimit(
+    { page: filters.page, limit: filters.limit ?? filters.take },
+    50,
+  );
   return platformDb(async (tx) => {
     const where: Record<string, unknown> = {};
     if (filters.status) where.status = filters.status;
-    const rows = await tx.center.findMany({
-      where,
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: take + 1,
-      ...(filters.cursor ? { cursor: { id: filters.cursor }, skip: 1 } : {}),
-    });
-    const nextCursor = rows.length > take ? rows[take].id : null;
-    return { data: rows.slice(0, take), nextCursor };
+    const q = filters.q?.trim();
+    if (q) {
+      where.OR = [
+        { name: { contains: q, mode: "insensitive" } },
+        { shortId: { contains: q, mode: "insensitive" } },
+      ];
+    }
+    const [data, total] = await Promise.all([
+      tx.center.findMany({
+        where,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        skip,
+        take,
+      }),
+      tx.center.count({ where }),
+    ]);
+    return { data, total, page, limit };
   });
 }
 

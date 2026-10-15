@@ -20,7 +20,7 @@ test.describe("Authentication & Login", () => {
     await expect(page.getByRole("button", { name: /sign in/i })).toBeVisible();
   });
 
-  test("an UNKNOWN email gets the sign-up guidance panel, not the red banner", async ({
+  test("an UNKNOWN email gets the sign-up guidance panel beside the generic banner", async ({
     page,
   }) => {
     await page.goto("/en/login", { waitUntil: "domcontentloaded" });
@@ -28,17 +28,19 @@ test.describe("Authentication & Login", () => {
     await page.getByPlaceholder("Enter your password").fill("wrongpassword");
     await page.getByRole("button", { name: /sign in/i }).click();
 
-    await expect(page.getByText(/this email isn.t registered yet/i)).toBeVisible({
+    await expect(page.getByText(/don.t have an account yet\?/i)).toBeVisible({
       timeout: 15_000,
     });
     await expect(
       page.getByRole("link", { name: /create an account with this email/i }),
     ).toHaveAttribute("href", /email=nobody%40example\.com/);
-    await expect(page.locator('[data-slot="form-error"]')).toHaveCount(0);
+    await expect(page.locator('[data-slot="form-error"]')).toContainText(
+      /invalid email or password/i,
+    );
     expect(page.url()).toContain("/login");
   });
 
-  test("a REAL account with the wrong password reveals nothing about it", async ({
+  test("a REAL account with the wrong password looks the same as an unknown email", async ({
     page,
   }) => {
     await page.goto("/en/login", { waitUntil: "domcontentloaded" });
@@ -50,7 +52,10 @@ test.describe("Authentication & Login", () => {
       /invalid email or password/i,
       { timeout: 15_000 },
     );
-    await expect(page.getByText(/this email isn.t registered yet/i)).toHaveCount(0);
+    await expect(page.getByText(/don.t have an account yet\?/i)).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /create an account with this email/i }),
+    ).toBeVisible();
   });
 
   test("empty fields are caught per-field, before any request", async ({ page }) => {

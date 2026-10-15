@@ -270,6 +270,7 @@ function SidebarNav({
                     >
                       <Link
                         href={item.href}
+                        prefetch={false}
                         data-tour={item.tour}
                         onClick={() => {
                           if (isMobile) setOpenMobile(false);
@@ -672,7 +673,7 @@ export function AppShell({
                 size="icon"
                 aria-label={`${strings.notifications}${unreadCount > 0 ? ` (${unreadCount})` : ""}`}
               >
-                <Link href={notificationsHref}>
+                <Link href={notificationsHref} prefetch={false}>
                   <Bell className="size-4" />
                 </Link>
               </Button>

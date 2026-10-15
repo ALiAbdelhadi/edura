@@ -26,7 +26,7 @@ export function Wordmark({ className = "" }: { className?: string }) {
         dir="ltr"
         className="hidden font-lat-display text-[1.125rem] font-bold tracking-[0.01em] text-ink sm:inline"
       >
-        Edura
+        Linktich
       </span>
     </span>
   );

@@ -22,13 +22,14 @@ export async function requireTeacherActor(
   if (user.role !== "assistant") {
     return { acting: user, caller: user, actorId: user.id, onBehalfOf: null };
   }
-  const teacherId = await platformDb((tx) => resolveActingTeacher(tx, user));
-  const teacher = await platformDb((tx) =>
-    tx.user.findUnique({
+  const { teacherId, teacher } = await platformDb(async (tx) => {
+    const teacherId = await resolveActingTeacher(tx, user);
+    const teacher = await tx.user.findUnique({
       where: { id: teacherId },
       select: { name: true, email: true, locale: true },
-    }),
-  );
+    });
+    return { teacherId, teacher };
+  });
   return {
     acting: {
       id: teacherId,

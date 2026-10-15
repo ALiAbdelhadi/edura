@@ -1,6 +1,5 @@
 import {
   deleteReplacedImage,
-  isCloudinaryConfigured,
   imageSlot,
   uploadEntityImage,
   validateImageFile,
@@ -8,6 +7,7 @@ import {
   imageFolder,
   type ImageKind,
 } from "../../media/images";
+import { resolveMediaDriver } from "../../media/storage";
 import { scopedDb } from "../../db/scope";
 import type { SessionUser } from "../../auth/types";
 import { BusinessRuleError, ForbiddenError, NotFoundError } from "../../errors/classes";
@@ -21,7 +21,7 @@ async function ingest(
   file: File,
   opts: { kind: ImageKind; entityKey: string; isDemo?: boolean },
 ): Promise<string> {
-  if (!isCloudinaryConfigured()) {
+  if (!resolveMediaDriver().uploadsEnabled()) {
     throw new BusinessRuleError(
       "Image uploads are not configured on this server. Set the CLOUDINARY_* env vars.",
       { reason: "uploads_not_configured" },

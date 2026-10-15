@@ -8,8 +8,9 @@ import { Num } from "@repo/ui/components/num";
 import { useQueryStrings } from "@repo/ui/components/query-section";
 import type { Locale } from "@repo/ui/lib/format";
 import { useLocale, useTranslations } from "next-intl";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
+import { useVisibilityTrigger } from "@/lib/api/use-on-demand";
 import { asKey } from "@/lib/i18n/keys";
 
 type Kpis = {
@@ -47,20 +48,32 @@ export function PlatformTrends() {
   const queryStrings = useQueryStrings();
   const [period, setPeriod] = useState<"monthly" | "weekly">("monthly");
 
-  const kpisQ = useCustom<Kpis>({ url: "admin/dashboard/kpis", method: "get" });
+  const [visible, setVisible] = useState(false);
+  const reveal = useVisibilityTrigger(useCallback(() => setVisible(true), []));
+
+  const kpisQ = useCustom<Kpis>({
+    url: "admin/dashboard/kpis",
+    method: "get",
+    queryOptions: { enabled: visible },
+  });
   const revenueQ = useCustom<RevenueChart>({
     url: "admin/dashboard/revenue-chart",
     method: "get",
     config: { query: { period } },
+    queryOptions: { enabled: visible },
   });
-  const growthQ = useCustom<GrowthChart>({ url: "admin/dashboard/user-growth-chart", method: "get" });
+  const growthQ = useCustom<GrowthChart>({
+    url: "admin/dashboard/user-growth-chart",
+    method: "get",
+    queryOptions: { enabled: visible },
+  });
 
   const kpis = kpisQ.result?.data as Kpis | undefined;
   const revenue = revenueQ.result?.data as RevenueChart | undefined;
   const growth = growthQ.result?.data as GrowthChart | undefined;
 
   return (
-    <section className="flex flex-col gap-5">
+    <section ref={reveal} className="flex flex-col gap-5">
       <Eyebrow locale={locale}>{t("trends.title")}</Eyebrow>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -116,7 +129,7 @@ export function PlatformTrends() {
               },
             ]}
             yValueFormatter={(v) => compactMoney(v, locale)}
-            loading={revenueQ.query.isLoading}
+            loading={!visible || revenueQ.query.isLoading}
             loadingText={tg("common.loading")}
             error={revenueQ.query.isError ? queryStrings.loadFailed : undefined}
             emptyText={t("trends.noData")}
@@ -140,7 +153,7 @@ export function PlatformTrends() {
               label: tg(asKey(`roles.${r}`)),
             }))}
             yValueFormatter={(v) => compactCount(v, locale)}
-            loading={growthQ.query.isLoading}
+            loading={!visible || growthQ.query.isLoading}
             loadingText={tg("common.loading")}
             error={growthQ.query.isError ? queryStrings.loadFailed : undefined}
             emptyText={t("trends.noData")}

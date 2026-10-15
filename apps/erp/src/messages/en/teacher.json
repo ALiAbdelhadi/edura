@@ -80,7 +80,7 @@
   "pdfLinkLabel": "PDF link",
   "pdfLinkRequired": "Please enter a PDF link",
   "pdfStorage": "PDF storage",
-  "pdfStorageDesc": "Upload stores PDFs in Cloudinary. If storage is not configured yet, choose PDF link and paste a shared PDF URL as a temporary workaround.",
+  "pdfStorageDesc": "Upload stores PDFs in media storage. If storage is not configured yet, choose PDF link and paste a shared PDF URL as a temporary workaround.",
   "pending": "Pending",
   "pendingGrades": "Pending Grades",
   "pendingLabel": "pending",

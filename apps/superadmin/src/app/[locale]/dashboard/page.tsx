@@ -14,7 +14,7 @@ const ROLE_HOME: Record<string, string> = {
 export default function DashboardRouter() {
   const router = useRouter();
   const t = useTranslations();
-  const { data: identity, isLoading } = useGetIdentity<MeResponse>();
+  const { data: identity, isLoading } = useGetIdentity<MeResponse>({ queryOptions: { refetchOnMount: false } });
 
   useEffect(() => {
     if (isLoading) return;

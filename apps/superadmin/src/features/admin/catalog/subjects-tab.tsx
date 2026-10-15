@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/kit/empty-state";
 import { StatusBadge } from "@/components/kit/status-badge";
 import { TableSkeleton } from "@/components/ui/skeletons";
 import { useCustom } from "@refinedev/core";
+import { QUERY_FRESHNESS } from "@repo/client-core/refine/freshness";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
@@ -28,7 +29,11 @@ export function SubjectsTab() {
   const [search, setSearch] = useState("");
   const [dialog, setDialog] = useState<{ row?: SubjectRow } | null>(null);
 
-  const subjectsQ = useCustom<SubjectRow[]>({ url: "admin/catalog/subjects", method: "get" });
+  const subjectsQ = useCustom<SubjectRow[]>({
+    url: "admin/catalog/subjects",
+    method: "get",
+    queryOptions: QUERY_FRESHNESS.reference,
+  });
   const subjects = asArray<SubjectRow>(subjectsQ.result?.data);
 
   const filtered = useMemo(() => {

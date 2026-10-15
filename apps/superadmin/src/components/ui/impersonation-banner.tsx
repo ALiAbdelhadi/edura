@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@repo/ui/components/button";
 
 import { useAction } from "@/lib/api/use-action";
-import { authClient } from "@/lib/auth/client";
+import { currentSession } from "@/lib/refine/auth-provider";
 
 export function ImpersonationBanner() {
   const t = useTranslations("adminUsers");
@@ -16,7 +16,7 @@ export function ImpersonationBanner() {
 
   useEffect(() => {
     let alive = true;
-    void authClient.getSession().then(({ data }) => {
+    void currentSession().then((data) => {
       if (!alive) return;
       const impersonatedBy = (data?.session as { impersonatedBy?: string | null } | undefined)
         ?.impersonatedBy;

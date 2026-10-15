@@ -1,8 +1,7 @@
 import { platformDb } from "../../db/scope";
 import { Prisma, type NotificationType } from "@repo/database";
 import { sendMail } from "../../mail/send";
-import { pushToUser } from "../fcm/fcm-channel";
-import { webPushToUser } from "../webpush/web-push-channel";
+import { pushToUser } from "../push/send";
 import { smsToUser } from "../sms/sms-channel";
 import { notificationUrlForRole } from "./deep-link";
 
@@ -153,25 +152,18 @@ export async function notify(
     const byId = new Map(contacts.map((c) => [c.id, c]));
 
     await Promise.all(
-      recipients.flatMap((uid) => {
+      recipients.map((uid) => {
         const id = uid.toString();
         const who = byId.get(id);
         const url =
           notificationUrlForRole(input.type, who?.role, who?.locale) ??
           undefined;
-        return [
-          pushToUser(id, {
-            title: input.title,
-            body: input.body,
-            data: url ? { ...fcmData, url } : fcmData,
-          }).catch(() => {}),
-          webPushToUser(id, {
-            title: input.title,
-            body: input.body,
-            url,
-            data: fcmData,
-          }).catch(() => {}),
-        ];
+        return pushToUser(id, {
+          title: input.title,
+          body: input.body,
+          url,
+          data: fcmData,
+        });
       }),
     );
   }

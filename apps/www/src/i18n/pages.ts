@@ -3,13 +3,13 @@ import type { Locale } from "./config";
 const ar = {
   pricing: {
     meta: {
-      title: "الأسعار — إدورا",
+      title: "الأسعار — لينكتيتش",
       description:
-        "نموذج العمولة في إدورا: نسبة من الحصة اللي اتسلّمت بس — مفيش اشتراك شهري ولا رسوم إعداد ولا خصم على السحب.",
+        "نموذج العمولة في لينكتيتش: نسبة من الحصة اللي اتسلّمت بس — مفيش اشتراك شهري ولا رسوم إعداد ولا خصم على السحب.",
     },
     label: "الأسعار",
     headline: "مفيش اشتراك. عمولة على الحصة اللي اتسلّمت.",
-    lede: "كل جنيه في إدورا له مسار معروف قبل ما يتحرك. الصفحة دي بتشرح النموذج بالأرقام مش بالكلام العام: نصيب المنصة بيتخصم من الحصة نفسها، بعد ما الفلوس تدخل، ومفيش حاجة بتتضاف على الطالب.",
+    lede: "كل جنيه في لينكتيتش له مسار معروف قبل ما يتحرك. الصفحة دي بتشرح النموذج بالأرقام مش بالكلام العام: نصيب المنصة بيتخصم من الحصة نفسها، بعد ما الفلوس تدخل، ومفيش حاجة بتتضاف على الطالب.",
     note: "الأرقام في المثال توضيحية. النِّسَب الفعلية بتتقري من إعدادات المنصة جوّه النظام، وبتظهرلك قبل أي تأكيد.",
     rules: {
       label: "القواعد",
@@ -80,16 +80,16 @@ const ar = {
 
   faq: {
     meta: {
-      title: "أسئلة شائعة — إدورا",
+      title: "أسئلة شائعة — لينكتيتش",
       description:
-        "إجابات مباشرة على أكتر الأسئلة تكرارًا عن إدورا: الفلوس، الحضور، الصلاحيات، وأمان الطلاب.",
+        "إجابات مباشرة على أكتر الأسئلة تكرارًا عن لينكتيتش: الفلوس، الحضور، الصلاحيات، وأمان الطلاب.",
     },
     label: "أسئلة شائعة",
     headline: "الأسئلة اللي بتتكرر.",
     lede: "كل إجابة هنا مكتوبة من سلوك النظام الفعلي، مش من اللي كان نفسنا نوعد بيه.",
     items: [
       {
-        q: "إدورا بتاخد كام؟",
+        q: "لينكتيتش بتاخد كام؟",
         a: "نسبة من قيمة الدرس أو الاشتراك، بتتخصم بعد ما الفلوس تدخل — مش رسوم شهرية ولا رسوم إعداد. صفحة الأسعار فيها المثال الرقمي بالكامل.",
       },
       {
@@ -121,7 +121,7 @@ const ar = {
         a: "العزل بيتفرض على مستوى قاعدة البيانات نفسها، مش على مستوى الشاشات بس. طلب من سنتر ما يقدرش يقرأ صف بيخص سنتر تاني حتى لو حد جرّب.",
       },
       {
-        q: "إدورا بتشتغل على الموبايل؟",
+        q: "لينكتيتش بتشتغل على الموبايل؟",
         a: "أيوه، من المتصفح مباشرة من غير تثبيت، وممكن تتثبّت كتطبيق على الشاشة الرئيسية. الحضور بيشتغل حتى لو النت فصل ويتزامن لما يرجع.",
       },
       {
@@ -139,7 +139,7 @@ const ar = {
 
   trust: {
     meta: {
-      title: "الثقة والأمان — إدورا",
+      title: "الثقة والأمان — لينكتيتش",
       description:
         "كل جملة في الصفحة دي بتشاور على آلية في قاعدة البيانات أو في الكود، مش على وثيقة سياسات: دفتر لا يُمحى، عزل السناتر، حماية القُصّر، الجلسات، والتحليلات.",
     },
@@ -195,7 +195,7 @@ const ar = {
   },
   contact: {
     meta: {
-      title: "تواصل معنا — إدورا",
+      title: "تواصل معنا — لينكتيتش",
       description:
         "اسأل عن عرض توضيحي، الأسعار، الدعم، أو شراكة. وللمسائل العاجلة الخاصة بحساب أو طالب، السنتر بتاعك أسرع منّا.",
     },
@@ -278,13 +278,13 @@ type Pages = typeof ar;
 const en: Pages = {
   pricing: {
     meta: {
-      title: "Pricing — Edura",
+      title: "Pricing — Linktich",
       description:
-        "Edura's commission model: a share of delivered lessons only — no monthly subscription, no setup fee, no withdrawal fee.",
+        "Linktich's commission model: a share of delivered lessons only — no monthly subscription, no setup fee, no withdrawal fee.",
     },
     label: "Pricing",
     headline: "No subscription. Commission on delivered lessons.",
-    lede: "Every pound in Edura has a known path before it moves. This page explains the model in numbers, not adjectives: the platform's share is deducted from the lesson itself, after the money has come in, and nothing is added on top of the student's price.",
+    lede: "Every pound in Linktich has a known path before it moves. This page explains the model in numbers, not adjectives: the platform's share is deducted from the lesson itself, after the money has come in, and nothing is added on top of the student's price.",
     note: "The figures in the example are illustrative. The actual rates are read from the platform's own settings inside the system, and are shown to you before any confirmation.",
     rules: {
       label: "The rules",
@@ -355,16 +355,16 @@ const en: Pages = {
 
   faq: {
     meta: {
-      title: "FAQ — Edura",
+      title: "FAQ — Linktich",
       description:
-        "Direct answers to the most common questions about Edura: money, attendance, permissions and student safety.",
+        "Direct answers to the most common questions about Linktich: money, attendance, permissions and student safety.",
     },
     label: "FAQ",
     headline: "The questions we hear most.",
     lede: "Every answer here is written from real system behaviour, not from what would have been nice to promise.",
     items: [
       {
-        q: "How much does Edura take?",
+        q: "How much does Linktich take?",
         a: "A share of the lesson or subscription value, deducted after the money comes in — not a monthly fee and not a setup fee. The pricing page has the full worked example.",
       },
       {
@@ -396,7 +396,7 @@ const en: Pages = {
         a: "Isolation is enforced in the database itself, not only in the screens. A request from one center cannot read a row belonging to another, even if someone tried.",
       },
       {
-        q: "Does Edura work on mobile?",
+        q: "Does Linktich work on mobile?",
         a: "Yes, straight from the browser with no install, and it can be added to the home screen as an app. Attendance keeps working when the connection drops and syncs when it returns.",
       },
       {
@@ -414,7 +414,7 @@ const en: Pages = {
 
   trust: {
     meta: {
-      title: "Trust & safety — Edura",
+      title: "Trust & safety — Linktich",
       description:
         "Every claim on this page points at a mechanism in the database or the code, not at a policy document: an unerasable ledger, center isolation, protection of minors, sessions, and analytics.",
     },
@@ -470,7 +470,7 @@ const en: Pages = {
   },
   contact: {
     meta: {
-      title: "Contact — Edura",
+      title: "Contact — Linktich",
       description:
         "Ask about a demo, pricing, support, or a partnership. For anything urgent about an account or a student, your center is faster than we are.",
     },

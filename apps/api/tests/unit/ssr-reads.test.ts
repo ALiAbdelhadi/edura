@@ -13,8 +13,7 @@ import { mountRoutes } from "../../src/routes/mount";
 const staffLink = vi.hoisted(() => ({ row: null as null | { centerId: string; role: string } }));
 vi.mock("@repo/server-core/db/scope", async (importActual) => ({
   ...(await importActual<typeof import("@repo/server-core/db/scope")>()),
-  platformDb: (fn: (tx: unknown) => unknown) =>
-    fn({ centerStaff: { findFirst: async () => staffLink.row } }),
+  prisma: { $queryRaw: async () => [{ link: staffLink.row }] },
 }));
 
 const getViewAsContext = vi.fn();

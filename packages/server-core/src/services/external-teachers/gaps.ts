@@ -1,3 +1,4 @@
+import { Prisma } from "@repo/database";
 import { scopedDb } from "../../db/scope";
 import { ForbiddenError } from "../../errors/classes";
 import type { SessionUser } from "../../auth/types";
@@ -32,6 +33,33 @@ export type GapReport = {
   blocking: number;
 };
 
+const ISO_MS = `'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'`;
+
+type GapData = {
+  teacherCount: number;
+  teachers: { id: string; name: string }[];
+  courses: {
+    id: string;
+    title: string;
+    teacherId: string;
+    pricePerMonth: number | null;
+    pricePerSession: number | null;
+  }[];
+  sessionCounts: { courseId: string; n: number }[];
+  enrollmentCounts: { courseId: string; n: number }[];
+  sessions: {
+    id: string;
+    courseId: string;
+    date: string;
+    status: string;
+    distributed: boolean;
+    marked: number;
+  }[];
+  enrollments: { id: string; studentId: string; courseId: string }[];
+  covered: { studentId: string; courseId: string }[];
+  students: { id: string; name: string }[];
+};
+
 const EMPTY_COUNTS: Record<GapKind, number> = {
   lesson_without_attendance: 0,
   partial_attendance: 0,
@@ -54,36 +82,69 @@ export async function buildGapReport(
   const to = opts.to ?? now;
 
   return scopedDb(acting, async (tx) => {
-    const externalProfiles = await tx.teacherProfile.findMany({
-      where: {
-        managedByCenterId: centerId,
-        systemStatus: "external",
-        ...(opts.teacherId ? { userId: opts.teacherId } : {}),
-      },
-      select: { userId: true },
-    });
-    const teacherIds = externalProfiles.map((p) => p.userId);
-    if (!teacherIds.length) {
-      return { generatedAt: now, scope: { teacherId: opts.teacherId ?? null, from, to }, gaps: [], counts: { ...EMPTY_COUNTS }, blocking: 0 };
-    }
+    const teacherFilter = opts.teacherId
+      ? Prisma.sql`AND user_id = ${opts.teacherId}::uuid`
+      : Prisma.empty;
+    const [data] = await tx.$queryRaw<GapData[]>`
+      WITH tp AS (
+        SELECT user_id FROM teacher_profiles
+         WHERE managed_by_center_id = ${centerId}::uuid AND system_status = 'external' ${teacherFilter}
+      ),
+      cs AS (
+        SELECT id, title, teacher_id, price_per_month, price_per_session FROM courses
+         WHERE center_id = ${centerId}::uuid AND status = 'active'
+           AND teacher_id IN (SELECT user_id FROM tp)
+      ),
+      en AS (
+        SELECT id, student_id, course_id FROM enrollments
+         WHERE course_id IN (SELECT id FROM cs) AND status = 'active'
+      )
+      SELECT
+        (SELECT count(*)::int FROM tp) AS "teacherCount",
+        (SELECT coalesce(json_agg(json_build_object('id', id, 'name', name)), '[]'::json)
+           FROM users WHERE id IN (SELECT user_id FROM tp) AND deleted_at IS NULL) AS teachers,
+        (SELECT coalesce(json_agg(json_build_object(
+            'id', id, 'title', title, 'teacherId', teacher_id,
+            'pricePerMonth', price_per_month, 'pricePerSession', price_per_session)), '[]'::json)
+           FROM cs) AS courses,
+        (SELECT coalesce(json_agg(json_build_object('courseId', course_id, 'n', n)), '[]'::json)
+           FROM (SELECT course_id, count(*)::int AS n FROM sessions
+                  WHERE course_id IN (SELECT id FROM cs) GROUP BY course_id) x) AS "sessionCounts",
+        (SELECT coalesce(json_agg(json_build_object('courseId', course_id, 'n', n)), '[]'::json)
+           FROM (SELECT course_id, count(*)::int AS n FROM en GROUP BY course_id) x) AS "enrollmentCounts",
+        (SELECT coalesce(json_agg(json_build_object(
+            'id', s.id, 'courseId', s.course_id,
+            'date', to_char(s.date AT TIME ZONE 'UTC', ${Prisma.raw(ISO_MS)}),
+            'status', s.status::text, 'distributed', s.distributed_at IS NOT NULL,
+            'marked', (SELECT count(*)::int FROM attendance_records a WHERE a.session_id = s.id)
+          ) ORDER BY s.date DESC), '[]'::json)
+           FROM (SELECT id, course_id, date, status, distributed_at FROM sessions
+                  WHERE course_id IN (SELECT id FROM cs)
+                    AND date >= ${from}::timestamptz AND date <= ${to}::timestamptz
+                    AND status <> 'cancelled'
+                  ORDER BY date DESC LIMIT 1000) s) AS sessions,
+        (SELECT coalesce(json_agg(json_build_object('id', id, 'studentId', student_id, 'courseId', course_id)), '[]'::json)
+           FROM en) AS enrollments,
+        (SELECT coalesce(json_agg(json_build_object('studentId', student_id, 'courseId', course_id)), '[]'::json)
+           FROM (SELECT DISTINCT student_id, course_id FROM subscriptions
+                  WHERE course_id IN (SELECT id FROM cs) AND status = 'active'
+                    AND (period_end IS NULL OR period_end >= ${now}::timestamptz)) x) AS covered,
+        (SELECT coalesce(json_agg(json_build_object('id', id, 'name', name)), '[]'::json)
+           FROM users WHERE id IN (SELECT student_id FROM en) AND deleted_at IS NULL) AS students`;
 
-    const [teachers, courses] = await Promise.all([
-      tx.user.findMany({ where: { id: { in: teacherIds } }, select: { id: true, name: true } }),
-      tx.course.findMany({
-        where: { centerId, teacherId: { in: teacherIds }, status: "active" },
-        select: {
-          id: true,
-          title: true,
-          teacherId: true,
-          price: true,
-          pricePerMonth: true,
-          pricePerSession: true,
-        },
-      }),
-    ]);
+    const empty = (gaps: Gap[]): GapReport => ({
+      generatedAt: now,
+      scope: { teacherId: opts.teacherId ?? null, from, to },
+      gaps,
+      counts: { ...EMPTY_COUNTS },
+      blocking: 0,
+    });
+    if (!data || !data.teacherCount) return empty([]);
+
+    const teachers = data.teachers;
+    const courses = data.courses;
     const teacherName = new Map(teachers.map((t) => [t.id, t.name]));
     const courseById = new Map(courses.map((c) => [c.id, c]));
-    const courseIds = courses.map((c) => c.id);
 
     const gaps: Gap[] = [];
     const push = (g: Gap) => gaps.push(g);
@@ -97,24 +158,10 @@ export async function buildGapReport(
       };
     };
 
-    if (!courseIds.length) {
-      return { generatedAt: now, scope: { teacherId: opts.teacherId ?? null, from, to }, gaps, counts: { ...EMPTY_COUNTS }, blocking: 0 };
-    }
+    if (!courses.length) return empty(gaps);
 
-    const [sessionCounts, enrollmentCounts] = await Promise.all([
-      tx.session.groupBy({
-        by: ["courseId"],
-        where: { courseId: { in: courseIds } },
-        _count: { _all: true },
-      }),
-      tx.enrollment.groupBy({
-        by: ["courseId"],
-        where: { courseId: { in: courseIds }, status: "active" },
-        _count: { _all: true },
-      }),
-    ]);
-    const sessionsPerCourse = new Map(sessionCounts.map((s) => [s.courseId, s._count._all]));
-    const studentsPerCourse = new Map(enrollmentCounts.map((e) => [e.courseId, e._count._all]));
+    const sessionsPerCourse = new Map(data.sessionCounts.map((s) => [s.courseId, s.n]));
+    const studentsPerCourse = new Map(data.enrollmentCounts.map((e) => [e.courseId, e.n]));
 
     for (const c of courses) {
       if (!sessionsPerCourse.get(c.id)) {
@@ -152,89 +199,51 @@ export async function buildGapReport(
       }
     }
 
-    const sessions = await tx.session.findMany({
-      where: {
-        courseId: { in: courseIds },
-        date: { gte: from, lte: to },
-        status: { notIn: ["cancelled"] },
-      },
-      select: { id: true, courseId: true, date: true, status: true, distributedAt: true },
-      orderBy: { date: "desc" },
-      take: 1000,
-    });
+    for (const row of data.sessions) {
+      const s = { ...row, date: new Date(row.date) };
+      if (s.date > now) continue;
+      const marked = s.marked;
+      const roster = studentsPerCourse.get(s.courseId) ?? 0;
 
-    if (sessions.length) {
-      const sessionIds = sessions.map((s) => s.id);
-      const attendanceCounts = await tx.attendanceRecord.groupBy({
-        by: ["sessionId"],
-        where: { sessionId: { in: sessionIds } },
-        _count: { _all: true },
-      });
-      const markedPerSession = new Map(
-        attendanceCounts.map((a) => [a.sessionId, a._count._all]),
-      );
+      if (marked === 0) {
+        push({
+          kind: "lesson_without_attendance",
+          severity: "blocking",
+          ...base(s.courseId),
+          targetType: "session",
+          targetId: s.id,
+          date: s.date,
+          detail: { marked: 0, enrolled: roster },
+        });
+      } else if (roster > 0 && marked < roster) {
+        push({
+          kind: "partial_attendance",
+          severity: "warning",
+          ...base(s.courseId),
+          targetType: "session",
+          targetId: s.id,
+          date: s.date,
+          detail: { marked, enrolled: roster, missing: roster - marked },
+        });
+      }
 
-      for (const s of sessions) {
-        if (s.date > now) continue;
-        const marked = markedPerSession.get(s.id) ?? 0;
-        const roster = studentsPerCourse.get(s.courseId) ?? 0;
-
-        if (marked === 0) {
-          push({
-            kind: "lesson_without_attendance",
-            severity: "blocking",
-            ...base(s.courseId),
-            targetType: "session",
-            targetId: s.id,
-            date: s.date,
-            detail: { marked: 0, enrolled: roster },
-          });
-        } else if (roster > 0 && marked < roster) {
-          push({
-            kind: "partial_attendance",
-            severity: "warning",
-            ...base(s.courseId),
-            targetType: "session",
-            targetId: s.id,
-            date: s.date,
-            detail: { marked, enrolled: roster, missing: roster - marked },
-          });
-        }
-
-        if (s.status !== "completed") {
-          push({
-            kind: "session_not_completed",
-            severity: "blocking",
-            ...base(s.courseId),
-            targetType: "session",
-            targetId: s.id,
-            date: s.date,
-            detail: { status: s.status, settled: s.distributedAt ? "yes" : "no" },
-          });
-        }
+      if (s.status !== "completed") {
+        push({
+          kind: "session_not_completed",
+          severity: "blocking",
+          ...base(s.courseId),
+          targetType: "session",
+          targetId: s.id,
+          date: s.date,
+          detail: { status: s.status, settled: s.distributed ? "yes" : "no" },
+        });
       }
     }
 
-    const enrollments = await tx.enrollment.findMany({
-      where: { courseId: { in: courseIds }, status: "active" },
-      select: { id: true, studentId: true, courseId: true },
-    });
+    const enrollments = data.enrollments;
     if (enrollments.length) {
-      const activeSubs = await tx.subscription.findMany({
-        where: {
-          courseId: { in: courseIds },
-          status: "active",
-          OR: [{ periodEnd: null }, { periodEnd: { gte: now } }],
-        },
-        select: { studentId: true, courseId: true },
-      });
-      const covered = new Set(activeSubs.map((s) => `${s.studentId}:${s.courseId}`));
-      const studentIds = [...new Set(enrollments.map((e) => e.studentId))];
-      const students = await tx.user.findMany({
-        where: { id: { in: studentIds } },
-        select: { id: true, name: true },
-      });
-      const studentName = new Map(students.map((s) => [s.id, s.name]));
+      const covered = new Set(data.covered.map((s) => `${s.studentId}:${s.courseId}`));
+      const studentName = new Map(data.students.map((s) => [s.id, s.name]));
 
       for (const e of enrollments) {
         if (covered.has(`${e.studentId}:${e.courseId}`)) continue;

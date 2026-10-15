@@ -6,8 +6,9 @@ export const GET = withRole("super_admin", async (_user, req) => {
   const sp = new URL(req.url).searchParams;
   const result = await listCenters({
     status: sp.get("status") ?? undefined,
-    cursor: sp.get("cursor") ?? undefined,
-    take: sp.get("take") ? Number(sp.get("take")) : undefined,
+    q: sp.get("q") ?? undefined,
+    page: sp.get("page") ?? undefined,
+    limit: sp.get("limit") ?? sp.get("pageSize") ?? sp.get("take") ?? undefined,
   });
-  return ok(result.data, { meta: { nextCursor: result.nextCursor } });
+  return ok(result.data, { meta: { total: result.total, page: result.page, limit: result.limit } });
 });

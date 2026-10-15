@@ -40,6 +40,18 @@ Missing any of these fails closed — by design.
   `http://localhost:3007`). `apps/admin-api` itself needs `SUPERADMIN_NEXTAUTH_SECRET`,
   an `https://` `NEXTAUTH_URL` (the superadmin public origin), `DATABASE_URL`,
   `REDIS_URL` and `EDURA_PROXY_SECRET` (SAME value on `apps/superadmin`).
+- **Vercel Services mode (2026-10-15):** in the two Services projects (root
+  `vercel.json` = erp + api; `vercel.backoffice.json` = superadmin + admin-api,
+  deployed only through `scripts/deploy-backoffice.sh`, which stages it as
+  `vercel.json` with `admin-api.Dockerfile` as `Dockerfile.vercel`)
+  `API_SERVICE_URL` / `ADMIN_API_SERVICE_URL` are SERVICE BINDINGS — never set them
+  by hand. They exist at runtime only; `EDURA_SERVICE_BINDINGS=1` in the build
+  command drops the `/api` Next rewrites (Vercel routes `/api` to the backend) and
+  skips the build refusal. Env vars are shared by every service in a project.
 - `apps/api` in production also refuses to boot without an `https://` `NEXTAUTH_URL`
   and a `NEXTAUTH_SECRET` (Railway sets no `VERCEL_ENV`).
+- `MEDIA_MODE` — optional, `cloudinary` | `mock`. Unset picks `cloudinary` when the
+  three `CLOUDINARY_*` keys are set, else `mock`. An explicit `mock` throws in production.
+- `PUSH_MODE` — optional, `live` (default) | `mock`. `live` without VAPID keys or
+  `FIREBASE_SERVICE_ACCOUNT_JSON` silently uses the mock driver for that channel.
 - Full remediation log → [security-remediation](../../docs/claude/security-remediation.md)

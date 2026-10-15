@@ -1,3 +1,4 @@
+import { Prisma } from "@repo/database";
 import { platformDb } from "../../db/scope";
 import {
   literalFragments,
@@ -47,6 +48,11 @@ export type CounterTeacher = {
   nextStartTime: string | null;
 };
 
+type CounterTeachersRow = {
+  sessions: { id: string; teacherId: string; startTime: string; endTime: string }[];
+  users: { id: string; name: string; systemStatus: string | null }[];
+};
+
 export async function listCounterTeachers(
   admin: SessionUser,
   opts: { q?: string | null } = {},
@@ -55,51 +61,53 @@ export async function listCounterTeachers(
   const { start, end } = todayBounds();
   const clock = nowClock();
   const q = opts.q?.trim() ?? "";
+  const terms = searchTerms(q);
+  const frags = terms.length ? literalFragments(q) : [];
+  const nameSql = frags.length
+    ? Prisma.join(
+        narrowFragments(frags, (f) => [f]).map(
+          ({ OR }) =>
+            Prisma.sql`AND (${Prisma.join(
+              OR.map((v) => Prisma.sql`u.name ILIKE ${`%${v}%`}`),
+              " OR ",
+            )})`,
+        ),
+        " ",
+      )
+    : Prisma.empty;
 
   return platformDb(async (tx) => {
-    const affiliations = await tx.centerTeacherAffiliation.findMany({
-      where: { centerId, status: "active", removedAt: null },
-      select: { teacherId: true },
-    });
-
-    const sessions = await tx.session.findMany({
-      where: {
-        date: { gte: start, lt: end },
-        status: "scheduled",
-        course: { centerId },
-      },
-      select: { id: true, teacherId: true, startTime: true, endTime: true },
-      orderBy: { startTime: "asc" },
-    });
-
-    const teacherIds = [
-      ...new Set([...affiliations.map((a) => a.teacherId), ...sessions.map((s) => s.teacherId)]),
-    ];
-    if (teacherIds.length === 0) return { teachers: [], defaultTeacherId: null, clock };
-
-    const terms = searchTerms(q ?? "");
-    const candidates = await tx.user.findMany({
-      where: {
-        id: { in: teacherIds },
-        status: { in: ["active", "shell"] },
-        ...(terms.length
-          ? {
-              AND: narrowFragments(literalFragments(q ?? ""), (f) => [
-                { name: { contains: f, mode: "insensitive" as const } },
-              ]),
-            }
-          : {}),
-      },
-      select: { id: true, name: true },
-    });
+    const [row] = await tx.$queryRaw<CounterTeachersRow[]>`
+      WITH s AS (
+        SELECT s.id, s.teacher_id, s.start_time, s.end_time
+          FROM sessions s
+         WHERE s.date >= ${start} AND s.date < ${end}
+           AND s.status = 'scheduled'
+           AND s.course_id IN (SELECT id FROM courses WHERE center_id = ${centerId}::uuid)
+      ), ids AS (
+        SELECT teacher_id AS id FROM center_teacher_affiliations
+         WHERE center_id = ${centerId}::uuid AND status = 'active' AND removed_at IS NULL
+        UNION
+        SELECT teacher_id FROM s
+      )
+      SELECT
+        (SELECT coalesce(json_agg(json_build_object(
+            'id', s.id, 'teacherId', s.teacher_id, 'startTime', s.start_time, 'endTime', s.end_time
+          ) ORDER BY s.start_time ASC), '[]'::json) FROM s) AS sessions,
+        (SELECT coalesce(json_agg(json_build_object(
+            'id', u.id, 'name', u.name, 'systemStatus', tp.system_status
+          )), '[]'::json)
+           FROM users u
+           LEFT JOIN teacher_profiles tp ON tp.user_id = u.id
+          WHERE u.id IN (SELECT id FROM ids)
+            AND u.status IN ('active', 'shell')
+            AND u.deleted_at IS NULL
+            ${nameSql}) AS users`;
+    const sessions = row?.sessions ?? [];
+    const candidates = row?.users ?? [];
     const users = terms.length
       ? candidates.filter((u) => matchesSearchTerms([u.name], terms))
       : candidates;
-    const profiles = await tx.teacherProfile.findMany({
-      where: { userId: { in: teacherIds } },
-      select: { userId: true, systemStatus: true },
-    });
-    const systemStatusById = new Map(profiles.map((p) => [p.userId, p.systemStatus]));
 
     const teachers: CounterTeacher[] = users.map((u) => {
       const mine = sessions.filter((s) => s.teacherId === u.id);
@@ -108,7 +116,7 @@ export async function listCounterTeachers(
       return {
         teacherId: u.id,
         name: u.name ?? "—",
-        systemStatus: systemStatusById.get(u.id) ?? "enrolled",
+        systemStatus: u.systemStatus ?? "enrolled",
         sessionsToday: mine.length,
         liveSessionId: live?.id ?? null,
         nextSessionId: next?.id ?? null,
@@ -158,60 +166,36 @@ export async function listCounterSessions(
   const clock = nowClock();
 
   return platformDb(async (tx) => {
-    const sessions = await tx.session.findMany({
-      where: {
-        teacherId,
-        date: { gte: start, lt: end },
-        course: { centerId },
-      },
-      select: {
-        id: true,
-        courseId: true,
-        roomId: true,
-        startTime: true,
-        endTime: true,
-        status: true,
-      },
-      orderBy: { startTime: "asc" },
-    });
-    if (sessions.length === 0) return { sessions: [], defaultSessionId: null, clock };
+    const found = await tx.$queryRaw<Omit<CounterSession, "live">[]>`
+      SELECT s.id AS "sessionId", s.course_id AS "courseId",
+             coalesce(c.title, '—') AS "courseTitle", r.name AS "roomName",
+             s.start_time AS "startTime", s.end_time AS "endTime", s.status::text AS status,
+             c.price_per_session AS "pricePerSession",
+             (SELECT COUNT(*)::int FROM attendance_records a
+               WHERE a.session_id = s.id AND a.status IN ('present', 'counter_only')) AS "checkedIn",
+             (SELECT COUNT(*)::int FROM enrollments e
+               WHERE e.course_id = s.course_id AND e.center_id = ${centerId}::uuid
+                 AND e.status = 'active') AS enrolled
+        FROM sessions s
+        LEFT JOIN courses c ON c.id = s.course_id
+        LEFT JOIN rooms r ON r.id = s.room_id
+       WHERE s.teacher_id = ${teacherId}::uuid
+         AND s.date >= ${start} AND s.date < ${end}
+         AND s.course_id IN (SELECT id FROM courses WHERE center_id = ${centerId}::uuid)
+       ORDER BY s.start_time ASC`;
 
-    const courseIds = [...new Set(sessions.map((s) => s.courseId))];
-    const roomIds = [...new Set(sessions.map((s) => s.roomId).filter(Boolean) as string[])];
-    const [courses, rooms, attendance, enrollments] = await Promise.all([
-      tx.course.findMany({
-        where: { id: { in: courseIds } },
-        select: { id: true, title: true, pricePerSession: true },
-      }),
-      roomIds.length
-        ? tx.room.findMany({ where: { id: { in: roomIds } }, select: { id: true, name: true } })
-        : Promise.resolve([] as { id: string; name: string }[]),
-      tx.attendanceRecord.findMany({
-        where: { sessionId: { in: sessions.map((s) => s.id) } },
-        select: { sessionId: true, status: true },
-      }),
-      tx.enrollment.findMany({
-        where: { courseId: { in: courseIds }, centerId, status: "active" },
-        select: { courseId: true },
-      }),
-    ]);
-    const courseMap = new Map(courses.map((c) => [c.id, c]));
-    const roomMap = new Map(rooms.map((r) => [r.id, r.name]));
-
-    const rows: CounterSession[] = sessions.map((s) => ({
-      sessionId: s.id,
+    const rows: CounterSession[] = found.map((s) => ({
+      sessionId: s.sessionId,
       courseId: s.courseId,
-      courseTitle: courseMap.get(s.courseId)?.title ?? "—",
-      roomName: s.roomId ? (roomMap.get(s.roomId) ?? null) : null,
+      courseTitle: s.courseTitle,
+      roomName: s.roomName,
       startTime: s.startTime,
       endTime: s.endTime,
       status: s.status,
       live: s.status === "scheduled" && isLive(s, clock),
-      pricePerSession: courseMap.get(s.courseId)?.pricePerSession ?? null,
-      checkedIn: attendance.filter(
-        (a) => a.sessionId === s.id && (a.status === "present" || a.status === "counter_only"),
-      ).length,
-      enrolled: enrollments.filter((e) => e.courseId === s.courseId).length,
+      pricePerSession: s.pricePerSession,
+      checkedIn: s.checkedIn,
+      enrolled: s.enrolled,
     }));
 
     const defaultSessionId =
@@ -235,6 +219,37 @@ export type CounterRosterRow = {
   attendance: string | null;
   counterAt: string | null;
   doorAt: string | null;
+};
+
+const ISO_MS = `'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'`;
+const iso = (col: string) =>
+  Prisma.sql`to_char(${Prisma.raw(col)} AT TIME ZONE 'UTC', ${Prisma.raw(ISO_MS)})`;
+
+type RosterRow = {
+  ok: boolean;
+  id: string;
+  courseId: string;
+  teacherId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: string;
+  courseTitle: string;
+  pricePerSession: number | null;
+  teacherName: string | null;
+  roomName: string | null;
+  attendanceMode: string | null;
+  enrollments: string[];
+  records: { studentId: string; status: string; counterAt: string | null; doorAt: string | null }[];
+  passes: string[];
+  profiles: {
+    userId: string;
+    fullName: string;
+    studentCode: string;
+    phone: string | null;
+    userName: string | null;
+    userPhone: string | null;
+  }[];
 };
 
 export async function counterRoster(
@@ -262,74 +277,65 @@ export async function counterRoster(
   const clock = nowClock();
 
   return platformDb(async (tx) => {
-    const session = await tx.session.findUnique({
-      where: { id: sessionId },
-      select: {
-        id: true,
-        courseId: true,
-        teacherId: true,
-        roomId: true,
-        date: true,
-        startTime: true,
-        endTime: true,
-        status: true,
-      },
-    });
-    if (!session) throw new NotFoundError("Session not found");
+    const [row] = await tx.$queryRaw<RosterRow[]>`
+      WITH s AS (
+        SELECT s.id, s.course_id, s.teacher_id, s.room_id, s.date, s.start_time, s.end_time,
+               s.status, c.center_id, c.title, c.price_per_session,
+               (c.center_id IS NOT DISTINCT FROM ${centerId}::uuid) AS ok
+          FROM sessions s
+          LEFT JOIN courses c ON c.id = s.course_id
+         WHERE s.id = ${sessionId}::uuid
+      ), en AS (
+        SELECT e.student_id FROM enrollments e, s
+         WHERE s.ok AND e.course_id = s.course_id AND e.center_id = ${centerId}::uuid
+           AND e.status = 'active'
+      ), rec AS (
+        SELECT a.student_id, a.status, a.counter_at, a.door_at FROM attendance_records a, s
+         WHERE s.ok AND a.session_id = s.id
+      ), pass AS (
+        SELECT p.student_id FROM subscriptions p, s
+         WHERE s.ok AND p.plan = 'per_session' AND p.session_id = s.id AND p.status = 'active'
+      )
+      SELECT
+        s.ok, s.id, s.course_id AS "courseId", s.teacher_id AS "teacherId",
+        ${iso("s.date")} AS date, s.start_time AS "startTime", s.end_time AS "endTime",
+        s.status::text AS status, s.title AS "courseTitle", s.price_per_session AS "pricePerSession",
+        (SELECT name FROM users WHERE id = s.teacher_id) AS "teacherName",
+        (SELECT name FROM rooms WHERE id = s.room_id) AS "roomName",
+        (SELECT attendance_mode::text FROM teacher_profiles WHERE user_id = s.teacher_id)
+          AS "attendanceMode",
+        (SELECT coalesce(json_agg(student_id), '[]'::json) FROM en) AS enrollments,
+        (SELECT coalesce(json_agg(json_build_object(
+            'studentId', student_id, 'status', status,
+            'counterAt', ${iso("counter_at")}, 'doorAt', ${iso("door_at")}
+          )), '[]'::json) FROM rec) AS records,
+        (SELECT coalesce(json_agg(student_id), '[]'::json) FROM pass) AS passes,
+        (SELECT coalesce(json_agg(json_build_object(
+            'userId', sp.user_id, 'fullName', sp.full_name, 'studentCode', sp.student_code,
+            'phone', sp.phone, 'userName', u.name, 'userPhone', u.phone
+          )), '[]'::json)
+           FROM student_profiles sp
+           LEFT JOIN users u ON u.id = sp.user_id
+          WHERE sp.user_id IN (SELECT student_id FROM en UNION SELECT student_id FROM rec
+                               UNION SELECT student_id FROM pass)) AS profiles
+        FROM s`;
+    if (!row) throw new NotFoundError("Session not found");
+    if (!row.ok) throw new ForbiddenError("Session is not at your center");
 
-    const course = await tx.course.findUnique({
-      where: { id: session.courseId },
-      select: { id: true, title: true, centerId: true, pricePerSession: true },
-    });
-    if (!course || course.centerId !== centerId) {
-      throw new ForbiddenError("Session is not at your center");
-    }
+    const { enrollments, records, passes, profiles } = row;
+    const session = {
+      id: row.id,
+      courseId: row.courseId,
+      teacherId: row.teacherId,
+      date: new Date(row.date),
+      startTime: row.startTime,
+      endTime: row.endTime,
+      status: row.status,
+    };
+    const enrolledIds = new Set(enrollments);
+    const studentIds = [...new Set([...enrollments, ...records.map((r) => r.studentId), ...passes])];
 
-    const [enrollments, records, passes, teacher, room, teacherProfile] = await Promise.all([
-      tx.enrollment.findMany({
-        where: { courseId: session.courseId, centerId, status: "active" },
-        select: { studentId: true },
-      }),
-      tx.attendanceRecord.findMany({
-        where: { sessionId },
-        select: { studentId: true, status: true, counterAt: true, doorAt: true },
-      }),
-      tx.subscription.findMany({
-        where: { plan: "per_session", sessionId, status: "active" },
-        select: { studentId: true },
-      }),
-      tx.user.findUnique({ where: { id: session.teacherId }, select: { name: true } }),
-      session.roomId
-        ? tx.room.findUnique({ where: { id: session.roomId }, select: { name: true } })
-        : Promise.resolve(null),
-      tx.teacherProfile.findUnique({
-        where: { userId: session.teacherId },
-        select: { attendanceMode: true },
-      }),
-    ]);
-
-    const enrolledIds = new Set(enrollments.map((e) => e.studentId));
-    const studentIds = [
-      ...new Set([
-        ...enrollments.map((e) => e.studentId),
-        ...records.map((r) => r.studentId),
-        ...passes.map((p) => p.studentId),
-      ]),
-    ];
-
-    const profiles = studentIds.length
-      ? await tx.studentProfile.findMany({
-          where: { userId: { in: studentIds } },
-          select: {
-            userId: true,
-            fullName: true,
-            studentCode: true,
-            phone: true,
-            user: { select: { name: true, phone: true } },
-          },
-        })
-      : [];
-    const profileMap = new Map(profiles.map((p) => [p.userId as string, p]));
+    const profileMap = new Map(profiles.map((p) => [p.userId, p]));
     const recordMap = new Map(records.map((r) => [r.studentId, r]));
     const covered = await coveredStudentIds(
       tx,
@@ -342,14 +348,14 @@ export async function counterRoster(
       const r = recordMap.get(id);
       return {
         studentId: id,
-        name: p?.user?.name ?? p?.fullName ?? "—",
+        name: p?.userName ?? p?.fullName ?? "—",
         studentCode: p?.studentCode ?? null,
-        phone: p?.user?.phone ?? p?.phone ?? null,
+        phone: p?.userPhone ?? p?.phone ?? null,
         enrolled: enrolledIds.has(id),
         covered: covered.has(id),
         attendance: r?.status ?? null,
-        counterAt: r?.counterAt?.toISOString() ?? null,
-        doorAt: r?.doorAt?.toISOString() ?? null,
+        counterAt: r?.counterAt ?? null,
+        doorAt: r?.doorAt ?? null,
       };
     });
     students.sort((a, b) => a.name.localeCompare(b.name));
@@ -361,16 +367,16 @@ export async function counterRoster(
       session: {
         sessionId: session.id,
         courseId: session.courseId,
-        courseTitle: course.title,
+        courseTitle: row.courseTitle,
         teacherId: session.teacherId,
-        teacherName: teacher?.name ?? "—",
-        roomName: room?.name ?? null,
+        teacherName: row.teacherName ?? "—",
+        roomName: row.roomName,
         startTime: session.startTime,
         endTime: session.endTime,
         status: session.status,
         live: session.status === "scheduled" && isLive(session, clock),
-        pricePerSession: course.pricePerSession,
-        attendanceMode: teacherProfile?.attendanceMode ?? "counter_only",
+        pricePerSession: row.pricePerSession,
+        attendanceMode: row.attendanceMode ?? "counter_only",
       },
       counts: {
         checkedIn: present + counterOnly,

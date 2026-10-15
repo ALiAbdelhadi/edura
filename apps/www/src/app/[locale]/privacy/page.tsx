@@ -22,7 +22,7 @@ export async function generateMetadata({
   const l = getPages(locale).legal;
 
   return {
-    title: `${l.privacyTitle} — Edura`,
+    title: `${l.privacyTitle} — Linktich`,
     alternates: {
       languages: Object.fromEntries(LOCALES.map((loc) => [loc, `/${loc}/privacy`])),
     },

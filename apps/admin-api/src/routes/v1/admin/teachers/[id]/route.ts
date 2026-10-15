@@ -1,3 +1,4 @@
+import { isPlatformMediaUrl } from "@repo/shared/media-delivery";
 import { z } from "zod";
 import { withRole } from "@repo/server-core/backoffice-auth/require-role";
 import { ok } from "@repo/server-core/http/envelope";
@@ -28,7 +29,7 @@ const patchSchema = z
     photoUrl: z
       .url()
       .max(2000)
-      .refine((u) => u.startsWith("https://res.cloudinary.com/"), "Image must be hosted on Cloudinary")
+      .refine(isPlatformMediaUrl, "Image must be hosted on the platform media storage")
       .nullable()
       .optional(),
     lessonPrice: z.number().int().min(0).max(99_999_900).nullable().optional(),

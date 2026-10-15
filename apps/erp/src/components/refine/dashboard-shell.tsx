@@ -7,6 +7,7 @@ import { Link, useRouter, usePathname } from "@/i18n/navigation";
 import { useGlobalSearch } from "@/lib/api/use-global-search";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import type { MeResponse } from "@/lib/refine";
+import { useUnreadNotificationCount } from "@/features/notifications/use-notification-lists";
 import { useGetIdentity, useList, useLogout } from "@refinedev/core";
 import {
   AppShell,
@@ -165,7 +166,9 @@ export default function DashboardShell({
   const { dir } = useFormatters();
   const pathname = usePathname();
   const router = useRouter();
-  const { data: identity } = useGetIdentity<MeResponse>();
+  const { data: identity } = useGetIdentity<MeResponse>({
+    queryOptions: { refetchOnMount: false },
+  });
   const { mutate: logout } = useLogout();
 
   const tNav = React.useCallback(
@@ -174,12 +177,9 @@ export default function DashboardShell({
     [t],
   );
 
-  const { result: unreadResult } = useList({
-    resource: "notifications",
-    filters: [{ field: "read", operator: "eq" as const, value: false }],
-    pagination: { pageSize: 1, currentPage: 1 },
-  });
-  const unreadCount = (unreadResult?.total ?? 0) as number;
+  const unreadCount = useUnreadNotificationCount(
+    /\/notifications\/?$/.test(pathname ?? ""),
+  );
 
   const hrefs = React.useMemo(() => {
     const groups = navGroups ?? [{ label: "", items: navItems ?? [] }];

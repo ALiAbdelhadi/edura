@@ -1,17 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({
-  uploadBuffer: vi.fn(async () => ({ public_id: "pub-1", secure_url: "https://cdn/x.pdf", bytes: 123 })),
-  deleteResource: vi.fn(async () => {}),
-  isCloudinaryConfigured: vi.fn(() => true),
+  upload: vi.fn(async () => ({ public_id: "pub-1", secure_url: "https://cdn/x.pdf", bytes: 123 })),
+  destroy: vi.fn(async () => {}),
+  uploadsEnabled: vi.fn(() => true),
   notify: vi.fn(async () => {}),
 }));
 
-vi.mock("@repo/server-core/media/cloudinary", () => ({
-  uploadBuffer: h.uploadBuffer,
-  deleteResource: h.deleteResource,
-  isCloudinaryConfigured: h.isCloudinaryConfigured,
-  generateSignedUrl: vi.fn(async () => "https://cdn/signed"),
+vi.mock("@repo/server-core/media/storage/index", () => ({
+  resolveMediaDriver: () => ({
+    name: "cloudinary",
+    uploadsEnabled: h.uploadsEnabled,
+    upload: h.upload,
+    destroy: h.destroy,
+    signedUrl: vi.fn(() => "https://cdn/signed"),
+    publicIdFromUrl: vi.fn(() => null),
+  }),
 }));
 
 vi.mock("@repo/server-core/services/notifications/notify", () => ({ notify: h.notify }));
@@ -57,20 +61,20 @@ const updateForm = (file: File) => {
 };
 
 afterEach(() => vi.clearAllMocks());
-beforeEach(() => h.isCloudinaryConfigured.mockReturnValue(true));
+beforeEach(() => h.uploadsEnabled.mockReturnValue(true));
 
 describe("M6 — create path (uploadMaterial)", () => {
   it("rejects a spoofed application/pdf whose real bytes are HTML — nothing stored", async () => {
     await expect(uploadMaterial(createForm(pdfNamed(SPOOFED_HTML)), user)).rejects.toThrow(
       "Only PDF files are accepted",
     );
-    expect(h.uploadBuffer).not.toHaveBeenCalled();
+    expect(h.upload).not.toHaveBeenCalled();
     expect(fakeTx.material.create).not.toHaveBeenCalled();
   });
 
   it("accepts a genuine %PDF- file — stored once", async () => {
     const res = await uploadMaterial(createForm(pdfNamed(REAL_PDF)), user);
-    expect(h.uploadBuffer).toHaveBeenCalledTimes(1);
+    expect(h.upload).toHaveBeenCalledTimes(1);
     expect(fakeTx.material.create).toHaveBeenCalledTimes(1);
     expect((res as { cloudinaryPublicId?: string }).cloudinaryPublicId).toBe("pub-1");
   });
@@ -81,15 +85,15 @@ describe("M6 — update path (updateMaterial)", () => {
     await expect(updateMaterial("mat-1", updateForm(pdfNamed(SPOOFED_HTML)), user)).rejects.toThrow(
       "Only PDF files are accepted",
     );
-    expect(h.uploadBuffer).not.toHaveBeenCalled();
-    expect(h.deleteResource).not.toHaveBeenCalled(); // verify-before-delete: old PDF survives
+    expect(h.upload).not.toHaveBeenCalled();
+    expect(h.destroy).not.toHaveBeenCalled(); // verify-before-delete: old PDF survives
     expect(fakeTx.material.update).not.toHaveBeenCalled();
   });
 
   it("accepts a genuine %PDF- file — old resource replaced, stored once", async () => {
     await updateMaterial("mat-1", updateForm(pdfNamed(REAL_PDF)), user);
-    expect(h.uploadBuffer).toHaveBeenCalledTimes(1);
-    expect(h.deleteResource).toHaveBeenCalledTimes(1);
+    expect(h.upload).toHaveBeenCalledTimes(1);
+    expect(h.destroy).toHaveBeenCalledTimes(1);
     expect(fakeTx.material.update).toHaveBeenCalledTimes(1);
   });
 });

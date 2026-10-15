@@ -1,15 +1,12 @@
 "use client";
 
 import { api } from "@/lib/api/client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { QUERY_FRESHNESS } from "@/lib/refine";
+import { useCustom } from "@refinedev/core";
+import { useCallback, useRef, useState } from "react";
 import type { CatalogSystem } from "./types";
 
 const apiPath = (url: string) => url.replace(/^\/api\/v1\//, "");
-
-async function apiGet<T>(url: string): Promise<T> {
-  const res = await api.get(apiPath(url)).json<{ data: T }>();
-  return res.data;
-}
 
 export async function apiSend<T>(url: string, method: "POST" | "PATCH", body: unknown): Promise<T> {
   const send = method === "POST" ? api.post : api.patch;
@@ -20,25 +17,22 @@ export async function apiSend<T>(url: string, method: "POST" | "PATCH", body: un
 export type OnboardingInitial<TState> = { tree: CatalogSystem[]; state: TState };
 
 export function useOnboarding<TState>(initial?: OnboardingInitial<TState>) {
-  const [tree, setTree] = useState<CatalogSystem[] | null>(initial?.tree ?? null);
-  const [state, setState] = useState<TState | null>(initial?.state ?? null);
-  const [error, setError] = useState<string | null>(null);
-
   const prefetched = initial != null;
-  useEffect(() => {
-    if (prefetched) return;
-    let cancelled = false;
-    Promise.all([apiGet<CatalogSystem[]>("/api/v1/catalog/tree"), apiGet<TState>("/api/v1/me/onboarding")])
-      .then(([treeData, stateData]) => {
-        if (cancelled) return;
-        setTree(treeData);
-        setState(stateData);
-      })
-      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : "failed"));
-    return () => {
-      cancelled = true;
-    };
-  }, [prefetched]);
+  const { query: treeQuery, result: treeResult } = useCustom({
+    url: "catalog/tree",
+    method: "get",
+    queryOptions: { ...QUERY_FRESHNESS.reference, enabled: !prefetched },
+  });
+  const { query: stateQuery, result: stateResult } = useCustom({
+    url: "me/onboarding",
+    method: "get",
+    queryOptions: { enabled: !prefetched },
+  });
+
+  const tree = initial?.tree ?? (treeResult?.data as CatalogSystem[] | undefined) ?? null;
+  const state = initial?.state ?? (stateResult?.data as TState | undefined) ?? null;
+  const failure = treeQuery.error ?? stateQuery.error;
+  const error = prefetched || !failure ? null : failure.message || "failed";
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [draftFailed, setDraftFailed] = useState(false);

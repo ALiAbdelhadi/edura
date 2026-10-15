@@ -6,61 +6,46 @@ export type DecisionQueue = Awaited<ReturnType<typeof decisionQueue>>;
 const LEDGER_WINDOW_DAYS = 15;
 const LAST_WRITES = 6;
 
+type QueueRow = {
+  payouts: { count: number; total: number | null };
+  oldest: { at: string; name: string | null } | null;
+  registrations: { centers: number; teachers: number };
+  held: { studentWallets: number | null; refunds: number | null };
+  blocked: { count: number; shortfall: number };
+  ledger: { day: string; gross: number; commission: number }[];
+  lastWrites: {
+    id: string;
+    ref: string;
+    type: string;
+    amount: number;
+    at: string;
+    actor: string | null;
+    party: string | null;
+  }[];
+};
+
 export function decisionQueue() {
   return platformDb(async (tx) => {
-    const db = tx as TenantTx;
-
-    const [
-      pendingPayouts,
-      oldestPending,
-      centersPending,
-      teachersPending,
-      reservedForPayouts,
-      studentWallets,
-      refundsInFlight,
-      underfunded,
-      ledger,
-      lastWrites,
-    ] = await Promise.all([
-      tx.payout.aggregate({
-        // M-03: an approved payout still awaits its second person.
-        where: { status: { in: ["pending", "approved"] } },
-        _count: { _all: true },
-        _sum: { netPayable: true },
-      }),
-
-      // The beneficiary's name is resolved in the same query rather than in a
-      // follow-up await: payouts.beneficiary_id is polymorphic, so Prisma cannot
-      // join it, and a second round trip to Neon costs more than this LEFT JOIN.
-      db.$queryRaw<{ id: string; created_at: Date; name: string | null }[]>`
-        SELECT p.id, p.created_at, COALESCE(u.name, c.name) AS name
+    const [row] = await tx.$queryRaw<[QueueRow]>`
+      WITH pending AS (
+        -- M-03: an approved payout still awaits its second person.
+        SELECT count(*) AS count, sum(net_payable) AS total
+          FROM payouts
+         WHERE status IN ('pending', 'approved')
+      ),
+      oldest AS (
+        -- The beneficiary's name is resolved in the same query rather than in a
+        -- follow-up await: payouts.beneficiary_id is polymorphic, so Prisma cannot
+        -- join it, and a second round trip to Neon costs more than this LEFT JOIN.
+        SELECT p.created_at, COALESCE(u.name, c.name) AS name
           FROM payouts p
           LEFT JOIN users   u ON p.beneficiary_type = 'teacher'  AND u.id = p.beneficiary_id
           LEFT JOIN centers c ON p.beneficiary_type <> 'teacher' AND c.id = p.beneficiary_id
          WHERE p.status IN ('pending', 'approved')
          ORDER BY p.created_at ASC
-         LIMIT 1`,
-
-      tx.center.count({ where: { status: "pending" } }),
-      tx.user.count({ where: { role: "teacher", status: "pending" } }),
-
-      tx.payout.aggregate({
-        where: { status: { in: ["pending", "approved"] } },
-        _sum: { netPayable: true },
-      }),
-      tx.studentProfile.aggregate({ _sum: { walletBalance: true } }),
-      // This tile read `transactions type:"refund", status:"pending"` and was a
-      // permanent zero, because every writer set "completed". Option B makes
-      // pending real — but the ledger row STAYS pending after confirmation
-      // (transactions is UPDATE-revoked), so counting those rows would now
-      // overcount in the other direction. The obligation lives on the payment:
-      // a refund armed and not yet paid out.
-      tx.payment.aggregate({
-        where: { reversalOfId: { not: null }, refundConfirmedAt: null },
-        _sum: { amount: true },
-      }),
-
-      db.$queryRaw<{ count: bigint; shortfall: bigint }[]>`
+         LIMIT 1
+      ),
+      blocked AS (
         SELECT COUNT(*)                                            AS count,
                COALESCE(SUM(p.net_payable - w.wallet_balance), 0)  AS shortfall
           FROM payouts p
@@ -75,9 +60,9 @@ export function decisionQueue() {
          WHERE p.status = 'pending'
            AND p.net_payable IS NOT NULL
            AND w.wallet_balance IS NOT NULL
-           AND w.wallet_balance < p.net_payable`,
-
-      db.$queryRaw<{ day: Date; gross: bigint; commission: bigint }[]>`
+           AND w.wallet_balance < p.net_payable
+      ),
+      ledger AS (
         SELECT d.day::date                                                        AS day,
                COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'payment'), 0)       AS gross,
                COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'commission'), 0)    AS commission
@@ -92,19 +77,8 @@ export function decisionQueue() {
                 AND t.status = 'completed'
                 AND t.type IN ('payment', 'commission')
          GROUP BY d.day
-         ORDER BY d.day ASC`,
-
-      db.$queryRaw<
-        {
-          id: string;
-          ref_number: string;
-          type: string;
-          amount: number;
-          created_at: Date;
-          actor_name: string | null;
-          center_name: string | null;
-        }[]
-      >`
+      ),
+      last_writes AS (
         SELECT t.id, t.ref_number, t.type::text AS type, t.amount, t.created_at,
                u.name AS actor_name,
                c.name AS center_name
@@ -118,30 +92,61 @@ export function decisionQueue() {
           LEFT JOIN centers c ON c.id = t.center_id
          WHERE t.status = 'completed'
          ORDER BY t.created_at DESC
-         LIMIT ${LAST_WRITES}`,
-    ]);
+         LIMIT ${LAST_WRITES}
+      )
+      SELECT
+        (SELECT json_build_object('count', count, 'total', total) FROM pending) AS payouts,
+        (SELECT json_build_object(
+           'at', to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+           'name', name) FROM oldest) AS oldest,
+        json_build_object(
+          'centers',  (SELECT count(*) FROM centers WHERE status = 'pending'),
+          'teachers', (SELECT count(*) FROM users
+                        WHERE deleted_at IS NULL AND role = 'teacher' AND status = 'pending')
+        ) AS registrations,
+        json_build_object(
+          'studentWallets', (SELECT sum(wallet_balance) FROM student_profiles),
+          -- This tile read transactions type:"refund", status:"pending" and was a
+          -- permanent zero, because every writer set "completed". Option B makes
+          -- pending real — but the ledger row STAYS pending after confirmation
+          -- (transactions is UPDATE-revoked), so counting those rows would now
+          -- overcount in the other direction. The obligation lives on the payment:
+          -- a refund armed and not yet paid out.
+          'refunds', (SELECT sum(amount) FROM payments
+                       WHERE reversal_of_id IS NOT NULL AND refund_confirmed_at IS NULL)
+        ) AS held,
+        (SELECT json_build_object('count', count, 'shortfall', shortfall) FROM blocked) AS blocked,
+        (SELECT json_agg(json_build_object(
+           'day', to_char(day, 'YYYY-MM-DD'), 'gross', gross, 'commission', commission)
+           ORDER BY day ASC) FROM ledger) AS ledger,
+        (SELECT coalesce(json_agg(json_build_object(
+           'id', id, 'ref', ref_number, 'type', type, 'amount', amount,
+           'at', to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+           'actor', actor_name, 'party', center_name)
+           ORDER BY created_at DESC), '[]'::json) FROM last_writes) AS "lastWrites"`;
 
-    const short = underfunded[0] ?? { count: 0n, shortfall: 0n };
-    const reserved = reservedForPayouts._sum.netPayable ?? 0;
-    const wallets = studentWallets._sum.walletBalance ?? 0;
+    const centers = row.registrations.centers;
+    const teachers = row.registrations.teachers;
+    const reserved = row.payouts.total ?? 0;
+    const wallets = row.held.studentWallets ?? 0;
     // Negative on `payments`; this is a magnitude of money owed out.
-    const refunds = Math.abs(refundsInFlight._sum.amount ?? 0);
+    const refunds = Math.abs(row.held.refunds ?? 0);
 
     return {
       payouts: {
-        count: pendingPayouts._count._all,
-        total: pendingPayouts._sum.netPayable ?? 0,
-        oldestAt: oldestPending[0]?.created_at.toISOString() ?? null,
-        oldestBeneficiary: oldestPending[0]?.name ?? null,
+        count: row.payouts.count,
+        total: row.payouts.total ?? 0,
+        oldestAt: row.oldest?.at ?? null,
+        oldestBeneficiary: row.oldest?.name ?? null,
       },
       registrations: {
-        centers: centersPending,
-        teachers: teachersPending,
-        count: centersPending + teachersPending,
+        centers,
+        teachers,
+        count: centers + teachers,
       },
       blocked: {
-        count: Number(short.count),
-        shortfall: Number(short.shortfall),
+        count: row.blocked.count,
+        shortfall: row.blocked.shortfall,
       },
       held: {
         reservedForPayouts: reserved,
@@ -149,61 +154,62 @@ export function decisionQueue() {
         refundsInProcessing: refunds,
         total: reserved + wallets + refunds,
       },
-      ledger: ledger.map((r) => ({
-        day: toDateKey(r.day),
-        gross: Number(r.gross),
-        commission: Number(r.commission),
+      ledger: row.ledger.map((r) => ({
+        day: r.day,
+        gross: r.gross,
+        commission: r.commission,
       })),
-      lastWrites: lastWrites.map((r) => ({
+      lastWrites: row.lastWrites.map((r) => ({
         id: r.id,
-        ref: r.ref_number,
+        ref: r.ref,
         type: r.type,
-        amount: Number(r.amount),
-        at: r.created_at.toISOString(),
-        actor: r.actor_name, // null → the caller renders «النظام»
-        party: r.center_name,
+        amount: r.amount,
+        at: r.at,
+        actor: r.actor, // null → the caller renders «النظام»
+        party: r.party,
       })),
     };
   });
 }
 
+type KpiRow = {
+  centersActive: number;
+  centersPending: number;
+  teachers: number;
+  students: number;
+  parents: number;
+  pendingTeachers: number;
+  commission: number | null;
+  lessonRevenue: number | null;
+  lessonsCompleted: number;
+};
+
 export function platformKpis() {
   return platformDb(async (tx) => {
-    const [
-      centersActive,
-      centersPending,
-      teachers,
-      students,
-      parents,
-      pendingTeachers,
-      commissionAgg,
-      lessonRevenueAgg,
-      lessonsCompleted,
-    ] = await Promise.all([
-      tx.center.count({ where: { status: "active" } }),
-      tx.center.count({ where: { status: "pending" } }),
-      tx.user.count({ where: { role: "teacher", status: "active" } }),
-      tx.user.count({ where: { role: "student" } }),
-      tx.user.count({ where: { role: "parent" } }),
-      tx.user.count({ where: { role: "teacher", status: "pending" } }),
-      tx.transaction.aggregate({
-        where: { type: "commission", status: "completed" },
-        _sum: { amount: true },
-      }),
-      tx.transaction.aggregate({
-        where: { type: "payment", status: "completed" },
-        _sum: { amount: true },
-      }),
-      tx.session.count({ where: { status: "completed" } }),
-    ]);
+    const [{ k }] = await tx.$queryRaw<[{ k: KpiRow }]>`
+      SELECT json_build_object(
+        'centersActive',    (SELECT count(*) FROM centers WHERE status = 'active'),
+        'centersPending',   (SELECT count(*) FROM centers WHERE status = 'pending'),
+        'teachers',         (SELECT count(*) FROM users
+                              WHERE deleted_at IS NULL AND role = 'teacher' AND status = 'active'),
+        'students',         (SELECT count(*) FROM users WHERE deleted_at IS NULL AND role = 'student'),
+        'parents',          (SELECT count(*) FROM users WHERE deleted_at IS NULL AND role = 'parent'),
+        'pendingTeachers',  (SELECT count(*) FROM users
+                              WHERE deleted_at IS NULL AND role = 'teacher' AND status = 'pending'),
+        'commission',       (SELECT sum(amount) FROM transactions
+                              WHERE type = 'commission' AND status = 'completed'),
+        'lessonRevenue',    (SELECT sum(amount) FROM transactions
+                              WHERE type = 'payment' AND status = 'completed'),
+        'lessonsCompleted', (SELECT count(*) FROM sessions WHERE status = 'completed')
+      ) AS k`;
 
     return {
-      centers: { active: centersActive, pending: centersPending },
-      users: { teachers, students, parents },
-      pendingRegistrations: centersPending + pendingTeachers,
-      platformRevenue: commissionAgg._sum.amount ?? 0,
-      grossLessonRevenue: lessonRevenueAgg._sum.amount ?? 0,
-      lessonsCompleted,
+      centers: { active: k.centersActive, pending: k.centersPending },
+      users: { teachers: k.teachers, students: k.students, parents: k.parents },
+      pendingRegistrations: k.centersPending + k.pendingTeachers,
+      platformRevenue: k.commission ?? 0,
+      grossLessonRevenue: k.lessonRevenue ?? 0,
+      lessonsCompleted: k.lessonsCompleted,
     };
   });
 }

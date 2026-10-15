@@ -22,7 +22,7 @@ export async function generateMetadata({
   const l = getPages(locale).legal;
 
   return {
-    title: `${l.termsTitle} — Edura`,
+    title: `${l.termsTitle} — Linktich`,
     alternates: {
       languages: Object.fromEntries(LOCALES.map((loc) => [loc, `/${loc}/terms`])),
     },
@@ -61,7 +61,7 @@ export default async function TermsPage({
             <section>
               <h2>١. عن المنصة</h2>
               <p>
-                «إدورا» (Edura) منصة إلكترونية تربط السناتر التعليمية والمدرّسين بالطلاب وأولياء
+                «لينكتيتش» (Linktich) منصة إلكترونية تربط السناتر التعليمية والمدرّسين بالطلاب وأولياء
                 الأمور في مصر: إدارة الفصول والحصص، تسجيل الحضور، الاشتراكات والمدفوعات، المحافظ،
                 والتواصل. باستخدامك للمنصة فأنت توافق على هذه الشروط.
               </p>
@@ -78,7 +78,7 @@ export default async function TermsPage({
             <section>
               <h2>٣. دور المنصة</h2>
               <p>
-                إدورا وسيط تقني: الحصص والخدمات التعليمية نفسها يقدمها السنتر أو المدرّس، وهم
+                لينكتيتش وسيط تقني: الحصص والخدمات التعليمية نفسها يقدمها السنتر أو المدرّس، وهم
                 المسؤولون عن جودتها ومواعيدها ومحتواها. المنصة توفر أدوات الإدارة والتحصيل والمتابعة.
               </p>
             </section>
@@ -114,7 +114,7 @@ export default async function TermsPage({
             <section>
               <h2>٧. حدود المسؤولية</h2>
               <p>
-                تُقدَّم المنصة «كما هي». لا تضمن إدورا خلوّها من الانقطاع أو الخطأ، ولا تتحمل مسؤولية
+                تُقدَّم المنصة «كما هي». لا تضمن لينكتيتش خلوّها من الانقطاع أو الخطأ، ولا تتحمل مسؤولية
                 الخدمات التعليمية المقدمة من السناتر والمدرّسين. لا يتجاوز أقصى التزام للمنصة تجاهك
                 قيمة الرسوم التي حصّلتها منك عن الثلاثة أشهر السابقة للمطالبة.
               </p>
@@ -136,7 +136,7 @@ export default async function TermsPage({
             <section>
               <h2>1. About the platform</h2>
               <p>
-                Edura is an online platform connecting teaching centers and teachers with students
+                Linktich is an online platform connecting teaching centers and teachers with students
                 and parents in Egypt: class management, attendance, subscriptions and payments,
                 wallets, and messaging. By using it you agree to these terms.
               </p>
@@ -153,7 +153,7 @@ export default async function TermsPage({
             <section>
               <h2>3. The platform&apos;s role</h2>
               <p>
-                Edura is a technical intermediary: lessons and educational services are provided by
+                Linktich is a technical intermediary: lessons and educational services are provided by
                 the center or teacher, who are responsible for their quality, schedule, and content.
                 The platform provides the management, collection, and follow-up tools.
               </p>
@@ -190,7 +190,7 @@ export default async function TermsPage({
             <section>
               <h2>7. Limitation of liability</h2>
               <p>
-                The platform is provided &quot;as is&quot;. Edura does not guarantee uninterrupted
+                The platform is provided &quot;as is&quot;. Linktich does not guarantee uninterrupted
                 or error-free operation and is not liable for the educational services provided by
                 centers and teachers. The platform&apos;s maximum liability to you shall not exceed
                 the fees it collected from you in the three months preceding the claim.

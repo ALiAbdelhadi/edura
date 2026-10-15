@@ -8,8 +8,10 @@ vi.mock("@repo/server-core/erp-auth/session", () => ({
 }));
 
 const platformDb = vi.fn();
+const queryRaw = vi.fn();
 vi.mock("@repo/server-core/db/scope", () => ({
   platformDb: (cb: (tx: unknown) => unknown, opts?: unknown) => platformDb(cb, opts),
+  prisma: { $queryRaw: (...a: unknown[]) => queryRaw(...(a as [])) },
   scopedDb: vi.fn(),
 }));
 
@@ -45,13 +47,12 @@ const teacherUser: SessionUser = {
 function fakeTx(staffRole: string | null) {
   const auditCreate = vi.fn(async () => ({}));
   const tx = {
-    centerStaff: {
-      findFirst: async () =>
-        staffRole ? { centerId: CENTER_ID, role: staffRole, removedAt: null } : null,
-    },
     user: { findUnique: async () => ({ status: "active" }) },
     auditLog: { create: auditCreate },
   };
+  queryRaw.mockImplementation(async () => [
+    { link: staffRole ? { centerId: CENTER_ID, role: staffRole } : null },
+  ]);
   platformDb.mockImplementation(async (cb: (t: unknown) => unknown) => cb(tx));
   return { auditCreate };
 }

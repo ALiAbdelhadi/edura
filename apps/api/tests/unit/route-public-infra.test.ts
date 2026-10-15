@@ -92,7 +92,11 @@ describe("GET /api/v1/centers/[id]", () => {
 
 describe("GET /api/v1/subjects", () => {
   it("returns only active subjects as the data envelope", async () => {
-    const findMany = vi.fn(async () => [{ id: "s1", nameAr: "رياضيات" }]);
+    const row = {
+      id: "s1", code: "MATH", nameAr: "رياضيات", nameEn: "Math",
+      language: "ar", isAzhari: false, isSecondLanguage: false,
+    };
+    const findMany = vi.fn(async (..._a: unknown[]) => [row]);
     platformDb.mockImplementation(async (cb: (tx: unknown) => unknown) =>
       cb({ subject: { findMany } }),
     );
@@ -100,10 +104,25 @@ describe("GET /api/v1/subjects", () => {
       params: Promise.resolve({}),
     });
     expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe(
+      "public, max-age=0, s-maxage=60, stale-while-revalidate=60",
+    );
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { isActive: true } }),
     );
     const body = (await res.json()) as { data: unknown[] };
-    expect(body.data).toHaveLength(1);
+    expect(body.data).toEqual([row]);
+    expect((body.data[0] as { language?: string }).language).toBe("ar");
+
+    vi.doMock("@repo/server-core/erp-auth/session", () => ({
+      requireSession: async () => ({ id: "u1", role: "student" }),
+    }));
+    const catalog = await import("../../src/routes/v1/catalog/subjects/route");
+    const res2 = await catalog.GET(
+      new Request("http://t.local/api/v1/catalog/subjects?all=1"),
+      { params: Promise.resolve({}) },
+    );
+    expect(((await res2.json()) as { data: unknown[] }).data).toEqual([row]);
+    expect(findMany).toHaveBeenCalledTimes(1);
   });
 });

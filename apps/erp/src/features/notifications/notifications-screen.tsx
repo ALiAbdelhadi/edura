@@ -7,7 +7,8 @@ import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { asKey } from "@/lib/i18n/keys";
 import { useFormatters } from "@/lib/i18n/use-formatters";
-import { useCustomMutation, useList } from "@refinedev/core";
+import { useCustomMutation } from "@refinedev/core";
+import { useInvalidateNotifications, useNotificationList } from "./use-notification-lists";
 import {
   NOTIFICATION_PORTALS,
   notificationPath,
@@ -150,10 +151,8 @@ export function NotificationsScreen() {
     ? (portalFromPath as NotificationPortal)
     : portalForRole((params?.role as string) ?? null);
 
-  const { query, result } = useList<Notification>({
-    resource: "notifications",
-    pagination: { mode: "off" },
-  });
+  const { query, result } = useNotificationList<Notification>();
+  const invalidateNotifications = useInvalidateNotifications();
   const notifications = (result?.data ?? []) as Notification[];
 
   const { mutateAsync: markReadMut } = useCustomMutation();
@@ -169,7 +168,7 @@ export function NotificationsScreen() {
         method: "post",
         values: {},
       });
-      query.refetch();
+      await invalidateNotifications();
     } catch (err) {
       toast.error((err as { message?: string })?.message || t("common.requestFailed"));
     }
@@ -190,7 +189,7 @@ export function NotificationsScreen() {
         method: "post",
         values: {},
       });
-      query.refetch();
+      await invalidateNotifications();
     } catch (err) {
       toast.error((err as { message?: string })?.message || t("common.requestFailed"));
     } finally {

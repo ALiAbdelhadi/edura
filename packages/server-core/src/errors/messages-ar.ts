@@ -279,8 +279,8 @@ export const AR_MESSAGES: Record<string, string> = {
     "سعر المجموعة أقل من رسم القاعة لكل طالب — لن يمكن تسوية الحصص",
   "Each share must be a whole number of basis points between 0 and 10000":
     "كل نصيب يجب أن يكون عددًا صحيحًا من نقاط الأساس بين 0 و10000",
-  "File uploads need Cloudinary storage configured. Add Cloudinary env vars or use a PDF link for now.":
-    "رفع الملفات يحتاج إعداد تخزين Cloudinary. أضِف متغيرات Cloudinary أو استخدم رابط PDF مؤقتًا.",
+  "File uploads need media storage configured. Configure it or use a PDF link for now.":
+    "رفع الملفات يحتاج إعداد خدمة تخزين الوسائط. اضبطها أو استخدم رابط PDF مؤقتًا.",
   "Image uploads are not configured on this server. Add a photo URL instead, or set CLOUDINARY_* env vars.":
     "رفع الصور غير مُعد على هذا الخادم. استخدم رابط صورة بدلًا من ذلك، أو اضبط متغيرات CLOUDINARY_*.",
   "Image uploads are not configured on this server. Set the CLOUDINARY_* env vars.":

@@ -6,7 +6,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Link, useRouter, usePathname } from "@/i18n/navigation";
 import { useGlobalSearch } from "@/lib/api/use-global-search";
 import { useFormatters } from "@/lib/i18n/use-formatters";
-import type { MeResponse } from "@/lib/refine";
+import { QUERY_FRESHNESS, type MeResponse } from "@/lib/refine";
 import { useCustom, useGetIdentity, useList, useLogout } from "@refinedev/core";
 import {
   AppShell,
@@ -101,7 +101,7 @@ function useNavBadges(hrefs: Set<string>): Record<string, number> {
   const { result } = useCustom<{ centers: number; teachers: number; total: number }>({
     url: "admin/registrations/count",
     method: "get",
-    queryOptions: { enabled: Boolean(registrationsHref) },
+    queryOptions: { ...QUERY_FRESHNESS.list, enabled: Boolean(registrationsHref) },
   });
   const total = result?.data?.total;
 
@@ -131,7 +131,9 @@ export default function DashboardShell({
   const { dir } = useFormatters();
   const pathname = usePathname();
   const router = useRouter();
-  const { data: identity } = useGetIdentity<MeResponse>();
+  const { data: identity } = useGetIdentity<MeResponse>({
+    queryOptions: { refetchOnMount: false },
+  });
   const { mutate: logout } = useLogout();
 
   const tNav = React.useCallback(

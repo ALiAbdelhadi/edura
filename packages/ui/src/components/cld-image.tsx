@@ -4,13 +4,13 @@ import * as React from "react"
 
 import { cn } from "@repo/ui/lib/utils"
 import {
-  CLD_PRESETS,
-  cldPlaceholder,
-  cldSrcSet,
-  cldUrl,
-  isCloudinaryUrl,
-  type CldOptions,
-} from "@repo/ui/lib/cloudinary"
+  MEDIA_PRESETS,
+  mediaPlaceholder,
+  mediaSrcSet,
+  mediaUrl,
+  isMediaDeliveryUrl,
+  type MediaOptions,
+} from "@repo/ui/lib/media"
 import {
   Avatar,
   AvatarFallback,
@@ -26,7 +26,7 @@ export type CldImageProps = Omit<
   src: string | null | undefined
   width?: number
   height?: number
-  transform?: CldOptions
+  transform?: MediaOptions
   responsiveWidths?: number[] | false
   placeholder?: boolean
   fallback?: React.ReactNode
@@ -49,18 +49,18 @@ function CldImage({
   const [failedSrc, setFailedSrc] = React.useState<string | null>(null)
   const failed = failedSrc !== null && failedSrc === src
 
-  const options: CldOptions = React.useMemo(
+  const options: MediaOptions = React.useMemo(
     () => ({ width, height, crop: "fill", gravity: "auto", ...transform }),
     [width, height, transform]
   )
 
-  const url = cldUrl(src, options)
+  const url = mediaUrl(src, options)
   const srcSet = React.useMemo(() => {
     if (responsiveWidths === false || !url) return undefined
-    return cldSrcSet(src, responsiveWidths ?? DEFAULT_WIDTHS, options)
+    return mediaSrcSet(src, responsiveWidths ?? DEFAULT_WIDTHS, options)
   }, [src, url, responsiveWidths, options])
 
-  const lqip = placeholder && !failed ? cldPlaceholder(src) : null
+  const lqip = placeholder && !failed ? mediaPlaceholder(src) : null
 
   if (!url || failed) return <>{fallback}</>
 
@@ -124,8 +124,8 @@ function EntityAvatar({
 }: EntityAvatarProps) {
   const px = AVATAR_PX[size]
   const options =
-    variant === "logo" ? CLD_PRESETS.logo(px) : CLD_PRESETS.avatar(px)
-  const url = cldUrl(src, options)
+    variant === "logo" ? MEDIA_PRESETS.logo(px) : MEDIA_PRESETS.avatar(px)
+  const url = mediaUrl(src, options)
 
   return (
     <Avatar
@@ -146,4 +146,4 @@ function EntityAvatar({
   )
 }
 
-export { CldImage, EntityAvatar, initialsOf, isCloudinaryUrl }
+export { CldImage, EntityAvatar, initialsOf, isMediaDeliveryUrl as isCloudinaryUrl }

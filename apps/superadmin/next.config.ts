@@ -86,7 +86,13 @@ const nextConfig = {
   transpilePackages: ["@repo/client-core", "@repo/ui", "@repo/shared", "@repo/observability"],
 };
 
-if (process.env.VERCEL_ENV === "production" && !process.env.ADMIN_API_SERVICE_URL) {
+// In Vercel Services mode the URL is a runtime-only service binding, absent
+// at build time by design (see serviceRewrites).
+if (
+  process.env.VERCEL_ENV === "production" &&
+  process.env.EDURA_SERVICE_BINDINGS !== "1" &&
+  !process.env.ADMIN_API_SERVICE_URL
+) {
   throw new Error(
     [
       "ADMIN_API_SERVICE_URL is missing, and this is a production deploy.",

@@ -1,52 +1,6 @@
-import type { Redis } from "ioredis";
+import { createMemoryStore, resolveKeyValueStore, type KeyValueStore } from "../kv";
 
-type Bucket = { tokens: number; lastRefill: number };
-const buckets = new Map<string, Bucket>();
-
-function checkRateLimitMemory(key: string, capacity: number, refillPerMinute: number): boolean {
-  const now = Date.now();
-  const refillPerMs = refillPerMinute / 60_000;
-
-  let bucket = buckets.get(key);
-  if (!bucket) {
-    bucket = { tokens: capacity, lastRefill: now };
-    buckets.set(key, bucket);
-  }
-
-  const elapsed = now - bucket.lastRefill;
-  bucket.tokens = Math.min(capacity, bucket.tokens + elapsed * refillPerMs);
-  bucket.lastRefill = now;
-
-  if (bucket.tokens < 1) return false;
-  bucket.tokens -= 1;
-  return true;
-}
-
-setInterval(() => {
-  const cutoff = Date.now() - 10 * 60_000;
-  for (const [key, bucket] of buckets) {
-    if (bucket.lastRefill < cutoff) buckets.delete(key);
-  }
-}, 5 * 60_000).unref();
-
-const BUCKET_LUA = `
-local capacity = tonumber(ARGV[1])
-local refillPerMs = tonumber(ARGV[2])
-local now = tonumber(ARGV[3])
-local ttl = tonumber(ARGV[4])
-local data = redis.call('HMGET', KEYS[1], 'tokens', 'ts')
-local tokens = tonumber(data[1])
-local ts = tonumber(data[2])
-if tokens == nil then tokens = capacity; ts = now end
-local elapsed = now - ts
-if elapsed < 0 then elapsed = 0 end
-tokens = math.min(capacity, tokens + elapsed * refillPerMs)
-local allowed = 0
-if tokens >= 1 then tokens = tokens - 1; allowed = 1 end
-redis.call('HSET', KEYS[1], 'tokens', tokens, 'ts', now)
-redis.call('PEXPIRE', KEYS[1], ttl)
-return allowed
-`;
+const memory = createMemoryStore();
 
 function envNamespace(): string {
   const explicit = process.env.EDURA_ENV?.trim();
@@ -58,7 +12,7 @@ function namespacedKey(key: string): string {
   return `rl:${envNamespace()}:${key}`;
 }
 
-let redisClient: Redis | null | undefined;
+let redisStore: KeyValueStore | null | undefined;
 
 const OPEN_AFTER = 3;
 const COOLDOWN_MS = 30_000;
@@ -100,37 +54,24 @@ export function rateLimiterDegraded(): boolean {
   return breakerOpenedAt !== 0;
 }
 
-async function getRedis(): Promise<Redis | null> {
-  if (redisClient !== undefined) return redisClient;
-  const url = process.env.REDIS_URL;
-  if (!url) {
-    redisClient = null;
-    return null;
-  }
-  try {
-    const { default: RedisCtor } = await import("ioredis");
-    const client = new RedisCtor(url, {
-      maxRetriesPerRequest: 1,
-      connectTimeout: 5000,
-    });
-    client.on("error", (e: Error) => {
+async function getRedis(): Promise<KeyValueStore | null> {
+  if (redisStore !== undefined) return redisStore;
+  redisStore = await resolveKeyValueStore({
+    url: process.env.REDIS_URL,
+    onError: (e) => {
       if (process.env.RATE_LIMIT_DEBUG) console.error("[rate-limit] redis error:", e.message);
-    });
-    redisClient = client;
-    return client;
-  } catch (e) {
-    console.error("[rate-limit] redis init failed, using in-memory:", (e as Error).message);
-    redisClient = null;
-    return null;
-  }
+    },
+    onInitError: (e) => console.error("[rate-limit] redis init failed, using in-memory:", e.message),
+  });
+  return redisStore;
 }
 
 export async function closeRateLimiter(): Promise<void> {
-  const client = redisClient;
-  redisClient = undefined;
+  const store = redisStore;
+  redisStore = undefined;
   consecutiveFailures = 0;
   breakerOpenedAt = 0;
-  if (client) await client.quit().catch(() => client.disconnect());
+  if (store) await store.close();
 }
 
 export async function checkRateLimit(
@@ -139,20 +80,22 @@ export async function checkRateLimit(
   refillPerMinute: number,
 ): Promise<boolean> {
   const fullKey = namespacedKey(key);
-  if (breakerIsOpen()) return checkRateLimitMemory(fullKey, capacity, refillPerMinute);
+  const refillPerMs = refillPerMinute / 60_000;
+  const fromMemory = () =>
+    memory.takeToken(fullKey, { capacity, refillPerMs, now: Date.now(), ttlMs: 0 });
+  if (breakerIsOpen()) return fromMemory();
 
   const redis = await getRedis();
-  if (!redis) return checkRateLimitMemory(fullKey, capacity, refillPerMinute);
+  if (!redis) return fromMemory();
 
-  const refillPerMs = refillPerMinute / 60_000;
   const now = Date.now();
-  const ttl = Math.max(60_000, Math.ceil(capacity / refillPerMs) * 2);
+  const ttlMs = Math.max(60_000, Math.ceil(capacity / refillPerMs) * 2);
 
   const pending = redis
-    .eval(BUCKET_LUA, 1, fullKey, capacity, refillPerMs, now, ttl)
-    .then((res) => {
+    .takeToken(fullKey, { capacity, refillPerMs, now, ttlMs })
+    .then((allowed) => {
       recordSuccess();
-      return Number(res) === 1;
+      return allowed;
     })
     .catch((e: Error) => {
       recordFailure();
@@ -169,7 +112,7 @@ export async function checkRateLimit(
 
   const res = await Promise.race([pending, deadline]);
   if (timer) clearTimeout(timer);
-  if (res === null) return checkRateLimitMemory(fullKey, capacity, refillPerMinute);
+  if (res === null) return fromMemory();
   return res;
 }
 
@@ -178,11 +121,11 @@ export function rateLimitKey(key: string): string {
 }
 
 export function __resetRateLimiterForTests(): void {
-  if (redisClient) redisClient.disconnect();
-  redisClient = undefined;
+  if (redisStore) redisStore.disconnect();
+  redisStore = undefined;
   consecutiveFailures = 0;
   breakerOpenedAt = 0;
-  buckets.clear();
+  memory.clear();
 }
 
 export { trustedClientIp } from "./client-ip";

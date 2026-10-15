@@ -5,14 +5,13 @@ import { PageSpinner } from "@/components/kit/spinner";
 import CopyableText from "@/components/ui/copyable-text";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useCustomMutation, useList } from "@refinedev/core";
-import { QUERY_FRESHNESS } from "@/lib/refine";
 import { Button } from "@repo/ui/components/button";
 import { QuerySection } from "@repo/ui/components/query-section";
 import { toast } from "@repo/ui/components/sonner";
 import { Textarea } from "@repo/ui/components/textarea";
 import { Check, Inbox, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Badge, ClearanceNotice, DataTable, DateText, EmptyState, Eyebrow, PageHead, RowIdentity, Sheet, TwoStepCommit, type Column } from "./ledger";
 
 type PopulatedRef = { id?: string; name?: string; title?: string };
@@ -56,25 +55,6 @@ export function AdminEnrollmentRequestsScreen() {
   });
   const requests = (requestsResult?.data ?? []) as EnrollmentRequest[];
 
-  const { result: studentsResult } = useList({ resource: "students", pagination: { mode: "off" }, queryOptions: QUERY_FRESHNESS.list });
-  const { result: coursesResult } = useList({ resource: "courses", pagination: { mode: "off" }, queryOptions: QUERY_FRESHNESS.list });
-
-  const studentMap = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const s of (studentsResult?.data ?? []) as any[]) {
-      m.set(String(s.studentId || s.id), s.name);
-    }
-    return m;
-  }, [studentsResult]);
-
-  const courseMap = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const c of (coursesResult?.data ?? []) as any[]) {
-      m.set(c.id, c.title);
-    }
-    return m;
-  }, [coursesResult]);
-
   const { mutateAsync: approveMut, mutation: approveMutation } = useCustomMutation();
   const { mutateAsync: declineMut, mutation: declineMutation } = useCustomMutation();
 
@@ -82,10 +62,10 @@ export function AdminEnrollmentRequestsScreen() {
 
   const nameOf = (r: EnrollmentRequest) => {
     const id = refId(r.studentId);
-    return refLabel(r.studentId, "name") ?? studentMap.get(id) ?? id;
+    return refLabel(r.studentId, "name") ?? id;
   };
   const courseOf = (r: EnrollmentRequest) =>
-    refLabel(r.courseId, "title") ?? courseMap.get(refId(r.courseId)) ?? refId(r.courseId);
+    refLabel(r.courseId, "title") ?? refId(r.courseId);
 
   const handleApprove = async (id: string) => {
     try {

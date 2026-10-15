@@ -3,6 +3,7 @@ import { ok } from "@repo/server-core/http/envelope";
 import { updateCenterProfile } from "@repo/server-core/backoffice/admin/center-control";
 import { getCenter } from "@repo/server-core/backoffice/admin/platform";
 import { parseJson } from "@repo/server-core/validation/zod";
+import { isPlatformMediaUrl } from "@repo/shared/media-delivery";
 import { z } from "zod";
 
 export const GET = withRole("super_admin", async (_user, _req, ctx) => {
@@ -24,7 +25,7 @@ const patchSchema = z
     logoUrl: z
       .url()
       .max(2000)
-      .refine((u) => u.startsWith("https://res.cloudinary.com/"), "Image must be hosted on Cloudinary")
+      .refine(isPlatformMediaUrl, "Image must be hosted on the platform media storage")
       .nullable()
       .optional(),
     classroomCount: z.number().int().min(0).max(1000).optional(),

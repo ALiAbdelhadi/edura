@@ -1,8 +1,9 @@
 "use client";
 
+import { QUERY_FRESHNESS } from "@repo/client-core/refine/freshness";
 import { useState } from "react";
-import { useCustom } from "@refinedev/core";
 import { useLocale, useTranslations } from "next-intl";
+import { CenterPicker } from "@/features/admin/center-picker";
 import { ShieldBan, UserRound, X } from "lucide-react";
 
 import { IdentityCell, initialsOf } from "@repo/ui/components/identity-cell";
@@ -41,15 +42,16 @@ type TeacherRow = {
   centers: { centerId: string; name: string | null; status: string }[];
 };
 
-type CenterOption = { id: string; name: string };
-
 const MODES = ["counter_only", "counter_and_door"] as const;
 const STATUSES = ["active", "pending", "suspended"] as const;
 
 export function TeachersScreen() {
   const t = useTranslations();
   const locale = useLocale() as Locale;
-  const list = useListScreen<TeacherRow>({ resource: "admin/teachers" });
+  const list = useListScreen<TeacherRow>({
+    resource: "admin/teachers",
+    freshness: QUERY_FRESHNESS.list,
+  });
   const [pendingMode, setPendingMode] = useState<{ id: string; mode: string } | null>(null);
   const [banning, setBanning] = useState<TeacherRow | null>(null);
   const { run: patch } = useAction({ method: "patch" });
@@ -58,18 +60,6 @@ export function TeachersScreen() {
     onSuccess: () => list.query.refetch(),
   });
   const [linking, setLinking] = useState<TeacherRow | null>(null);
-
-  // Centres are picked, not typed. Loaded only when the picker opens.
-  const centersQ = useCustom<CenterOption[]>({
-    url: "admin/centers",
-    method: "get",
-    config: { query: { take: "100" } },
-    queryOptions: { enabled: !!linking },
-  });
-  const centerOptions = (() => {
-    const d = centersQ.result?.data as unknown;
-    return Array.isArray(d) ? (d as CenterOption[]) : [];
-  })();
 
   // NOTE: the normal path for a teacher to join a centre is a collaboration
   // request, which both sides accept. This is the administrative override for
@@ -316,25 +306,19 @@ export function TeachersScreen() {
           <label className="text-xs text-ink-2" htmlFor="link-center">
             {t("teachers.colCenters")}
           </label>
-          <select
+          <CenterPicker
             id="link-center"
-            defaultValue=""
-            className="focus-ledger h-9 rounded-lg border border-rule bg-field px-2 text-[13px] text-ink"
-            onChange={(e) => {
-              const centerId = e.target.value;
+            value={null}
+            enabled={!!linking}
+            exclude={(id) => !!linking?.centers.some((x) => x.centerId === id)}
+            placeholder={t("teachers.pickCenter")}
+            searchPlaceholder={t("teachers.searchCenter")}
+            emptyText={t("teachers.noCenterFound")}
+            onChange={(centerId) => {
               if (!centerId || !linking) return;
               void linkCenter(linking.id, centerId).then(() => setLinking(null));
             }}
-          >
-            <option value="">{t("teachers.pickCenter")}</option>
-            {centerOptions
-              .filter((c) => !linking?.centers.some((x) => x.centerId === c.id))
-              .map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-          </select>
+          />
         </div>
       </DialogContent>
     </Dialog>

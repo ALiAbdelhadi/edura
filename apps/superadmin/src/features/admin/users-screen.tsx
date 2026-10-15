@@ -1,5 +1,6 @@
 "use client";
 
+import { QUERY_FRESHNESS } from "@repo/client-core/refine/freshness";
 import { useLocale, useTranslations } from "next-intl";
 import { ShieldCheck, ShieldOff, UsersRound } from "lucide-react";
 
@@ -52,6 +53,7 @@ export function UsersScreen() {
 
   const list = useCursorListScreen<UserRow>({
     url: "admin/users",
+    freshness: QUERY_FRESHNESS.list,
     take: PAGE,
     select: (data) => {
       const d = data as { users?: UserRow[]; nextCursor?: string | null } | undefined;

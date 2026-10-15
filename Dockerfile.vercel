@@ -1,0 +1,18 @@
+# Vercel Services container for apps/api in the ERP project (Bun runtime, same
+# entry as Railway). Vercel accepts only this exact file name and builds with
+# its directory as the context, so it sits at the repo root, beside bun.lock.
+# scripts/deploy-backoffice.sh swaps in admin-api.Dockerfile for the back office.
+FROM oven/bun:1.4.2
+
+WORKDIR /app
+COPY . .
+# Runs @repo/database's postinstall (prisma generate) like the Railway build.
+RUN bun install --frozen-lockfile
+
+ENV NODE_ENV=production
+# Vercel containers listen on 80 by default; src/env.ts reads PORT.
+ENV PORT=80
+EXPOSE 80
+
+WORKDIR /app/apps/api
+CMD ["bun", "src/server.ts"]

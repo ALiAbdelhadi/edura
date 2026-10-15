@@ -37,6 +37,7 @@ import { Num, ProseCount } from "@repo/ui/components/num";
 import { formatPercent, type Locale } from "@repo/ui/lib/format";
 import { asKey } from "@/lib/i18n/keys";
 import { useAdminGet } from "./use-oversight";
+import { CenterPicker } from "@/features/admin/center-picker";
 
 const REPORTS = [
   { key: "revenue", labelKey: "rp_revenue" },
@@ -202,10 +203,6 @@ function MoveStudentDialog({
     leftBehind?: { activeEnrollments: number; activeSubscriptions: number; payments: number };
   }>({ successMsg: t("pf_movedOk") });
   const students = useRoster(centerId, open);
-  const centers = useAdminGet<{ id: string; name: string; status: string }[]>("admin/centers", {
-    enabled: open,
-    query: { take: "100" },
-  });
   const [result, setResult] = useState<null | {
     leftBehind: { activeEnrollments: number; activeSubscriptions: number; payments: number };
   }>(null);
@@ -225,12 +222,23 @@ function MoveStudentDialog({
     {
       name: "toCenterId",
       label: t("pf_destination"),
-      type: "select",
+      type: "custom",
       required: true,
-      placeholder: t("pf_pickCenter"),
-      options: (centers.data ?? [])
-        .filter((c) => c.id !== centerId && c.status === "active")
-        .map((c) => ({ value: c.id, label: c.name })),
+      render: (f) => (
+        <CenterPicker
+          value={typeof f.value === "string" && f.value ? f.value : null}
+          enabled={open}
+          activeOnly
+          exclude={(id) => id === centerId}
+          placeholder={t("pf_pickCenter")}
+          searchPlaceholder={t("pf_searchCenter")}
+          emptyText={t("pf_noCenterFound")}
+          onChange={(v) => {
+            f.onChange(v ?? "");
+            f.onBlur();
+          }}
+        />
+      ),
     },
     { name: "reason", label: t("pf_reason"), type: "textarea", rows: 2, required: true },
   ];

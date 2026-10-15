@@ -185,6 +185,7 @@ export function BottomNav({
                           <Link
                             key={item.key}
                             href={item.href}
+                            prefetch={false}
                             onClick={() => setOpen(false)}
                             aria-current={
                               item.key === activeKey ? "page" : undefined
@@ -265,6 +266,7 @@ function BottomNavLink({
   return (
     <Link
       href={item.href}
+      prefetch={false}
       aria-current={active ? "page" : undefined}
       aria-label={item.badgeLabel}
       data-tour={item.tour}

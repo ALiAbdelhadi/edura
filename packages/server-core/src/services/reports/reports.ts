@@ -1,7 +1,7 @@
-import { PaymentStatus } from "@repo/database";
+import { PaymentStatus, Prisma, type SessionStatus } from "@repo/database";
 import { scopedDb, platformDb, type TenantTx } from "../../db/scope";
 import type { SessionUser } from "../../auth/types";
-import { dayRange, platformTodayWindow } from "../../lib/day-range";
+import { dayRange, platformTodayWindow, type DayRange } from "../../lib/day-range";
 import {
   endOfPlatformDay,
   platformDayKey,
@@ -170,6 +170,40 @@ function courseNarrow(courseIds: string[] | null) {
   return courseIds === null ? {} : { courseId: { in: courseIds } };
 }
 
+const ISO_MS = `'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'`;
+
+function paymentBaseSql(centerId: string) {
+  return Prisma.sql`p.center_id = ${centerId}::uuid AND p.status NOT IN ('failed', 'pending')`;
+}
+
+function provenanceSql(centerId: string, f?: ProvenanceFilter) {
+  const filtered = !isUnfiltered(f);
+  const dataSource = filtered && f?.dataSource ? f.dataSource : null;
+  const scope =
+    filtered && f?.systemStatus
+      ? Prisma.sql`(SELECT c.id FROM courses c WHERE c.center_id = ${centerId}::uuid
+          AND c.teacher_id IN (SELECT tp.user_id FROM teacher_profiles tp
+                               WHERE tp.system_status = ${f.systemStatus}::teacher_system_status))`
+      : null;
+  return {
+    source: (col: string) =>
+      dataSource ? Prisma.sql`AND ${Prisma.raw(col)} = ${dataSource}::data_source` : Prisma.empty,
+    scope: (col: string) => (scope ? Prisma.sql`AND ${Prisma.raw(col)} IN ${scope}` : Prisma.empty),
+  };
+}
+
+function rangeSql(col: string, range?: DayRange) {
+  const gte = range?.gte ? Prisma.sql`AND ${Prisma.raw(col)} >= ${range.gte}` : Prisma.empty;
+  const lte = range?.lte ? Prisma.sql`AND ${Prisma.raw(col)} <= ${range.lte}` : Prisma.empty;
+  return Prisma.sql`${gte} ${lte}`;
+}
+
+function sessionDateSql(col: string, range?: DayRange) {
+  return range
+    ? Prisma.sql`AND ${Prisma.raw(col)} IN (SELECT s.id FROM sessions s WHERE TRUE ${rangeSql("s.date", range)})`
+    : Prisma.empty;
+}
+
 export async function getRevenueReport(
   user: SessionUser,
   from?: string,
@@ -236,21 +270,23 @@ export async function getRevenueTimeseries(
   );
 
   const { payments, expenses } = await scopedDb(user, async (tx) => {
-    const { dataSource, courseIds } = await resolveProvenance(tx, centerId, provenance);
-    const payments = await tx.payment.findMany({
-      where: {
-        ...paymentWhereBase(centerId),
-        paidAt: { gte: fromDate, lte: toDate },
-        ...(dataSource ? { dataSource } : {}),
-        ...courseNarrow(courseIds),
-      },
-      select: { amount: true, paidAt: true },
-    });
-    const expenses = await tx.expense.findMany({
-      where: { centerId, expenseDate: { gte: fromDate, lte: toDate } },
-      select: { amount: true, expenseDate: true },
-    });
-    return { payments, expenses };
+    const prov = provenanceSql(centerId, provenance);
+    const rows = await tx.$queryRaw<
+      [{ payments: { amount: number; paidAt: string }[]; expenses: { amount: number; expenseDate: string }[] }]
+    >`
+      SELECT
+        (SELECT coalesce(json_agg(json_build_object(
+            'amount', p.amount, 'paidAt', to_char(p.paid_at AT TIME ZONE 'UTC', ${Prisma.raw(ISO_MS)}))), '[]'::json)
+         FROM payments p
+         WHERE ${paymentBaseSql(centerId)}
+           AND p.paid_at >= ${fromDate} AND p.paid_at <= ${toDate}
+           ${prov.source("p.data_source")} ${prov.scope("p.course_id")}) AS payments,
+        (SELECT coalesce(json_agg(json_build_object(
+            'amount', x.amount, 'expenseDate', to_char(x.expense_date AT TIME ZONE 'UTC', ${Prisma.raw(ISO_MS)}))), '[]'::json)
+         FROM expenses x
+         WHERE x.center_id = ${centerId}::uuid
+           AND x.expense_date >= ${fromDate} AND x.expense_date <= ${toDate}) AS expenses`;
+    return rows[0];
   });
 
   for (const row of payments) {
@@ -330,32 +366,18 @@ export async function getCourseFillRates(
   const centerId = user.centerId as string;
 
   return scopedDb(user, async (tx) => {
-    const { dataSource, courseIds: scopeIds } = await resolveProvenance(
-      tx,
-      centerId,
-      provenance,
-    );
-    const courses = await tx.course.findMany({
-      where: {
-        centerId,
-        status: "active",
-        ...(dataSource ? { dataSource } : {}),
-        ...(scopeIds === null ? {} : { id: { in: scopeIds } }),
-      },
-      select: { id: true, title: true, maxStudents: true },
-    });
+    const prov = provenanceSql(centerId, provenance);
+    const courses = await tx.$queryRaw<{ id: string; title: string; maxStudents: number | null; enrolled: number }[]>`
+      SELECT c.id, c.title, c.max_students AS "maxStudents",
+        (SELECT count(*)::int FROM enrollments e WHERE e.course_id = c.id AND e.status = 'active') AS enrolled
+      FROM courses c
+      WHERE c.center_id = ${centerId}::uuid AND c.status = 'active'
+        ${prov.source("c.data_source")} ${prov.scope("c.id")}`;
     if (courses.length === 0) return { items: [] as CourseFillRatePoint[] };
 
-    const courseIds = courses.map((course) => course.id);
-    const enrollments = await tx.enrollment.groupBy({
-      by: ["courseId"],
-      where: { courseId: { in: courseIds }, status: "active" },
-      _count: true,
-    });
-    const enrollmentByCourse = new Map(enrollments.map((row) => [row.courseId, row._count]));
     const items = courses
       .map((course) => {
-        const enrolled = enrollmentByCourse.get(course.id) ?? 0;
+        const enrolled = course.enrolled;
         const maxStudents = course.maxStudents ?? 0;
         return {
           courseId: course.id,
@@ -381,21 +403,16 @@ export async function getAttendanceByCourse(
   const df = dateFilter(from, to);
 
   return scopedDb(user, async (tx) => {
-    const { dataSource, courseIds: scopeIds } = await resolveProvenance(
-      tx,
-      centerId,
-      provenance,
-    );
-    const rows = await tx.attendanceRecord.groupBy({
-      by: ["courseId", "status"],
-      where: {
-        centerId,
-        ...(df ? { session: { date: df } } : {}),
-        ...(dataSource ? { dataSource } : {}),
-        ...courseNarrow(scopeIds),
-      },
-      _count: true,
-    });
+    const prov = provenanceSql(centerId, provenance);
+    const rows = await tx.$queryRaw<
+      { courseId: string; status: string; _count: number; title: string | null }[]
+    >`
+      SELECT a.course_id AS "courseId", a.status::text AS status, count(*)::int AS "_count",
+        (SELECT c.title FROM courses c WHERE c.id = a.course_id) AS title
+      FROM attendance_records a
+      WHERE a.center_id = ${centerId}::uuid
+        ${sessionDateSql("a.session_id", df)} ${prov.source("a.data_source")} ${prov.scope("a.course_id")}
+      GROUP BY a.course_id, a.status`;
 
     const byCourse = new Map<string, { present: number; absent: number; excused: number }>();
     for (const row of rows) {
@@ -406,12 +423,7 @@ export async function getAttendanceByCourse(
       byCourse.set(row.courseId, entry);
     }
 
-    const courseIds = [...byCourse.keys()];
-    const courses =
-      courseIds.length > 0
-        ? await tx.course.findMany({ where: { id: { in: courseIds } }, select: { id: true, title: true } })
-        : [];
-    const titleById = new Map(courses.map((course) => [course.id, course.title]));
+    const titleById = new Map(rows.filter((row) => row.title !== null).map((row) => [row.courseId, row.title as string]));
 
     const items: AttendanceByCoursePoint[] = [...byCourse.entries()]
       .map(([courseId, counts]) => {
@@ -814,6 +826,22 @@ export async function getNetProfitReport(user: SessionUser, from?: string, to?: 
   };
 }
 
+type AdminDashboardBase = {
+  totalStudents: number;
+  totalTeachers: number;
+  totalCourses: number;
+  todaySessionCount: number;
+  revenue: number;
+  expenses: number;
+  pendingEnrollmentRequests: number;
+  attendanceTotal: number;
+  attendancePresent: number;
+  externalTeachers: number;
+  externalCourses: number;
+  externalStudents: number;
+  externalRevenue: number;
+};
+
 export async function getAdminDashboard(
   user: SessionUser,
   provenance?: ProvenanceFilter,
@@ -830,106 +858,68 @@ export async function getAdminDashboard(
   const [base, feeDefaulters, trend, sessionStatusMix, attendanceByCourse, courseFillRates, enrollmentFunnel] =
     await Promise.all([
       scopedDb(user, async (tx) => {
-        const { dataSource, courseIds } = await resolveProvenance(tx, centerId, provenance);
-        const courseScope = courseNarrow(courseIds);
-
-        const totalStudents = await tx.enrollment.count({
-          where: { centerId, status: "active", ...courseScope, ...(dataSource ? { dataSource } : {}) },
-        });
-        const teacherGroups = await tx.course.groupBy({
-          by: ["teacherId"],
-          where: {
-            centerId,
-            status: "active",
-            ...(dataSource ? { dataSource } : {}),
-            ...(courseIds === null ? {} : { id: { in: courseIds } }),
-          },
-        });
-        const totalCourses = await tx.course.count({
-          where: {
-            centerId,
-            status: "active",
-            ...(dataSource ? { dataSource } : {}),
-            ...(courseIds === null ? {} : { id: { in: courseIds } }),
-          },
-        });
-        const todaySessionCount = await tx.session.count({
-          where: {
-            date: { gte: todayStart, lt: todayEnd },
-            course: { centerId },
-            ...courseScope,
-            ...(dataSource ? { dataSource } : {}),
-          },
-        });
-        const revenueAgg = await tx.payment.aggregate({
-          where: {
-            ...paymentWhereBase(centerId),
-            ...courseScope,
-            ...(dataSource ? { dataSource } : {}),
-            ...(money ? { paidAt: money } : {}),
-          },
-          _sum: { amount: true },
-        });
-        const expenseAgg = await tx.expense.aggregate({
-          where: { centerId, ...(money ? { expenseDate: money } : {}) },
-          _sum: { amount: true },
-        });
-        const pendingEnrollmentRequests = await tx.enrollmentRequest.count({
-          where: { centerId, status: "pending", ...courseScope },
-        });
-        const attendanceWhen = money ? { session: { date: money } } : {};
-        const attendanceByStatus = await tx.attendanceRecord.groupBy({
-          by: ["status"],
-          where: { centerId, ...courseScope, ...(dataSource ? { dataSource } : {}), ...attendanceWhen },
-          _count: true,
-        });
-        const attendanceTotal = attendanceByStatus.reduce((sum, row) => sum + row._count, 0);
-        const attendancePresent =
-          attendanceByStatus.find((row) => row.status === "present")?._count ?? 0;
-
-        const externalProfiles = await tx.teacherProfile.findMany({
-          where: { managedByCenterId: centerId, systemStatus: "external" },
-          select: { userId: true },
-        });
-        const externalTeacherIds = externalProfiles.map((p) => p.userId);
-        const externalCourses = externalTeacherIds.length
-          ? await tx.course.findMany({
-              where: { centerId, teacherId: { in: externalTeacherIds }, status: "active" },
-              select: { id: true },
-            })
-          : [];
-        const externalCourseIds = externalCourses.map((c) => c.id);
-        const externalRevenue = externalCourseIds.length
-          ? await tx.payment.aggregate({
-              where: {
-                ...paymentWhereBase(centerId),
-                courseId: { in: externalCourseIds },
-                ...(money ? { paidAt: money } : {}),
-              },
-              _sum: { amount: true },
-            })
-          : null;
-        const externalStudents = externalCourseIds.length
-          ? await tx.enrollment.count({
-              where: { centerId, status: "active", courseId: { in: externalCourseIds } },
-            })
-          : 0;
-
+        const prov = provenanceSql(centerId, provenance);
+        const rows = await tx.$queryRaw<[{ base: AdminDashboardBase }]>`
+          WITH ext_courses AS (
+            SELECT c.id FROM courses c
+            WHERE c.center_id = ${centerId}::uuid AND c.status = 'active'
+              AND c.teacher_id IN (SELECT tp.user_id FROM teacher_profiles tp
+                                   WHERE tp.managed_by_center_id = ${centerId}::uuid
+                                     AND tp.system_status = 'external')
+          )
+          SELECT json_build_object(
+            'totalStudents', (SELECT count(*) FROM enrollments e
+               WHERE e.center_id = ${centerId}::uuid AND e.status = 'active'
+                 ${prov.scope("e.course_id")} ${prov.source("e.data_source")}),
+            'totalTeachers', (SELECT count(DISTINCT c.teacher_id) FROM courses c
+               WHERE c.center_id = ${centerId}::uuid AND c.status = 'active'
+                 ${prov.source("c.data_source")} ${prov.scope("c.id")}),
+            'totalCourses', (SELECT count(*) FROM courses c
+               WHERE c.center_id = ${centerId}::uuid AND c.status = 'active'
+                 ${prov.source("c.data_source")} ${prov.scope("c.id")}),
+            'todaySessionCount', (SELECT count(*) FROM sessions s
+               WHERE s.date >= ${todayStart} AND s.date < ${todayEnd}
+                 AND s.course_id IN (SELECT c.id FROM courses c WHERE c.center_id = ${centerId}::uuid)
+                 ${prov.scope("s.course_id")} ${prov.source("s.data_source")}),
+            'revenue', (SELECT coalesce(sum(p.amount), 0) FROM payments p
+               WHERE ${paymentBaseSql(centerId)}
+                 ${prov.scope("p.course_id")} ${prov.source("p.data_source")} ${rangeSql("p.paid_at", money)}),
+            'expenses', (SELECT coalesce(sum(x.amount), 0) FROM expenses x
+               WHERE x.center_id = ${centerId}::uuid ${rangeSql("x.expense_date", money)}),
+            'pendingEnrollmentRequests', (SELECT count(*) FROM enrollment_requests r
+               WHERE r.center_id = ${centerId}::uuid AND r.status = 'pending' ${prov.scope("r.course_id")}),
+            'attendanceTotal', (SELECT count(*) FROM attendance_records a
+               WHERE a.center_id = ${centerId}::uuid
+                 ${prov.scope("a.course_id")} ${prov.source("a.data_source")} ${sessionDateSql("a.session_id", money)}),
+            'attendancePresent', (SELECT count(*) FROM attendance_records a
+               WHERE a.center_id = ${centerId}::uuid AND a.status = 'present'
+                 ${prov.scope("a.course_id")} ${prov.source("a.data_source")} ${sessionDateSql("a.session_id", money)}),
+            'externalTeachers', (SELECT count(*) FROM teacher_profiles tp
+               WHERE tp.managed_by_center_id = ${centerId}::uuid AND tp.system_status = 'external'),
+            'externalCourses', (SELECT count(*) FROM ext_courses),
+            'externalStudents', (SELECT count(*) FROM enrollments e
+               WHERE e.center_id = ${centerId}::uuid AND e.status = 'active'
+                 AND e.course_id IN (SELECT id FROM ext_courses)),
+            'externalRevenue', (SELECT coalesce(sum(p.amount), 0) FROM payments p
+               WHERE ${paymentBaseSql(centerId)}
+                 AND p.course_id IN (SELECT id FROM ext_courses) ${rangeSql("p.paid_at", money)})
+          ) AS base`;
+        const b = rows[0].base;
         return {
-          totalStudents,
-          totalTeachers: teacherGroups.length,
-          totalCourses,
-          todaySessionCount,
-          revenue: revenueAgg._sum.amount ?? 0,
-          expenses: expenseAgg._sum.amount ?? 0,
-          pendingEnrollmentRequests,
-          attendanceTotal,
-          attendancePresent,
+          totalStudents: b.totalStudents,
+          totalTeachers: b.totalTeachers,
+          totalCourses: b.totalCourses,
+          todaySessionCount: b.todaySessionCount,
+          revenue: b.revenue,
+          expenses: b.expenses,
+          pendingEnrollmentRequests: b.pendingEnrollmentRequests,
+          attendanceTotal: b.attendanceTotal,
+          attendancePresent: b.attendancePresent,
           external: {
-            teachers: externalTeacherIds.length,
-            courses: externalCourseIds.length,
-            students: externalStudents,
-            revenue: externalRevenue?._sum.amount ?? 0,
+            teachers: b.externalTeachers,
+            courses: b.externalCourses,
+            students: b.externalStudents,
+            revenue: b.externalRevenue,
           },
         };
       }),
@@ -972,34 +962,43 @@ async function countFeeDefaulters(user: SessionUser): Promise<number> {
   const centerId = user.centerId as string;
 
   return scopedDb(user, async (tx) => {
-    const enrollments = await tx.enrollment.findMany({
-      where: { centerId, status: "active" },
-      select: { studentId: true, course: { select: { price: true } } },
-    });
-    if (enrollments.length === 0) return 0;
-
-    const owedByStudent = new Map<string, number>();
-    for (const enrollment of enrollments) {
-      const prev = owedByStudent.get(enrollment.studentId) ?? 0;
-      owedByStudent.set(enrollment.studentId, prev + (enrollment.course?.price ?? 0));
-    }
-
-    const studentIds = [...owedByStudent.keys()];
-    const paidPerStudent = await tx.payment.groupBy({
-      by: ["studentId"],
-      where: { ...paymentWhereBase(centerId), studentId: { in: studentIds } },
-      _sum: { amount: true },
-    });
-    const paidMap = new Map(paidPerStudent.map((row) => [row.studentId, row._sum.amount ?? 0]));
-
-    let count = 0;
-    for (const [studentId, owed] of owedByStudent) {
-      const paid = paidMap.get(studentId) ?? 0;
-      if (owed - paid > 0) count += 1;
-    }
-    return count;
+    const rows = await tx.$queryRaw<[{ n: number }]>`
+      SELECT count(*)::int AS n FROM (
+        SELECT e.student_id, sum(c.price) AS owed
+        FROM enrollments e
+        JOIN courses c ON c.id = e.course_id
+        WHERE e.center_id = ${centerId}::uuid AND e.status = 'active'
+        GROUP BY e.student_id
+      ) o
+      WHERE o.owed - coalesce((SELECT sum(p.amount) FROM payments p
+                               WHERE ${paymentBaseSql(centerId)} AND p.student_id = o.student_id), 0) > 0`;
+    return rows[0].n;
   });
 }
+
+type TeacherDashboardBase = {
+  activeCourses: {
+    id: string;
+    title: string;
+    maxStudents: number;
+    subject: string | null;
+    gradeTag: string | null;
+    defaultRoomId: string | null;
+  }[];
+  activeStudents: number;
+  todaySessions: {
+    id: string;
+    courseId: string;
+    startTime: string | null;
+    endTime: string | null;
+    roomId: string | null;
+    status: SessionStatus;
+  }[];
+  attendanceTotal: number;
+  attendancePresent: number;
+  counterOnlyToday: number;
+  rooms: { id: string; name: string }[];
+};
 
 export async function getTeacherDashboard(
   user: SessionUser,
@@ -1011,64 +1010,49 @@ export async function getTeacherDashboard(
 
   const when = dayRange(period?.from, period?.to);
 
-  const base = await scopedDb(user, async (tx) => {
-    const activeCourses = await tx.course.findMany({
-      where: { teacherId, status: "active" },
-      select: { id: true, title: true, maxStudents: true, subject: true, gradeTag: true, defaultRoomId: true },
-    });
-    const activeCourseIds = activeCourses.map((course) => course.id);
-
-    const activeStudents = await tx.enrollment.count({
-      where: { courseId: { in: activeCourseIds }, status: "active" },
-    });
-    const todaySessions = await tx.session.findMany({
-      where: {
-        teacherId,
-        date: { gte: todayStart, lt: todayEnd },
-        status: { in: ["scheduled", "postponed"] },
-      },
-      select: { id: true, courseId: true, startTime: true, endTime: true, roomId: true, status: true },
-    });
-    const attendanceWhen = when ? { session: { date: when } } : {};
-    const attendanceByStatus = await tx.attendanceRecord.groupBy({
-      by: ["status"],
-      where: { courseId: { in: activeCourseIds }, ...attendanceWhen },
-      _count: true,
-    });
-    const attendanceTotal = attendanceByStatus.reduce((sum, row) => sum + row._count, 0);
-    const attendancePresent =
-      attendanceByStatus.find((row) => row.status === "present")?._count ?? 0;
-    const counterOnlyToday = await tx.attendanceRecord.count({
-      where: {
-        status: "counter_only",
-        session: {
-          teacherId,
-          date: { gte: todayStart, lt: todayEnd },
-          status: { not: "cancelled" },
-        },
-      },
-    });
-
-    const courseRoomIds = activeCourses.map((course) => course.defaultRoomId).filter(Boolean) as string[];
-    const sessionRoomIds = todaySessions.map((session) => session.roomId).filter(Boolean) as string[];
-    const allRoomIds = [...new Set([...courseRoomIds, ...sessionRoomIds])];
-    const rooms =
-      allRoomIds.length > 0
-        ? await tx.room.findMany({ where: { id: { in: allRoomIds } }, select: { id: true, name: true } })
-        : [];
-
-    return {
-      activeCourses,
-      activeStudents,
-      todaySessions,
-      attendanceTotal,
-      attendancePresent,
-      counterOnlyToday,
-      rooms,
-    };
+  const baseP = scopedDb(user, async (tx) => {
+    const rows = await tx.$queryRaw<[{ base: TeacherDashboardBase }]>`
+      WITH active AS (
+        SELECT c.id, c.title, c.max_students, c.subject, c.grade_tag, c.default_room_id
+        FROM courses c WHERE c.teacher_id = ${teacherId}::uuid AND c.status = 'active'
+      ),
+      today AS (
+        SELECT s.id, s.course_id, s.start_time, s.end_time, s.room_id, s.status
+        FROM sessions s
+        WHERE s.teacher_id = ${teacherId}::uuid
+          AND s.date >= ${todayStart} AND s.date < ${todayEnd}
+          AND s.status IN ('scheduled', 'postponed')
+      )
+      SELECT json_build_object(
+        'activeCourses', (SELECT coalesce(json_agg(json_build_object(
+            'id', a.id, 'title', a.title, 'maxStudents', a.max_students, 'subject', a.subject,
+            'gradeTag', a.grade_tag, 'defaultRoomId', a.default_room_id)), '[]'::json) FROM active a),
+        'activeStudents', (SELECT count(*) FROM enrollments e
+           WHERE e.course_id IN (SELECT id FROM active) AND e.status = 'active'),
+        'todaySessions', (SELECT coalesce(json_agg(json_build_object(
+            'id', t.id, 'courseId', t.course_id, 'startTime', t.start_time, 'endTime', t.end_time,
+            'roomId', t.room_id, 'status', t.status)), '[]'::json) FROM today t),
+        'attendanceTotal', (SELECT count(*) FROM attendance_records a
+           WHERE a.course_id IN (SELECT id FROM active) ${sessionDateSql("a.session_id", when)}),
+        'attendancePresent', (SELECT count(*) FROM attendance_records a
+           WHERE a.course_id IN (SELECT id FROM active) AND a.status = 'present'
+             ${sessionDateSql("a.session_id", when)}),
+        'counterOnlyToday', (SELECT count(*) FROM attendance_records a
+           WHERE a.status = 'counter_only'
+             AND a.session_id IN (SELECT s.id FROM sessions s
+               WHERE s.teacher_id = ${teacherId}::uuid
+                 AND s.date >= ${todayStart} AND s.date < ${todayEnd}
+                 AND s.status <> 'cancelled')),
+        'rooms', (SELECT coalesce(json_agg(json_build_object('id', r.id, 'name', r.name)), '[]'::json)
+           FROM rooms r
+           WHERE r.id IN (SELECT a.default_room_id FROM active a WHERE a.default_room_id IS NOT NULL
+                          UNION SELECT t.room_id FROM today t WHERE t.room_id IS NOT NULL))
+      ) AS base`;
+    return rows[0].base;
   });
 
-  const [gradeLoad, attendanceTrend, scoreDistribution] = await Promise.all([
+  const [base, gradeLoad, attendanceTrend, scoreDistribution] = await Promise.all([
+    baseP,
     getTeacherGradeLoad(user),
     getTeacherAttendanceTrend(user, undefined, undefined, "week"),
     getTeacherScoreDistribution(user),

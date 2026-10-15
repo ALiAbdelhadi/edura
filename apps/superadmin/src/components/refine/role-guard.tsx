@@ -15,7 +15,7 @@ export default function RoleGuard({
 }) {
   const router = useRouter();
   const t = useTranslations();
-  const { data: identity, isLoading } = useGetIdentity<MeResponse>();
+  const { data: identity, isLoading } = useGetIdentity<MeResponse>({ queryOptions: { refetchOnMount: false } });
 
   useEffect(() => {
     if (!isLoading && identity) {

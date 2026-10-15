@@ -8,18 +8,20 @@ vi.mock("@repo/server-core/authz/require-role", () => ({ requireRole }));
 vi.mock("@repo/server-core/db/scope", () => ({
   scopedDb: async (_u: unknown, fn: (tx: any) => Promise<unknown>) =>
     fn({
-      enrollment: { findMany: async () => [{ courseId: "c1" }] },
-      course: { findMany: async () => [{ id: "c1", title: "رياضيات", subject: "math", centerId: null }] },
-      session: { findMany: async () => [] },
-      attendanceRecord: { groupBy: async () => [] },
-      grade: { findMany: async () => [] },
-      user: { findMany: async () => [] },
-      room: { findMany: async () => [] },
-      center: { findMany: async () => [] },
+      $queryRaw: async () => [
+        {
+          j: {
+            courses: [{ id: "c1", title: "رياضيات" }],
+            today: [],
+            upcoming: [],
+            attendanceTotal: 0,
+            attendancePresent: 0,
+            grades: [],
+            trend: [],
+          },
+        },
+      ],
     }),
-}));
-vi.mock("@repo/server-core/services/reports/reports", () => ({
-  studentGradeTrendTx: async () => ({ items: [] }),
 }));
 
 const { GET } = await import("../../src/routes/v1/dashboards/student/route");

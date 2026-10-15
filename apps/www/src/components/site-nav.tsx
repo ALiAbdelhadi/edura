@@ -38,7 +38,7 @@ export function SiteNav({
   return (
     <header className="sticky top-0 z-50 border-b border-rule bg-paper/85 backdrop-blur-md">
       <nav className="mx-auto flex w-full max-w-[87.5rem] items-center gap-6 px-6 py-4 md:px-10">
-        <Link href={`/${locale}`} aria-label="Edura" className="tap inline-flex">
+        <Link href={`/${locale}`} aria-label="Linktich" className="tap inline-flex">
           <Wordmark />
         </Link>
 

@@ -1,7 +1,9 @@
+import type { Course } from "@repo/database";
 import { platformDb } from "../../db/scope";
 import type { SessionUser } from "../../auth/types";
 import { NotFoundError } from "../../errors/classes";
 import { canSeeMeetingLink } from "../discovery/meeting-link";
+import { COURSE_COLUMNS } from "./list-courses";
 
 function schedulePatternOf(course: {
   daysOfWeek: number[];
@@ -19,10 +21,28 @@ function schedulePatternOf(course: {
   };
 }
 
+type CourseDetailRow = Course & {
+  _enrolled: number;
+  _teacherName: string | null;
+  _centerName: string | null;
+  _avgRating: number | null;
+  _reviewCount: number;
+};
+
 export function getCourseDetail(viewer: SessionUser | null, id: string) {
   return platformDb(async (tx) => {
-    const course = await tx.course.findUnique({ where: { id } });
-    if (!course) throw new NotFoundError("Course not found");
+    const [row] = await tx.$queryRaw<CourseDetailRow[]>`
+      SELECT ${COURSE_COLUMNS},
+             (SELECT count(*)::int FROM enrollments en
+               WHERE en.course_id = c.id AND en.status = 'active') AS "_enrolled",
+             (SELECT u.name FROM users u WHERE u.id = c.teacher_id) AS "_teacherName",
+             (SELECT ce.name FROM centers ce WHERE ce.id = c.center_id) AS "_centerName",
+             (SELECT avg(rv.rating)::float8 FROM reviews rv WHERE rv.teacher_id = c.teacher_id) AS "_avgRating",
+             (SELECT count(*)::int FROM reviews rv WHERE rv.teacher_id = c.teacher_id) AS "_reviewCount"
+        FROM courses c
+       WHERE c.id = ${id}::uuid`;
+    if (!row) throw new NotFoundError("Course not found");
+    const { _enrolled: enrolledCount, _teacherName, _centerName, _avgRating: avg, _reviewCount, ...course } = row;
 
     // The meeting link is the thing being paid for: anyone holding it can sit in
     // the online lesson for free. This route is readable without a session, so
@@ -30,20 +50,6 @@ export function getCourseDetail(viewer: SessionUser | null, id: string) {
     // see `canSeeMeetingLink` (SECURITY_AUDIT.md DIFF-02).
     const canSeeLink = await canSeeMeetingLink(tx, course, viewer);
 
-    const [enrolledCount, teacher, center, reviews] = await Promise.all([
-      tx.enrollment.count({ where: { courseId: id, status: "active" } }),
-      tx.user.findUnique({ where: { id: course.teacherId }, select: { id: true, name: true } }),
-      course.centerId
-        ? tx.center.findUnique({ where: { id: course.centerId }, select: { id: true, name: true } })
-        : null,
-      tx.review.aggregate({
-        where: { teacherId: course.teacherId },
-        _avg: { rating: true },
-        _count: true,
-      }),
-    ]);
-
-    const avg = reviews._avg.rating;
     return {
       ...course,
       onlineUrl: canSeeLink ? course.onlineUrl : null,
@@ -51,11 +57,11 @@ export function getCourseDetail(viewer: SessionUser | null, id: string) {
       schedulePattern: schedulePatternOf(course),
       remainingSeats: course.maxStudents - enrolledCount,
       enrolledCount,
-      teacherName: teacher?.name ?? "",
-      centerName: center?.name ?? "",
+      teacherName: _teacherName ?? "",
+      centerName: _centerName ?? "",
       centerId: course.centerId,
       teacherRating: avg ? Math.round(avg * 10) / 10 : 0,
-      teacherReviewCount: reviews._count ?? 0,
+      teacherReviewCount: _reviewCount ?? 0,
     };
   });
 }

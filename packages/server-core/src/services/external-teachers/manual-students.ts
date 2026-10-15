@@ -464,6 +464,15 @@ export type TeacherStudentRow = {
   activeSubscriptions: number;
 };
 
+type StudentsData = {
+  courses: { id: string; title: string }[];
+  enrollments: { studentId: string; courseId: string; dataSource: "system" | "manual" }[];
+  users: { id: string; name: string; phone: string | null }[];
+  profiles: { userId: string; studentCode: string | null; fullName: string | null }[];
+  otherEnrollments: { studentId: string; teacherId: string | null; systemStatus: string | null }[];
+  subs: { studentId: string; n: number }[];
+};
+
 export async function listTeacherStudents(
   acting: SessionUser,
   teacherId: string,
@@ -471,77 +480,57 @@ export async function listTeacherStudents(
   const centerId = centerOf(acting);
 
   return scopedDb(acting, async (tx) => {
-    const courses = await tx.course.findMany({
-      where: { centerId, teacherId },
-      select: { id: true, title: true },
-    });
+    const [data] = await tx.$queryRaw<StudentsData[]>`
+      WITH cs AS (
+        SELECT id, title FROM courses WHERE center_id = ${centerId}::uuid AND teacher_id = ${teacherId}::uuid
+      ),
+      en AS (
+        SELECT student_id, course_id, data_source::text AS data_source FROM enrollments
+         WHERE course_id IN (SELECT id FROM cs) AND status = 'active'
+      ),
+      sid AS (SELECT DISTINCT student_id FROM en)
+      SELECT
+        (SELECT coalesce(json_agg(json_build_object('id', id, 'title', title)), '[]'::json) FROM cs) AS courses,
+        (SELECT coalesce(json_agg(json_build_object(
+            'studentId', student_id, 'courseId', course_id, 'dataSource', data_source)), '[]'::json)
+           FROM en) AS enrollments,
+        (SELECT coalesce(json_agg(json_build_object('id', id, 'name', name, 'phone', phone)), '[]'::json)
+           FROM users WHERE id IN (SELECT student_id FROM sid) AND deleted_at IS NULL) AS users,
+        (SELECT coalesce(json_agg(json_build_object(
+            'userId', user_id, 'studentCode', student_code, 'fullName', full_name)), '[]'::json)
+           FROM student_profiles WHERE user_id IN (SELECT student_id FROM sid)) AS profiles,
+        (SELECT coalesce(json_agg(json_build_object(
+            'studentId', oe.student_id, 'teacherId', oc.teacher_id, 'systemStatus', tp.system_status::text)), '[]'::json)
+           FROM enrollments oe
+           LEFT JOIN courses oc ON oc.id = oe.course_id
+           LEFT JOIN teacher_profiles tp ON tp.user_id = oc.teacher_id
+          WHERE oe.student_id IN (SELECT student_id FROM sid)
+            AND oe.center_id = ${centerId}::uuid AND oe.status = 'active'
+            AND oe.course_id NOT IN (SELECT id FROM cs)) AS "otherEnrollments",
+        (SELECT coalesce(json_agg(json_build_object('studentId', student_id, 'n', n)), '[]'::json)
+           FROM (SELECT student_id, count(*)::int AS n FROM subscriptions
+                  WHERE student_id IN (SELECT student_id FROM sid)
+                    AND teacher_id = ${teacherId}::uuid AND status = 'active'
+                  GROUP BY student_id) x) AS subs`;
+
+    const courses = data?.courses ?? [];
     if (!courses.length) return [];
     const courseTitle = new Map(courses.map((c) => [c.id, c.title]));
 
-    const enrollments = await tx.enrollment.findMany({
-      where: { courseId: { in: courses.map((c) => c.id) }, status: "active" },
-      select: { studentId: true, courseId: true, dataSource: true },
-    });
+    const enrollments = data.enrollments;
     if (!enrollments.length) return [];
 
-    const studentIds = [...new Set(enrollments.map((e) => e.studentId))];
+    const { users, profiles, otherEnrollments, subs } = data;
 
-    const [users, profiles, otherEnrollments, subs] = await Promise.all([
-      tx.user.findMany({
-        where: { id: { in: studentIds } },
-        select: { id: true, name: true, phone: true },
-      }),
-      tx.studentProfile.findMany({
-        where: { userId: { in: studentIds } },
-        select: { userId: true, studentCode: true, fullName: true },
-      }),
-      tx.enrollment.findMany({
-        where: {
-          studentId: { in: studentIds },
-          centerId,
-          status: "active",
-          courseId: { notIn: courses.map((c) => c.id) },
-        },
-        select: { studentId: true, courseId: true },
-      }),
-      tx.subscription.groupBy({
-        by: ["studentId"],
-        where: { studentId: { in: studentIds }, teacherId, status: "active" },
-        _count: { _all: true },
-      }),
-    ]);
-
-    const otherCourseIds = [...new Set(otherEnrollments.map((e) => e.courseId))];
-    const otherCourses = otherCourseIds.length
-      ? await tx.course.findMany({
-          where: { id: { in: otherCourseIds } },
-          select: { id: true, teacherId: true },
-        })
-      : [];
-    const otherTeacherIds = [...new Set(otherCourses.map((c) => c.teacherId))];
-    const otherProfiles = otherTeacherIds.length
-      ? await tx.teacherProfile.findMany({
-          where: { userId: { in: otherTeacherIds } },
-          select: { userId: true, systemStatus: true },
-        })
-      : [];
-    const enrolledTeacherIds = new Set(
-      otherTeacherIds.filter(
-        (id) =>
-          (otherProfiles.find((p) => p.userId === id)?.systemStatus ?? "enrolled") ===
-          "enrolled",
-      ),
-    );
-    const courseTeacher = new Map(otherCourses.map((c) => [c.id, c.teacherId]));
     const sharedStudents = new Set(
       otherEnrollments
-        .filter((e) => enrolledTeacherIds.has(courseTeacher.get(e.courseId) ?? ""))
+        .filter((e) => e.teacherId != null && (e.systemStatus ?? "enrolled") === "enrolled")
         .map((e) => e.studentId),
     );
 
     const userMap = new Map(users.map((u) => [u.id, u]));
     const profileMap = new Map(profiles.map((p) => [p.userId, p]));
-    const subCount = new Map(subs.map((s) => [s.studentId, s._count._all]));
+    const subCount = new Map(subs.map((s) => [s.studentId, s.n]));
 
     const byStudent = new Map<string, TeacherStudentRow>();
     for (const e of enrollments) {

@@ -1,5 +1,6 @@
 "use client";
 
+import { QUERY_FRESHNESS } from "@repo/client-core/refine/freshness";
 import { Fragment, useState } from "react";
 import { useCustom } from "@refinedev/core";
 import { todayKey } from "@repo/shared/date-key";
@@ -59,6 +60,7 @@ export function AuditLogTable({ fixedCenterId }: { fixedCenterId?: string }) {
 
   const list = useCustomListScreen<Row>({
     url: "admin/audit-logs",
+    freshness: QUERY_FRESHNESS.list,
     pageSize: 50,
     // Both filters are typed, so they trail the keystrokes instead of firing
     // a full-ledger query per character.

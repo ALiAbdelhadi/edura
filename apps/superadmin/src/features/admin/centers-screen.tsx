@@ -1,5 +1,6 @@
 "use client";
 
+import { QUERY_FRESHNESS } from "@repo/client-core/refine/freshness";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import {
   FieldControls,
@@ -11,7 +12,7 @@ import { Form } from "@repo/ui/components/form";
 import { useAction } from "@/lib/api/use-action";
 import type { ColumnDef } from "@/components/kit/data-table";
 import { ListShell } from "@/components/kit/list-shell";
-import { useCustomListScreen } from "@/lib/api/use-list-screen";
+import { useListScreen } from "@/lib/api/use-list-screen";
 import { StatusBadge, statusTone } from "@repo/ui/components/status-badge";
 import { Link } from "@/i18n/navigation";
 import { amenityLabel } from "@/lib/rooms/amenities";
@@ -44,7 +45,6 @@ import type { Locale } from "@repo/ui/lib/format";
 import { Building2, Eye, Home, Info } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
-import { asArray } from "@/lib/refine/as-array";
 import { asKey } from "@/lib/i18n/keys";
 
 type Split = { platformShareBp: number; teacherShareBp: number; centerShareBp: number };
@@ -846,16 +846,9 @@ export function CentersScreen() {
   const tStatus = useTranslations("status");
   const [detailId, setDetailId] = useState<string | null>(null);
 
-  // The endpoint returns the whole set behind `take`, so there is no page to
-  // step through — only the load/denied/error/empty branch every list shares.
-  const list = useCustomListScreen<CenterRow>({
-    url: "admin/centers",
-    paginated: false,
-    extraQuery: { take: "100" },
-    select: (data) => {
-      const rows = asArray<CenterRow>(data);
-      return { rows, total: rows.length };
-    },
+  const list = useListScreen<CenterRow>({
+    resource: "admin/centers",
+    freshness: QUERY_FRESHNESS.list,
   });
 
   const columns: ColumnDef<CenterRow, unknown>[] = [

@@ -6,6 +6,7 @@ import { Spinner } from "@/components/kit/spinner";
 import { StatusBadge, type StatusTone } from "@/components/kit/status-badge";
 import { TableSkeleton } from "@/components/ui/skeletons";
 import { useCustom } from "@refinedev/core";
+import { QUERY_FRESHNESS } from "@repo/client-core/refine/freshness";
 import { Button } from "@repo/ui/components/button";
 import {
   Dialog,
@@ -55,7 +56,11 @@ export function RequestsTab() {
     method: "get",
     config: { query: { status } },
   });
-  const subjectsQ = useCustom<SubjectRow[]>({ url: "admin/catalog/subjects", method: "get" });
+  const subjectsQ = useCustom<SubjectRow[]>({
+    url: "admin/catalog/subjects",
+    method: "get",
+    queryOptions: QUERY_FRESHNESS.reference,
+  });
 
   const requests = asArray<SubjectRequestRow>(requestsQ.result?.data);
   const subjects = asArray<SubjectRow>(subjectsQ.result?.data);

@@ -1,5 +1,10 @@
 import { createHash } from "node:crypto";
-import type { Redis } from "ioredis";
+import {
+  createMemoryStore,
+  resolveKeyValueStore,
+  type KeyValueStore,
+  type RedisClientFactory,
+} from "../kv";
 
 // The one cross-request store for PUBLIC data — the catalog, discovery rows and
 // public profiles, nothing else (tests/unit/use-cache-scope in apps/erp keeps
@@ -78,35 +83,11 @@ function deserialize(body: string): unknown {
 }
 
 // ---------------------------------------------------------------------------
-// In-process fallback
+// Backends (kv port): the memory store is the fallback, Redis the shared one.
 
-type MemoryEntry = { body: string; expiresAt: number };
-const memoryEntries = new Map<string, MemoryEntry>();
-const memoryGens = new Map<string, number>();
+const memory = createMemoryStore();
 
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of memoryEntries) {
-    if (entry.expiresAt <= now) memoryEntries.delete(key);
-  }
-}, 60_000).unref();
-
-async function readFromMemory<T>(read: PublicStoreRead, hash: string, loader: () => Promise<T>): Promise<T> {
-  const key = entryKey(read.tag, memoryGens.get(read.tag) ?? 0, hash);
-  const hit = memoryEntries.get(key);
-  if (hit && hit.expiresAt > Date.now()) return deserialize(hit.body) as T;
-  const value = await loader();
-  const body = serialize(value);
-  if (body !== undefined) {
-    memoryEntries.set(key, { body, expiresAt: Date.now() + read.ttlSeconds * 1000 });
-  }
-  return value;
-}
-
-// ---------------------------------------------------------------------------
-// Redis
-
-let redisClient: Redis | null | undefined;
+let redisStore: KeyValueStore | null | undefined;
 let degraded = false;
 
 function noteFailure(err: unknown): void {
@@ -124,39 +105,21 @@ function noteSuccess(): void {
   console.error("[public-cache] redis recovered; public reads are cached again.");
 }
 
-type RedisFactory = (url: string) => Promise<Redis>;
+let redisFactory: RedisClientFactory | undefined;
 
-const defaultRedisFactory: RedisFactory = async (url) => {
-  const { default: RedisCtor } = await import("ioredis");
-  return new RedisCtor(url, {
-    maxRetriesPerRequest: 1,
-    connectTimeout: 5000,
+async function getRedis(): Promise<KeyValueStore | null> {
+  if (redisStore !== undefined) return redisStore;
+  redisStore = await resolveKeyValueStore({
+    url: process.env.REDIS_URL?.trim(),
     // Bounds what a slow Redis can add to a request, and fails a command at
     // once while the link is down instead of queueing it until reconnect.
-    commandTimeout: 1500,
-    enableOfflineQueue: false,
+    options: { commandTimeout: 1500, enableOfflineQueue: false },
+    onError: noteFailure,
+    onInitError: (err) =>
+      console.error("[public-cache] redis init failed; using per-process memory:", err.message),
+    factory: redisFactory,
   });
-};
-
-let redisFactory: RedisFactory = defaultRedisFactory;
-
-async function getRedis(): Promise<Redis | null> {
-  if (redisClient !== undefined) return redisClient;
-  const url = process.env.REDIS_URL?.trim();
-  if (!url) {
-    redisClient = null;
-    return null;
-  }
-  try {
-    const client = await redisFactory(url);
-    client.on("error", noteFailure);
-    redisClient = client;
-    return client;
-  } catch (err) {
-    console.error("[public-cache] redis init failed; using per-process memory:", (err as Error).message);
-    redisClient = null;
-    return null;
-  }
+  return redisStore;
 }
 
 const REDIS_FAILED = Symbol("redis-failed");
@@ -172,8 +135,18 @@ async function tryRedis<T>(op: () => Promise<T>): Promise<T | typeof REDIS_FAILE
   }
 }
 
+async function readFromMemory<T>(read: PublicStoreRead, hash: string, loader: () => Promise<T>): Promise<T> {
+  const key = entryKey(read.tag, (await memory.get(genKey(read.tag))) ?? "0", hash);
+  const hit = await memory.get(key);
+  if (hit !== null) return deserialize(hit) as T;
+  const value = await loader();
+  const body = serialize(value);
+  if (body !== undefined) await memory.set(key, body, read.ttlSeconds * 1000);
+  return value;
+}
+
 async function readFromRedis<T>(
-  redis: Redis,
+  redis: KeyValueStore,
   read: PublicStoreRead,
   hash: string,
   loader: () => Promise<T>,
@@ -192,7 +165,7 @@ async function readFromRedis<T>(
   }
   const value = await loader();
   const body = serialize(value);
-  if (body !== undefined) void tryRedis(() => redis.set(key, body, "PX", read.ttlSeconds * 1000));
+  if (body !== undefined) void tryRedis(() => redis.set(key, body, read.ttlSeconds * 1000));
   return value;
 }
 
@@ -213,29 +186,28 @@ export async function cachedRead<T>(read: PublicStoreRead, loader: () => Promise
 // Redis side: the write it follows has committed, and the entry's own TTL
 // still bounds how long a lost bump can matter. Never throws.
 export function bumpPublicDataTag(tag: string): void {
-  memoryGens.set(tag, (memoryGens.get(tag) ?? 0) + 1);
+  void memory.incr(genKey(tag));
   void getRedis().then((redis) => (redis ? tryRedis(() => redis.incr(genKey(tag))) : undefined));
 }
 
 export async function closePublicStore(): Promise<void> {
-  const client = redisClient;
-  redisClient = undefined;
+  const store = redisStore;
+  redisStore = undefined;
   degraded = false;
-  if (client) await client.quit().catch(() => client.disconnect());
+  if (store) await store.close();
 }
 
 export function __resetPublicStoreForTests(): void {
-  if (redisClient) redisClient.disconnect();
-  redisClient = undefined;
+  if (redisStore) redisStore.disconnect();
+  redisStore = undefined;
   degraded = false;
-  memoryEntries.clear();
-  memoryGens.clear();
+  memory.clear();
 }
 
 // Lets a unit test stand in a fake client for the Redis path; `null` restores
 // the real ioredis factory.
-export function __setRedisFactoryForTests(factory: RedisFactory | null): void {
-  redisFactory = factory ?? defaultRedisFactory;
+export function __setRedisFactoryForTests(factory: RedisClientFactory | null): void {
+  redisFactory = factory ?? undefined;
 }
 
 export const __publicStoreKeysForTests = { genKey, entryKey, argsHash };
