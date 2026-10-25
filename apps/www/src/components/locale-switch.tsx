@@ -14,7 +14,7 @@ export function LocaleSwitch({ locale, label }: { locale: Locale; label: string 
       href={`/${target}${rest}`}
       hrefLang={target}
       lang={target}
-      className="tap inline-flex h-9 items-center border border-rule px-3 text-[0.8125rem] text-ink-2 transition-colors hover:border-gold hover:text-ink"
+      className="nav-pill"
     >
       {label}
     </Link>

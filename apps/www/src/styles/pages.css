@@ -1,0 +1,119 @@
+/* Inner pages (FAQ, contact). Only what their markup needs; the shared
+   primitives live in globals.css and the page chrome in shell.css. */
+
+@layer components {
+  /* FAQ question row: the whole summary is the 44px+ target. */
+  .faq-q {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    min-height: 2.75rem;
+    padding-block: 1.25rem;
+    cursor: pointer;
+    list-style: none;
+    color: var(--ink);
+    font-size: 1.125rem;
+    font-weight: 500;
+    line-height: 1.6;
+  }
+
+  .faq-icon {
+    transition: transform 200ms var(--ease-out);
+  }
+
+  /* Contact form controls. */
+  .form-field {
+    display: block;
+    inline-size: 100%;
+    min-height: 3rem;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-step-sm);
+    background: var(--field);
+    color: var(--ink);
+    font: inherit;
+    font-size: 1rem;
+    transition:
+      border-color 160ms var(--ease-out),
+      background-color 160ms var(--ease-out);
+  }
+
+  .form-field::placeholder {
+    color: var(--ink-3);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .form-field:hover {
+      border-color: var(--ink-3);
+    }
+  }
+
+  .form-field:focus-visible {
+    border-color: var(--pen);
+    background: var(--sheet);
+    outline: 2px solid var(--pen);
+    outline-offset: 1px;
+  }
+
+  .form-field:user-invalid {
+    border-color: var(--red);
+  }
+
+  /* Plain-words error, shown only after the reader has touched the field. */
+  .field-error {
+    display: none;
+    margin-block-start: 0.5rem;
+    color: var(--red);
+    font-size: 0.875rem;
+  }
+
+  .form-field:user-invalid + .field-error {
+    display: block;
+  }
+
+  /* Subject choice: a radio dressed as a chip. */
+  .pick {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    padding-inline: 1rem;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-step-sm);
+    background: var(--sheet);
+    color: var(--ink-2);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition:
+      background-color 160ms var(--ease-out),
+      border-color 160ms var(--ease-out),
+      color 160ms var(--ease-out);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .pick:hover {
+      border-color: var(--ink-3);
+      color: var(--ink);
+    }
+  }
+
+  .pick:has(:checked) {
+    border-color: var(--pen);
+    background: var(--pen);
+    color: var(--on-pen);
+  }
+
+  .pick:has(:focus-visible) {
+    outline: 2px solid var(--pen);
+    outline-offset: 3px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .faq-icon,
+  .form-field,
+  .pick {
+    transition: none;
+  }
+}

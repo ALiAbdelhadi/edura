@@ -1,12 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import {
-  Amiri,
-  Cormorant_Garamond,
-  IBM_Plex_Mono,
-  IBM_Plex_Sans_Arabic,
-  Lora,
-} from "next/font/google";
+import { Readex_Pro } from "next/font/google";
 
 import "../globals.css";
 import { DEFAULT_LOCALE, LOCALES, dirOf, isLocale } from "@/i18n/config";
@@ -14,39 +8,10 @@ import { getMessages } from "@/i18n/messages";
 import { siteOrigin } from "@/lib/site-origin";
 import { THEME_BOOTSTRAP } from "@/components/theme-toggle";
 
-
-const amiri = Amiri({
+const readex = Readex_Pro({
   subsets: ["arabic", "latin"],
-  weight: ["400", "700"],
-  variable: "--font-amiri",
-  display: "swap",
-});
-
-const cormorant = Cormorant_Garamond({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
-  variable: "--font-cormorant",
-  display: "swap",
-});
-
-const lora = Lora({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-lora",
-  display: "swap",
-});
-
-const plexArabic = IBM_Plex_Sans_Arabic({
-  subsets: ["arabic", "latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-plex-arabic",
-  display: "swap",
-});
-
-const plexMono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-plex-mono",
+  weight: "variable",
+  variable: "--font-readex",
   display: "swap",
 });
 
@@ -75,6 +40,15 @@ export async function generateMetadata({
       description: t.meta.description,
       locale,
       type: "website",
+      // Rendered by tools/brand-assets.ts; no page overrides openGraph, so every
+      // page shares its locale's card.
+      images: [{ url: `/og/${locale}.png`, width: 1200, height: 630, alt: t.meta.title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: t.meta.title,
+      description: t.meta.description,
+      images: [`/og/${locale}.png`],
     },
   };
 }
@@ -93,7 +67,7 @@ export default async function LocaleLayout({
     <html
       lang={locale}
       dir={dirOf(locale)}
-      className={`${amiri.variable} ${cormorant.variable} ${lora.variable} ${plexArabic.variable} ${plexMono.variable}`}
+      className={readex.variable}
       suppressHydrationWarning
     >
       <head>

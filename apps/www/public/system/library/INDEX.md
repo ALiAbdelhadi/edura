@@ -1,6 +1,6 @@
 # The screen library
 
-Twenty-two screens of `apps/erp`, beyond the nineteen curated slots the site is
+Twenty-one screens of `apps/erp`, beyond the nineteen curated slots the site is
 built around. Captured by
 ``library.spec.ts`` as real
 signed-in demo roles, Arabic · light · 1440×900 CSS unless the row says phone,
@@ -19,7 +19,7 @@ eight portals, and photographing each eight times is thirty files that say one
 thing. Reasoning in
 ``INVENTORY.md` §11`.
 
-**3.4 MB across 22 files**, full-resolution masters. That is storage, not
+**3.2 MB across 21 files**, full-resolution masters. That is storage, not
 bandwidth: nothing here is in the manifest, so no visitor downloads any of it —
 and anything promoted into the manifest is resized per device by `next/image`
 rather than served at this size.
@@ -78,7 +78,6 @@ them.
 | `admin-students-detail.webp` | center · `…/students/08b929d8-…` | One student's whole file in one place |
 | `admin-teachers.webp` | center · `/dashboard/admin/teachers` | The center's teachers |
 | `admin-classes.webp` | center · `/dashboard/admin/classes` | Groups and the teacher on each |
-| `admin-fees.webp` | center · `/dashboard/admin/fees` | Who owes what |
 | `admin-expenses.webp` | center · `/dashboard/admin/expenses` | The five seeded costs (rent, utilities, salaries, supplies, marketing) — the other half of net profit |
 | `admin-checkin.webp` | center · `/dashboard/admin/checkin` | Check-in by student code, no card needed |
 | `teacher-classes.webp` | teacher · `/dashboard/teacher/classes` | The densest list in the product |

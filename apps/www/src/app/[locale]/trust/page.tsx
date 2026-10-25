@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { Arrow } from "@/components/arrow";
+import { LineArt, type LineArtName } from "@/components/line-art";
 import { PageFrame, PageHero } from "@/components/page-frame";
-import { Section, SectionBody, SectionTitle } from "@/components/section";
+import { Section } from "@/components/section";
 import { LOCALES, isLocale } from "@/i18n/config";
 import { getMessages } from "@/i18n/messages";
 import { getPages } from "@/i18n/pages";
@@ -30,6 +32,14 @@ export async function generateMetadata({
   };
 }
 
+const GROUNDS = ["pen", "marker", "field"] as const;
+
+const GROUP_ART: Record<string, LineArtName> = {
+  students: "guardian",
+  money: "wallet",
+  data: "isolation",
+};
+
 export default async function TrustPage({
   params,
 }: {
@@ -43,35 +53,53 @@ export default async function TrustPage({
 
   return (
     <PageFrame locale={locale} t={t} activePage="trust">
-      <PageHero locale={locale} label={tr.label} headline={tr.headline} lede={tr.lede} />
+      <PageHero headline={tr.headline} lede={tr.lede} art="guardian" />
 
-      {tr.sections.map((section) => (
-        <Section key={section.id} id={section.id} label={section.label} locale={locale}>
-          <SectionTitle>{section.title}</SectionTitle>
-          <SectionBody>{section.body}</SectionBody>
+      {tr.groups.map((group, gi) => (
+        <Section key={group.id} id={group.id}>
+          <div data-reveal="" className="flex items-center gap-4">
+            <span className="method-icon" data-ground={GROUNDS[gi % GROUNDS.length]}>
+              <LineArt name={GROUP_ART[group.id] ?? "guardian"} className="h-7 w-7" />
+            </span>
+            <h2 className="t-h2 text-ink">{group.title}</h2>
+          </div>
+          <ul role="list" data-reveal="" className="cap-grid mt-8" data-cols={group.items.length % 3 === 0 ? "3" : "2"}>
+            {group.items.map((item) => (
+              <li key={item.title} className="cap-card">
+                <span className="cap-icon">
+                  <LineArt name="check" className="h-5 w-5" />
+                </span>
+                <h3 className="cap-name">{item.title}</h3>
+                <p className="cap-detail">{item.body}</p>
+              </li>
+            ))}
+          </ul>
         </Section>
       ))}
 
-      <section className="border-t border-rule">
-        <div className="mx-auto w-full max-w-[62rem] px-6 py-10 md:px-10 md:py-16 lg:py-20">
-          <h2 className="display text-[1.25rem] leading-snug text-ink">{tr.links.title}</h2>
-          <p className="mt-3 max-w-[58ch] text-[0.9375rem] leading-[1.75] text-ink-2">
-            {tr.links.body}
-          </p>
-          <ul className="mt-6 flex flex-wrap gap-x-8 gap-y-3">
-            <li>
-              <Link href={`/${locale}/privacy`} className="rule-link rule-link-row text-[1.0625rem]">
-                {tr.links.privacy}
+      <Section id="policies">
+        <h2 data-reveal="" className="t-h2">
+          {tr.links.title}
+        </h2>
+        <ul role="list" data-reveal="" className="link-grid mt-8">
+          {(
+            [
+              ["privacy", tr.links.privacy, "isolation"],
+              ["terms", tr.links.terms, "register"],
+            ] as const
+          ).map(([slug, label, art]) => (
+            <li key={slug} className="flex">
+              <Link href={`/${locale}/${slug}`} className="link-card">
+                <span className="method-icon">
+                  <LineArt name={art} className="h-7 w-7" />
+                </span>
+                <span className="t-h3 min-w-0 flex-1 text-ink">{label}</span>
+                <Arrow className="row-arrow h-4 w-4" />
               </Link>
             </li>
-            <li>
-              <Link href={`/${locale}/terms`} className="rule-link rule-link-row text-[1.0625rem]">
-                {tr.links.terms}
-              </Link>
-            </li>
-          </ul>
-        </div>
-      </section>
+          ))}
+        </ul>
+      </Section>
     </PageFrame>
   );
 }

@@ -1,17 +1,18 @@
 import { notFound } from "next/navigation";
 
+import { PageFrame } from "@/components/page-frame";
 import { isLocale } from "@/i18n/config";
 import { getMessages } from "@/i18n/messages";
-import { MotionRoot } from "@/components/motion-root";
-import { SiteNav } from "@/components/site-nav";
-import { SiteFooter } from "@/components/site-footer";
-import { Hero } from "@/sections/hero";
-import { Money } from "@/sections/money";
-import { Roles } from "@/sections/roles";
-import { Communication } from "@/sections/communication";
-import { Counter } from "@/sections/counter";
-import { Integrity } from "@/sections/integrity";
-import { Closing } from "@/sections/closing";
+import { Closing } from "@/sections/home/closing";
+import { Faq } from "@/sections/home/faq";
+import { Figures } from "@/sections/home/figures";
+import { Hero } from "@/sections/home/hero";
+import { Homes } from "@/sections/home/homes";
+import { Pay } from "@/sections/home/pay";
+import { Safety } from "@/sections/home/safety";
+import { Steps } from "@/sections/home/steps";
+import { Subjects } from "@/sections/home/subjects";
+import { Teachers } from "@/sections/home/teachers";
 
 export default async function LandingPage({
   params,
@@ -23,29 +24,17 @@ export default async function LandingPage({
   const t = getMessages(locale);
 
   return (
-    <>
-      <a
-        href="#main"
-        className="sr-only focus:not-sr-only focus:absolute focus:z-[60] focus:m-3 focus:bg-sheet focus:px-4 focus:py-2 focus:text-ink"
-      >
-        {t.nav.skip}
-      </a>
-
-      <SiteNav locale={locale} t={t} />
-
-      <main id="main">
-        <Hero t={t} locale={locale} />
-        <Money t={t} locale={locale} />
-        <Roles t={t} locale={locale} />
-        <Counter t={t} locale={locale} />
-        <Communication t={t} locale={locale} />
-        <Integrity t={t} locale={locale} />
-        <Closing t={t} locale={locale} />
-      </main>
-
-      <SiteFooter t={t} locale={locale} />
-
-      <MotionRoot />
-    </>
+    <PageFrame locale={locale} t={t}>
+      <Hero t={t} locale={locale} />
+      <Figures t={t} locale={locale} />
+      <Subjects t={t} locale={locale} />
+      <Teachers t={t} locale={locale} />
+      <Steps t={t} locale={locale} />
+      <Homes t={t} locale={locale} />
+      <Pay t={t} />
+      <Safety t={t} locale={locale} />
+      <Faq t={t} locale={locale} />
+      <Closing t={t} locale={locale} />
+    </PageFrame>
   );
 }

@@ -1,0 +1,82 @@
+/* Role pages (/[locale]/for/[role]): hero, capability groups, closing band.
+   Everything else comes from the shared primitives in globals.css. */
+
+/* Hero: copy beside the role's screenshot on wide screens, stacked below. */
+.rhero-grid {
+  display: grid;
+  gap: 3rem;
+  padding-block: 4rem 3.5rem;
+}
+
+@media (min-width: 48rem) {
+  .rhero-grid {
+    padding-block: 6rem 5rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .rhero-grid:not(.rhero-text) {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    align-items: center;
+    gap: 4rem;
+  }
+}
+
+/* The quiet frame: 1px rule, sheet mat, 16px radius, no shadow or tilt. */
+.rshot {
+  margin: 0;
+  padding: 0.5rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-step-lg);
+  background: var(--sheet);
+  overflow: hidden;
+}
+
+.rshot-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-step-sm);
+}
+
+.rshot-phone {
+  max-inline-size: 18rem;
+  margin-inline: auto;
+  border-radius: var(--radius-step-xl);
+}
+
+.rshot-phone .rshot-img {
+  border-radius: var(--radius-step-md);
+}
+
+/* A capability group: rows beside the screenshot on wide screens. */
+.rgroup {
+  display: grid;
+  gap: 3rem;
+}
+
+.rgroup-text {
+  max-inline-size: 48rem;
+}
+
+@media (min-width: 64rem) {
+  .rgroup-plate {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    align-items: start;
+    gap: 4rem;
+  }
+
+  .rgroup-phone {
+    grid-template-columns: minmax(0, 1fr) 18rem;
+    align-items: start;
+    gap: 5rem;
+  }
+}
+
+/* Closing band. */
+.rcta-body {
+  color: var(--band-ink-2);
+  font-size: 1.1875rem;
+  line-height: 1.75;
+  max-inline-size: 52ch;
+}

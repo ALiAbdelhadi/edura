@@ -1,7 +1,7 @@
 import type { Locale } from "./config";
 import type { MediaKey } from "@/media/manifest";
 
-export const ROLE_SLUGS = ["center", "teacher", "parent", "student", "assistant", "staff"] as const;
+export const ROLE_SLUGS = ["student", "parent"] as const;
 export type RoleSlug = (typeof ROLE_SLUGS)[number];
 
 export function isRoleSlug(value: string): value is RoleSlug {
@@ -14,17 +14,21 @@ type Capability = {
 };
 
 type Group = {
-  label: string;
+  title: string;
+  lede: string;
   shot: MediaKey | null;
   capabilities: Capability[];
 };
 
 type RolePage = {
+  // Nav / footer label ("For parents").
   label: string;
+  // The role as a noun, used in the page title ("Parents — Linktich").
+  name: string;
   headline: string;
-  question: string;
   lede: string;
   hero: MediaKey;
+  heroAlt: string;
   groups: Group[];
   guarantees: { title: string; detail: string }[];
   ctaTitle: string;
@@ -33,802 +37,281 @@ type RolePage = {
 };
 
 const ar: Record<RoleSlug, RolePage> = {
-  center: {
-    label: "للسناتر",
-    headline: "سنترك كله في دفتر واحد.",
-    question: "قبضت كام النهاردة، ومين لسه عليه؟",
-    lede: "من الكاونتر لحد كشف الأرباح: تسجيل الحضور، تحصيل الكاش، القاعات والمواعيد، موظفين بصلاحيات محدودة، ومدرّسين بره النظام بيتسجّلوا يدويًا وبيظهروا في نفس التقارير مع الباقي.",
-    hero: "roleCenter",
-    groups: [
-      {
-        label: "الكاونتر",
-        shot: "centerCounter",
-        capabilities: [
-          {
-            name: "الكاونتر",
-            detail: "الحصة الشغالة دلوقتي مختارة قدامك. دوّر بالاسم أو الكود أو اقرا الكارنيه، خد الكاش، وسجّل الحضور — في خطوة واحدة.",
-          },
-          {
-            name: "الطلاب",
-            detail: "كشف طلبة السنتر كله، بحث وفلترة، وتسجيل طالب جديد على الكاونتر من غير ما يكون معاه موبايل.",
-          },
-          {
-            name: "طلبات التسجيل",
-            detail: "الطلبات اللي جاية من الأهالي والطلبة، بقبول أو رفض بسبب مكتوب.",
-          },
-        ],
-      },
-      {
-        label: "التشغيل",
-        shot: "centerOps",
-        capabilities: [
-          { name: "المدرّسون", detail: "مين بيدرّس عندك، وبأي شروط، وإيه نصيبه من كل حصة." },
-          {
-            name: "مدرّسون بره النظام",
-            detail: "المدرّس اللي رافض يدخل على المنصة بتسجّله يدويًا: مجموعاته وحضوره ودرجاته وفلوسه، وبيظهر في نفس التقارير مع الباقي. وفيه تقرير بيقولك إيه الناقص.",
-          },
-          { name: "الفصول", detail: "المجموعات وأسعارها وخطط الدفع اللي مفتوحة فيها." },
-          { name: "الجدول", detail: "جدول الأسبوع لكل قاعة ومدرّس، والتعارضات بتتمنع قبل ما تحصل." },
-          {
-            name: "طلبات التعاون",
-            detail: "مدرّس بيطلب يشتغل عندك — الطلب فيه المادة والسنة والقاعة والميعاد ونسبة السنتر. توافق، يتفتح الفصل والجدول لوحدهم.",
-          },
-          {
-            name: "القاعات",
-            detail: "كل قاعة وسعرها: نسبة على الحصة، أو تعريفة لكل طالب حاضر — وأنت بتحدد تعريفة قاعاتك بنفسك في حدود السقف المنشور.",
-          },
-        ],
-      },
-      {
-        label: "الفلوس",
-        shot: "centerMoney",
-        capabilities: [
-          { name: "الرسوم", detail: "كل ما اتحصّل، كاش أو أونلاين، بإيصال ورقم." },
-          { name: "المصروفات", detail: "اللي طالع من الدرج، عشان صافي الربح يبقى صافي فعلًا." },
-          {
-            name: "التقارير",
-            detail: "الحضور، نسب الإشغال، صافي الربح، وتقسيم شغلك بين اللي على المنصة واللي برّه — ظاهر افتراضيًا من غير ما تدوّر عليه. وكله بيتصدّر CSV أو بيتطبع.",
-          },
-        ],
-      },
-      {
-        label: "الفريق",
-        shot: "centerTeam",
-        capabilities: [
-          {
-            name: "الموظفون",
-            detail: "استقبال، مدير، ومحاسب — كل واحد بصلاحياته. المحاسب قراءة فقط، والاستقبال مالوش غير الكاونتر.",
-          },
-          { name: "ملاحظات الفريق", detail: "لوحة مهام للفريق: مفتوح، اتعمل، اترفض، ومين قرأ." },
-          { name: "سجل التدقيق", detail: "كل عملية إدارية ومين عملها وإمتى — ومحدش يقدر يعدّله." },
-          { name: "الرسائل", detail: "محادثات مع المدرّسين وأولياء الأمور والطلبة، محكومة بالعلاقة — محدش بيراسل حد مالوش علاقة بيه." },
-        ],
-      },
-    ],
-    guarantees: [
-      {
-        title: "بياناتك معزولة",
-        detail: "العزل متطبّق كسياسات داخل قاعدة البيانات نفسها، مش كشرط في كل استعلام. سنتر تاني ما يقدرش يوصل لصف واحد من عندك.",
-      },
-      {
-        title: "الدفتر لا يُمحى",
-        detail: "جداول الفلوس مسحوب منها إذن التعديل والحذف — للتطبيق كله، بما فيه إدارة لينكتك نفسها.",
-      },
-      {
-        title: "العمولة على المُسلَّم بس",
-        detail: "مفيش عمولة على حصة ما اتقفلتش. والحصة اللي من غير سعر بترفض تُقفل أصلًا بدل ما تتقسّم أصفار.",
-      },
-    ],
-    ctaTitle: "افتح دفتر سنترك.",
-    ctaBody: "التسجيل مجاني. ابدأ بقاعة واحدة ومدرّس واحد، ووسّع لما تطمن.",
-    ctaPrimary: "سجّل سنترك",
-  },
-
-  teacher: {
-    label: "للمدرّسين",
-    headline: "شغلك، وفلوسك، في إيدك.",
-    question: "استحقيت كام على الحصص اللي سلّمتها؟",
-    lede: "مجموعاتك سواء في سنتر أو لوحدك، حضورك ودرجاتك وملفاتك، ومحفظة بتتحرك بس لما الحصة تُقفل — والتقسيم قدامك قبل ما تأكّد، مش بعدها.",
-    hero: "roleTeacher",
-    groups: [
-      {
-        label: "التدريس",
-        shot: "teacherTeaching",
-        capabilities: [
-          {
-            name: "فصولي",
-            detail: "مجموعاتك في السناتر، ومجموعاتك اللي بتديرها لوحدك بمكان أو أونلاين — من غير ما نخترعلك سنتر وهمي.",
-          },
-          { name: "الحضور", detail: "كشف الحصة قدامك، وإقفال الحصة بيقسّم الحصيلة في نفس اللحظة." },
-          {
-            name: "تشيك-إن الباب",
-            detail: "لو مفعّل، تسجيل تاني على باب القاعة. اللي سجّل على المكتب ومدخلش بيفضل ظاهر لك في حالته — ما بيتحوّلش لحاضر في الخفاء.",
-          },
-          { name: "سجل الدرجات", detail: "درجات كل تقييم، وولي الأمر بيتبلّغ أول ما تترصد." },
-          { name: "الملفات التعليمية", detail: "ملفات المجموعة، متاحة للطلبة المشتركين بس." },
-          { name: "التقييمات", detail: "رأي الطلبة في حصصك." },
-        ],
-      },
-      {
-        label: "الإدارة",
-        shot: "teacherManage",
-        capabilities: [
-          {
-            name: "مراكزي",
-            detail: "طلبات التعاون مع السناتر: المادة والسنة والقاعة والمواعيد والنسبة. أول ما حد يقبل، المجموعة والجدول بيتعملوا فورًا.",
-          },
-          {
-            name: "الفريق",
-            detail: "مساعد بيشتغل نيابة عنك في كل حاجة ما عدا الفلوس، وكل حركة بتتسجّل باسمه هو نيابة عنك — مش باسمك.",
-          },
-          { name: "ملاحظات الفريق", detail: "لوحة مهام بينك وبين مساعدينك." },
-          { name: "الرسائل", detail: "ولي الأمر بيسألك من جوه النظام، من غير ما تدّي رقمك الشخصي." },
-        ],
-      },
-      {
-        label: "الفلوس",
-        shot: "teacherWallet",
-        capabilities: [
-          {
-            name: "المحفظة",
-            detail: "رصيدك بيزيد لما الحصة تُقفل، وكل قيد ظاهر بمصدره. طلب السحب من نفس الشاشة.",
-          },
-        ],
-      },
-    ],
-    guarantees: [
-      {
-        title: "بتشوف التقسيم قبل ما تأكّد",
-        detail: "نفس الدالة اللي بتحسب اللي على الشاشة هي اللي بتكتب في الدفتر بعدها. مفيش رقمين ممكن يختلفوا.",
-      },
-      {
-        title: "المساعد مالوش دعوة بالفلوس",
-        detail: "التفويض بيشمل كل حاجة ما عدا المحفظة والسحب والإعدادات المالية. وده مقفول في النظام، مش اتفاق.",
-      },
-      {
-        title: "سعر القاعة قدامك من الأول",
-        detail: "تعريفة القاعة لكل طالب حاضر بتبان على كارت القاعة وقت الحجز، ومربوطة بسقف منشور — مش مفاجأة وقت التسوية.",
-      },
-    ],
-    ctaTitle: "ابدأ من غير سنتر.",
-    ctaBody: "تقدر تشتغل لوحدك من أول يوم، وتضيف السناتر لما تحب.",
-    ctaPrimary: "سجّل كمدرّس",
-  },
-
   parent: {
     label: "لأولياء الأمور",
-    headline: "تعرف ابنك بيحضر فعلًا.",
-    question: "ابني بيحضر فعلًا، وبدفع في إيه؟",
-    lede: "حضور وغياب ودرجات أول بأول، دفع لحصة أو لشهر من محفظتك أنت، وإطلاع للقراءة فقط على محادثات ابنك مع الكبار.",
+    name: "أولياء الأمور",
+    headline: "تعرف ابنك حضر ولا لأ.",
+    lede: "الحضور والدرجات أول بأول، تدفع الحصة أو الشهر من محفظتك، وتطّلع على محادثات ابنك مع الكبار للقراءة بس.",
     hero: "roleParent",
+    heroAlt: "ولي الأمر بيدفع حصة أو شهر لابنه من محفظته هو.",
     groups: [
       {
-        label: "الأبناء",
+        title: "الأبناء",
+        lede: "كل أولادك في حساب واحد.",
         shot: "parentChildren",
         capabilities: [
-          { name: "الأبناء", detail: "أكتر من ابن تحت حساب واحد، وكل شاشة بتتفلتر على اللي مختاره." },
+          { name: "الأبناء", detail: "أكتر من ابن في حساب واحد، وكل شاشة بتتفلتر على اللي اخترته." },
           { name: "الحضور", detail: "حضر ولا لأ، وإمتى، وفي أنهي حصة." },
-          { name: "التقدم", detail: "الدرجات لكل مادة، ومقارنة على مدى الترم." },
+          { name: "التقدم", detail: "الدرجات لكل مادة، ومقارنة على مدار الترم." },
           {
             name: "سلامة الأبناء",
-            detail: "محادثات ابنك مع الكبار، للقراءة فقط — ما بتلمسش الرسائل غير المقروءة ولا علامات القراءة، والطرفين شايفين إشعار إنك مطّلع.",
+            detail: "محادثات ابنك مع الكبار للقراءة بس. مش بتغيّر علامات القراءة، والطرفين عارفين إنك مطّلع.",
           },
-          { name: "الرسائل", detail: "تسأل المدرّس أو السنتر، وتقرا محادثات ابنك القاصر — الاطّلاع للقراءة بس." },
+          { name: "الرسائل", detail: "تسأل المدرّس أو السنتر من جوّه النظام." },
         ],
       },
       {
-        label: "الفلوس",
+        title: "الفلوس",
+        lede: "ادفع الحصة من محفظة ولي الأمر.",
         shot: "parentPay",
         capabilities: [
           { name: "الرسوم", detail: "اللي اتدفع واللي مستحق، بإيصالات." },
           {
-            name: "ادفع لدرس",
-            detail: "فعّل حصة أو شهر لابنك من محفظتك أنت. الفلوس بتتسجّل في اسم ابنك زي أي دفعة، وأنت متسجّل كالدافع.",
+            name: "ادفع حصة",
+            detail: "فعّل حصة أو شهر لابنك من محفظتك. الدفعة بتتسجّل باسم ابنك، وإنت متسجّل إنك اللي دفعت.",
           },
-          { name: "محفظتي", detail: "رصيدك أنت، منفصل تمامًا عن محفظة ابنك." },
-          { name: "الاشتراكات", detail: "اشتراك شهري أو حصة بحصة، وأنت اللي بتختار عند الدفع. مفيش خصم تلقائي." },
+          { name: "محفظتي", detail: "رصيدك إنت، منفصل عن محفظة ابنك." },
+          { name: "الاشتراكات", detail: "شهري أو بالحصة، وإنت اللي بتختار وقت الدفع. مفيش خصم تلقائي." },
         ],
       },
     ],
     guarantees: [
       {
         title: "محفظتك مش محفظة ابنك",
-        detail: "بتدفع من فلوسك، مش من رصيده. النظام بيرفض العكس — ده صرف لفلوس الطفل، مش دفع عنه.",
+        detail: "بتدفع من فلوسك، مش من رصيده. والنظام بيرفض العكس.",
       },
       {
-        title: "الاطّلاع للقراءة فقط",
-        detail: "مفيش أي طريقة تكتب من مكان ابنك. الاطّلاع على محادثات الكبار بس، وبإذن موثّق.",
+        title: "الاطّلاع للقراءة بس",
+        detail: "مفيش أي طريقة تكتب بدل ابنك. بتشوف محادثاته مع الكبار بس، وبربط الطرفين موافقين عليه.",
       },
       {
-        title: "القاصر هو الافتراض",
-        detail: "ابنك قاصر إلا لو تاريخ ميلاده موجود ومُوثَّق وسنّه ١٨ فأكثر. غير كده، مراسلة الكبار مقفولة لحد ما وصولك يتأكّد.",
+        title: "ابنك قاصر لحد ما يثبت العكس",
+        detail: "ابنك بيتعامل كقاصر إلا لو تاريخ ميلاده موجود ومتأكَّد منه وسنّه ١٨ أو أكتر. غير كده، مراسلته مع الكبار مقفولة لحد ما يتضاف إيميل ولي أمر.",
       },
     ],
     ctaTitle: "اربط حساب ابنك.",
-    ctaBody: "التسجيل مجاني، والربط بموافقة موثّقة من الطرفين.",
+    ctaBody: "التسجيل مجاني، والربط بموافقة الطرفين.",
     ctaPrimary: "سجّل كولي أمر",
   },
 
   student: {
     label: "للطلبة",
-    headline: "موادك وجدولك، من غير لخبطة.",
-    question: "معايا إيه، وامتى؟",
-    lede: "بتختار سنتك وشعبتك مرة واحدة، والمواد بتتحدد لوحدها. جدولك وحضورك ودرجاتك ومحفظتك وكارنيهك — كلهم في مكان واحد.",
+    name: "الطلبة",
+    headline: "موادك وجدولك، كل حاجة في مكانها.",
+    lede: "بتختار سنتك وشعبتك مرة واحدة، وموادك بتظهر لوحدها. الجدول والحضور والدرجات والمحفظة والكارنيه، في مكان واحد.",
     hero: "roleStudent",
+    heroAlt: "مواد الطالب حسب سنته وشعبته، وجدوله.",
     groups: [
       {
-        label: "الدراسة",
+        title: "الدراسة",
+        lede: "عندك إيه، وإمتى، وفين.",
         shot: "studentLearn",
         capabilities: [
           {
             name: "المواد الدراسية",
-            detail: "مواد شعبتك بتظهر لوحدها، ولو عايز تتفرج على غيرها فيه بحث منفصل لكل المواد.",
+            detail: "مواد شعبتك بتظهر لوحدها، وفيه بحث منفصل لو عايز تشوف باقي المواد.",
           },
-          { name: "الجدول", detail: "حصص الأسبوع، بالقاعة والمعاد." },
-          { name: "الحضور", detail: "سجلك: حضرت كام، وغبت كام." },
+          { name: "الجدول", detail: "حصص الأسبوع، بالقاعة والميعاد." },
+          { name: "الحضور", detail: "حضرت كام، وغبت كام." },
           { name: "الدرجات", detail: "درجاتك أول بأول." },
           { name: "الملفات التعليمية", detail: "ملفات المدرّس لمجموعاتك." },
-          { name: "التقييمات", detail: "قيّم مدرّسينك." },
         ],
       },
       {
-        label: "الحساب",
+        title: "الحساب",
+        lede: "كارنيهك على موبايلك.",
         shot: "studentCard",
         capabilities: [
           {
             name: "الكارنيه",
-            detail: "كود من تمن خانات وQR موقّع، بيتطبع أو يتبعت واتساب. الكود ده هو اللي بيتقرا على الكاونتر.",
+            detail: "كود من تمن خانات وQR موقّع، بيتطبع أو يتبعت واتساب. الكود ده اللي بيتقرا على الكاونتر.",
           },
           { name: "رمز العائلة", detail: "اربط ولي أمرك بموافقة الطرفين." },
-          { name: "الرسائل", detail: "تسأل مدرّسك من جوه النظام. لو أنت قاصر، ولي أمرك بيقدر يطّلع." },
+          { name: "الرسائل", detail: "تسأل مدرّسك من جوّه النظام. ولو إنت قاصر، ولي أمرك يقدر يطّلع." },
         ],
       },
       {
-        label: "الفلوس",
+        title: "الفلوس",
+        lede: "اشحن، وادفع من رصيدك.",
         shot: null,
         capabilities: [
-          { name: "المحفظة", detail: "شحن أونلاين أو كاش من الكاونتر، والدفع من الرصيد." },
-          { name: "الاشتراكات", detail: "اشتراكاتك: إيه اللي شغّال، وإيه اللي قرب يخلص." },
+          { name: "المحفظة", detail: "اشحن أونلاين أو كاش من الكاونتر، وادفع من الرصيد." },
+          { name: "الاشتراكات", detail: "إيه اللي شغّال، وإيه اللي قرّب يخلص." },
         ],
       },
     ],
     guarantees: [
       {
-        title: "كودك مش فيه أي بيانات عنك",
-        detail: "مش مشتق من اسمك ولا تاريخ ميلادك ولا تليفونك. وفيه خانة تحقق بتمسك أي حرف غلط أو حرفين متبدّلين — عشان ما تتحسبش على زميلك.",
+        title: "كودك ما فيهوش أي بيانات عنك",
+        detail: "مش مأخوذ من اسمك ولا تاريخ ميلادك ولا تليفونك. وفيه خانة تحقق بتمسك أي حرف غلط أو حرفين متبدّلين، عشان ما تتحسبش مكان زميلك.",
       },
       {
         title: "الكارنيه الضايع بيتلغي",
-        detail: "الـQR موقّع ومربوط بنسخة. أول ما تبلّغ، كل الكروت المطبوعة قبل كده بتبطل تشتغل.",
+        detail: "الـQR موقّع ومربوط بنسخة. أول ما تبلّغ، كل الكروت المطبوعة قبل كده بتبطّل تشتغل.",
       },
       {
-        title: "الفلوس بتتحسب مرة واحدة",
-        detail: "كل دفعة ليها إيصال برقم، وكل حصة ليها سطر — تقدر تراجعهم في أي وقت.",
+        title: "كل دفعة بإيصال",
+        detail: "كل دفعة ليها إيصال برقم، وكل حصة ليها سطر. تقدر تراجعهم في أي وقت.",
       },
     ],
     ctaTitle: "ابدأ بسنتك وشعبتك.",
-    ctaBody: "خطوة واحدة، والمواد بتتحدد لوحدها بعدها.",
+    ctaBody: "خطوة واحدة، وموادك بتظهر بعدها.",
     ctaPrimary: "سجّل كطالب",
   },
 
-  assistant: {
-    label: "للمساعدين",
-    headline: "كل شغل المدرّس، ما عدا الفلوس.",
-    question: "إيه اللي مفوَّض ليّا؟",
-    lede: "المساعد بيشتغل نيابة عن مدرّس واحد بالظبط: مجموعاته وحضوره ودرجاته وملفاته وتعاوناته. الفلوس مقفولة، وكل حركة بتتسجّل باسمك أنت نيابة عنه — مش باسمه.",
-    hero: "roleAssistant",
-    groups: [
-      {
-        label: "التدريس",
-        shot: "assistantDoor",
-        capabilities: [
-          { name: "فصولي", detail: "مجموعات المدرّس اللي بتشتغل معاه، بنفس الشاشة اللي بيشوفها هو." },
-          { name: "الحضور", detail: "كشف الحصة وتسجيل الحضور، وإقفال الحصة." },
-          {
-            name: "تشيك-إن الباب",
-            detail: "الوضع اللي المساعد اتعمل عشانه: التسجيل التاني على باب القاعة، والمدرّس جوّه بيشرح.",
-          },
-          { name: "سجل الدرجات", detail: "رصد الدرجات، وولي الأمر بيتبلّغ زي ما لو المدرّس رصدها." },
-          { name: "الملفات التعليمية", detail: "رفع ملفات المجموعة وإدارتها." },
-        ],
-      },
-      {
-        label: "الإدارة",
-        shot: "teacherManage",
-        capabilities: [
-          { name: "مراكزي", detail: "طلبات التعاون مع السناتر: تبعتها وترد عليها نيابة عن المدرّس." },
-          { name: "ملاحظات الفريق", detail: "لوحة المهام بينك وبين المدرّس وباقي المساعدين." },
-        ],
-      },
-      {
-        label: "التواصل",
-        shot: null,
-        capabilities: [
-          {
-            name: "الرسائل",
-            detail: "بتراسل باسمك أنت، مش باسم المدرّس. الصلاحية بتتحدد من علاقاته، لكن الاسم اللي على الرسالة اسمك.",
-          },
-          { name: "الإشعارات", detail: "اللي محتاج منك حاجة، أول بأول." },
-        ],
-      },
-    ],
-    guarantees: [
-      {
-        title: "الفلوس مش مفوَّضة",
-        detail: "المحفظة والسحب والإعدادات المالية وإدارة المساعدين التانيين — كلها مقفولة عليك. ده مقفول في النظام نفسه، مش اتفاق بينك وبين المدرّس.",
-      },
-      {
-        title: "مساعد لمدرّس واحد",
-        detail: "مستحيل تكون مساعد لمدرّسين في نفس الوقت. ده مفروض في قاعدة البيانات نفسها، مش شرط في الكود.",
-      },
-      {
-        title: "اسمك على كل حركة",
-        detail: "كل حاجة بتعملها بتتسجّل «فلان نيابة عن فلان». ده مش مراقبة — ده اللي بيحميك: اللي عملته يبقى منسوب لك، واللي معملتوش ما ينسبش لك.",
-      },
-    ],
-    ctaTitle: "اتدعيت كمساعد؟",
-    ctaBody: "الدعوة بتوصلك على إيميلك، وأنت اللي بتحط كلمة السر — المدرّس ما بيشوفهاش ولا بيحطها.",
-    ctaPrimary: "افتح دعوتك",
-  },
 
-  staff: {
-    label: "لموظفي السنتر",
-    headline: "كل موظف بيشوف شغله هو بس.",
-    question: "أوظّف حد على الكاونتر من غير ما أفتحله السنتر كله؟",
-    lede: "الموظف بياخد صفة جاهزة — استقبال أو مدير أو محاسب — والصفة هي اللي بتحدّد شاشته. الاستقبال بيشوف ست حاجات، المحاسب بيشوف خمسة، ومحدش بيشوف كونسول صاحب السنتر.",
-    hero: "roleStaff",
-    groups: [
-      {
-        label: "الاستقبال",
-        shot: null,
-        capabilities: [
-          { name: "الطلبة", detail: "تسجيل طالب جديد، تحصيل، وتأكيد الحضور على الكاونتر." },
-          { name: "الرسائل", detail: "الرد على ولي الأمر والطالب من نفس الشاشة، من غير أرقام شخصية." },
-        ],
-      },
-      {
-        label: "الإدارة",
-        shot: null,
-        capabilities: [
-          { name: "طلبات التعاون", detail: "طلبات المدرّسين اللي عايزين يشتغلوا في السنتر: قبول أو رفض." },
-          { name: "القاعات", detail: "المواعيد والأسعار وحجز القاعة." },
-          { name: "التقارير", detail: "نفس أرقام صاحب السنتر، للقراءة." },
-        ],
-      },
-      {
-        label: "الحسابات",
-        shot: null,
-        capabilities: [
-          { name: "المالية", detail: "التحصيل والمصروفات والكشوف — صفة المحاسب لوحدها اللي بتوصلها." },
-        ],
-      },
-      {
-        label: "الفريق",
-        shot: null,
-        capabilities: [
-          { name: "ملاحظات الفريق", detail: "لوحة مهام للورديّة: اللي اتعمل واللي لسه." },
-        ],
-      },
-    ],
-    guarantees: [
-      {
-        title: "الصفة هي السقف",
-        detail: "الاستقبال ما بيوصلش للمالية، والمحاسب ما بيوصلش لطلبات التعاون. ده مقفول في الـ API نفسه، مش إخفاء من القائمة بس.",
-      },
-      {
-        title: "اسمك على كل حركة",
-        detail: "كل تحصيل وكل تسجيل حضور بيتسجّل باسم اللي عمله. لو حصل خلاف على مبلغ، السطر بيقول مين كان على الكاونتر.",
-      },
-      {
-        title: "شيله في ثانية",
-        detail: "موظف مشي؟ بتوقف صفته، وجلساته بتقفل في نفس اللحظة — مش لما التوكن يخلص.",
-      },
-    ],
-    ctaTitle: "عندك سنتر ومحتاج تظبّط فريقك؟",
-    ctaBody: "الصفات جاهزة من الأول — بتختار الصفة والموظف بياخد شاشته على طول.",
-    ctaPrimary: "ابدأ بسنترك",
-  },
 };
 
 const en: Record<RoleSlug, RolePage> = {
-  center: {
-    label: "For centers",
-    headline: "Your whole center, in one ledger.",
-    question: "How much came in today, and who still owes?",
-    lede: "From the counter to the profit sheet: check-in, cash collection, halls and schedules, staff on bounded permissions, and off-system teachers entered by hand who still land in the same reports as everyone else.",
-    hero: "roleCenter",
-    groups: [
-      {
-        label: "The counter",
-        shot: "centerCounter",
-        capabilities: [
-          {
-            name: "Counter",
-            detail: "The lesson running now is already selected. Search by name or code or read the card, take the cash, and record the check-in — one step.",
-          },
-          {
-            name: "Students",
-            detail: "The center's whole roster with search and filters, and a walk-in registration that needs no device in the student's hand.",
-          },
-          {
-            name: "Enrollment requests",
-            detail: "What families and students have asked for, accepted or refused with a written reason.",
-          },
-        ],
-      },
-      {
-        label: "Operations",
-        shot: "centerOps",
-        capabilities: [
-          { name: "Teachers", detail: "Who teaches here, on what terms, and what each lesson owes them." },
-          {
-            name: "Off-system teachers",
-            detail: "A teacher who will not use the platform is entered by hand — groups, attendance, grades and money — and appears in the same reports as everyone else. A completeness report names what is missing.",
-          },
-          { name: "Classes", detail: "Your groups, their prices, and which payment plans are open on them." },
-          { name: "Schedule", detail: "The week per hall and per teacher, with conflicts refused before they happen." },
-          {
-            name: "Collaboration requests",
-            detail: "A teacher asks to work at your center — subject, year, hall, schedule and the center's share are all in the request. Accept it and the class and its schedule are created for you.",
-          },
-          {
-            name: "Rooms",
-            detail: "Each hall and how it is priced: a share of the lesson, or a rate per attending student — which you set yourself, under the published ceiling.",
-          },
-        ],
-      },
-      {
-        label: "Money",
-        shot: "centerMoney",
-        capabilities: [
-          { name: "Fees", detail: "Everything collected, cash or online, with a receipt and a number." },
-          { name: "Expenses", detail: "What left the drawer, so that net profit is actually net." },
-          {
-            name: "Reports",
-            detail: "Attendance, fill rates, net profit, and the split between platform and off-system work — shown by default, not behind a filter. All of it exports to CSV or prints.",
-          },
-        ],
-      },
-      {
-        label: "Team",
-        shot: "centerTeam",
-        capabilities: [
-          {
-            name: "Staff",
-            detail: "Receptionist, manager and accountant, each on their own permissions. The accountant is read-only; the receptionist has the counter and nothing else.",
-          },
-          { name: "Team notes", detail: "A shared to-do board: open, done, declined, and who has read it." },
-          { name: "Audit log", detail: "Every administrative action, who did it and when — and nobody can edit it." },
-          { name: "Messages", detail: "Threads with teachers, parents and students, scoped by relationship — nobody can message someone they have no relationship with." },
-        ],
-      },
-    ],
-    guarantees: [
-      {
-        title: "Your data is isolated",
-        detail: "Isolation is enforced as policies inside the database, not as a clause every query must remember. Another center cannot reach a single row of yours.",
-      },
-      {
-        title: "The ledger cannot be erased",
-        detail: "The money tables have UPDATE and DELETE revoked — for the whole application, Linktich's own back office included.",
-      },
-      {
-        title: "Commission on delivered lessons only",
-        detail: "Nothing is charged on a lesson that never closed. And an unpriced lesson refuses to close at all, rather than distributing zero to everyone.",
-      },
-    ],
-    ctaTitle: "Open your center's ledger.",
-    ctaBody: "Registration is free. Start with one hall and one teacher, and widen when you are satisfied.",
-    ctaPrimary: "Register your center",
-  },
-
-  teacher: {
-    label: "For teachers",
-    headline: "Your work, and your money, in your hands.",
-    question: "What have I earned on the lessons I delivered?",
-    lede: "Your groups — inside a center or on your own — your attendance, grades and materials, and a wallet that moves only when a lesson closes. The split is in front of you before you confirm, not after.",
-    hero: "roleTeacher",
-    groups: [
-      {
-        label: "Teaching",
-        shot: "teacherTeaching",
-        capabilities: [
-          {
-            name: "My classes",
-            detail: "Your groups in centers, and the ones you run yourself at your own venue or online — with no shadow center invented for you.",
-          },
-          { name: "Attendance", detail: "The register in front of you, and closing the lesson splits the takings in the same moment." },
-          {
-            name: "Door check-in",
-            detail: "Where enabled, a second check-in at the hall door. Anyone who checked in at the desk but never walked in stays visibly in their own state — never quietly upgraded to present.",
-          },
-          { name: "Gradebook", detail: "Marks per assessment, and the parent is notified the moment they are entered." },
-          { name: "Materials", detail: "Files for a group, reachable only by the students covered for it." },
-          { name: "Reviews", detail: "What your students say about your lessons." },
-        ],
-      },
-      {
-        label: "Managing",
-        shot: "teacherManage",
-        capabilities: [
-          {
-            name: "My centers",
-            detail: "Collaboration requests with centers: subject, year, hall, schedule and share. The moment one side accepts, the group and its schedule exist.",
-          },
-          {
-            name: "Team",
-            detail: "An assistant acts on your behalf on everything except the money — and every action is recorded under their name on your behalf, never under yours.",
-          },
-          { name: "Team notes", detail: "A shared to-do board between you and your assistants." },
-          { name: "Messages", detail: "A parent reaches you inside the system, without you handing out a personal number." },
-        ],
-      },
-      {
-        label: "Money",
-        shot: "teacherWallet",
-        capabilities: [
-          {
-            name: "Wallet",
-            detail: "Your balance moves when a lesson closes, and every entry names its source. Withdrawals are requested from the same screen.",
-          },
-        ],
-      },
-    ],
-    guarantees: [
-      {
-        title: "You see the split before you confirm",
-        detail: "The same function that computes what is on screen writes it into the ledger a second later. There are not two numbers that can disagree.",
-      },
-      {
-        title: "An assistant never touches the money",
-        detail: "Delegation covers everything except the wallet, payouts and financial settings. That is enforced in the system, not agreed in conversation.",
-      },
-      {
-        title: "You see the hall's rate at booking",
-        detail: "A hall's per-attending-student rate is on the hall card when you choose it, and it is bound by a published ceiling — not a surprise at settlement.",
-      },
-    ],
-    ctaTitle: "Start without a center.",
-    ctaBody: "You can run your own groups from day one and add centers whenever you want.",
-    ctaPrimary: "Register as a teacher",
-  },
-
   parent: {
-    label: "For families",
-    headline: "Know your child actually attended.",
-    question: "Is my child actually attending, and what am I paying for?",
-    lede: "Attendance, absence and grades as they happen, payment for a lesson or a month from your own wallet, and read-only sight of your child's threads with adults.",
+    label: "For parents",
+    name: "Parents",
+    headline: "Know whether your child showed up.",
+    lede: "Attendance and grades as they happen, pay for a class or a month from your own wallet, and read your child's threads with adults.",
     hero: "roleParent",
+    heroAlt: "A parent pays for a class or a month for their child from their own wallet.",
     groups: [
       {
-        label: "Children",
+        title: "Children",
+        lede: "All your children on one account.",
         shot: "parentChildren",
         capabilities: [
-          { name: "Children", detail: "More than one child on one account, with every screen filtered to the one you picked." },
-          { name: "Attendance", detail: "Present or not, when, and for which lesson." },
-          { name: "Progress", detail: "Marks per subject, and how they compare across the term." },
+          { name: "Children", detail: "More than one child on one account, and every screen filters to the one you picked." },
+          { name: "Attendance", detail: "Present or not, when, and in which class." },
+          { name: "Progress", detail: "Marks per subject, compared across the term." },
           {
             name: "Child safety",
-            detail: "Your child's threads with adults, strictly read-only — it never touches unread counts or read receipts, and both sides see a notice that you can read it.",
+            detail: "Your child's threads with adults, read-only. It doesn't change read receipts, and both sides know you can see it.",
           },
-          { name: "Messages", detail: "Ask the teacher or the center, and read your minor child's threads — oversight is read-only." },
+          { name: "Messages", detail: "Ask the teacher or the center inside the system." },
         ],
       },
       {
-        label: "Money",
+        title: "Money",
+        lede: "Pay for the class from the parent's wallet.",
         shot: "parentPay",
         capabilities: [
-          { name: "Fees", detail: "What has been paid and what is due, with receipts." },
+          { name: "Fees", detail: "What's paid and what's due, with receipts." },
           {
-            name: "Pay for a lesson",
-            detail: "Activate a lesson or a month for your child from your own wallet. The money is recorded in the child's name like any payment, with you recorded as the payer.",
+            name: "Pay for a class",
+            detail: "Activate a class or a month for your child from your wallet. The payment is recorded in your child's name, with you as the payer.",
           },
-          { name: "My wallet", detail: "Your balance, entirely separate from your child's." },
-          { name: "Subscriptions", detail: "Monthly or per-session, chosen at checkout. Nothing renews by charging you automatically." },
+          { name: "My wallet", detail: "Your own balance, separate from your child's wallet." },
+          { name: "Subscriptions", detail: "Monthly or per class, chosen when you pay. Nothing is charged automatically." },
         ],
       },
     ],
     guarantees: [
       {
-        title: "Your wallet is not your child's wallet",
-        detail: "You pay from your money, not their balance. The system refuses the reverse — that is spending a child's money, not paying on their behalf.",
+        title: "Your wallet isn't your child's wallet",
+        detail: "You pay from your money, not their balance. The system refuses the reverse.",
       },
       {
-        title: "Oversight is read-only",
-        detail: "There is no path anywhere to write as your child. Sight of adult threads only, and only on an approved link.",
+        title: "Read-only means read-only",
+        detail: "There's no way to write as your child. You see their threads with adults only, on a link both sides approved.",
       },
       {
-        title: "Minor is the default",
-        detail: "Your child is a minor unless a date of birth exists, is verified, and puts them at 18 or over. Otherwise adult-facing messaging stays locked until your address is confirmed.",
+        title: "A minor until proven otherwise",
+        detail: "Your child is treated as a minor unless a date of birth is on file, verified, and puts them at 18 or over. Until then, messaging with adults stays locked until a guardian email is added.",
       },
     ],
     ctaTitle: "Link your child's account.",
-    ctaBody: "Registration is free, and the link needs approval from both sides.",
+    ctaBody: "Registration is free, and linking needs both sides to agree.",
     ctaPrimary: "Register as a parent",
   },
 
   student: {
     label: "For students",
-    headline: "Your subjects and your schedule, sorted.",
-    question: "What do I have, and when?",
-    lede: "You pick your year and track once, and the subjects assign themselves. Your schedule, attendance, grades, wallet and card are all in one place.",
+    name: "Students",
+    headline: "Your subjects and schedule, right where they belong.",
+    lede: "Pick your year and track once, and your subjects show up on their own. Schedule, attendance, grades, wallet and ID card, in one place.",
     hero: "roleStudent",
+    heroAlt: "The student's subjects for their year and track, and their schedule.",
     groups: [
       {
-        label: "Learning",
+        title: "Studying",
+        lede: "What you have, when, and where.",
         shot: "studentLearn",
         capabilities: [
           {
             name: "Subjects",
-            detail: "Your track's subjects appear on their own, with a separate search if you want to browse everything else.",
+            detail: "Your track's subjects show up on their own, with a separate search if you want to see the rest.",
           },
-          { name: "Schedule", detail: "This week's lessons, with hall and time." },
-          { name: "Attendance", detail: "Your record: how many you attended, how many you missed." },
-          { name: "Grades", detail: "Your marks as they are entered." },
+          { name: "Schedule", detail: "This week's classes, with the hall and time." },
+          { name: "Attendance", detail: "How many you attended, how many you missed." },
+          { name: "Grades", detail: "Your marks as they're entered." },
           { name: "Materials", detail: "Your teacher's files for your groups." },
-          { name: "Reviews", detail: "Rate your teachers." },
         ],
       },
       {
-        label: "Account",
+        title: "Account",
+        lede: "Your ID card on your phone.",
         shot: "studentCard",
         capabilities: [
           {
-            name: "Student ID",
-            detail: "An eight-character code and a signed QR, printable or sent over WhatsApp. That code is what the counter reads.",
+            name: "ID card",
+            detail: "An eight-character code and a signed QR, printed or sent on WhatsApp. That code is what the counter reads.",
           },
-          { name: "Family", detail: "Link your parent, with approval from both sides." },
-          { name: "Messages", detail: "Ask your teacher inside the system. If you are a minor, your guardian can see the thread." },
+          { name: "Family code", detail: "Link your parent, with both sides agreeing." },
+          { name: "Messages", detail: "Ask your teacher inside the system. If you're a minor, your parent can read along." },
         ],
       },
       {
-        label: "Money",
+        title: "Money",
+        lede: "Top up, and pay from your balance.",
         shot: null,
         capabilities: [
           { name: "Wallet", detail: "Top up online or in cash at the counter, and pay from the balance." },
-          { name: "Subscriptions", detail: "What you are covered for, and what is about to run out." },
+          { name: "Subscriptions", detail: "What's active, and what's about to run out." },
         ],
       },
     ],
     guarantees: [
       {
-        title: "Your code carries nothing about you",
-        detail: "It is not derived from your name, birth date or phone. And it carries a check character that catches any single wrong character and any two swapped — so you are never marked present for someone else.",
+        title: "Your code says nothing about you",
+        detail: "It isn't made from your name, birth date or phone. A check character catches any single wrong character or two swapped ones, so you're never marked present for a classmate.",
       },
       {
-        title: "A lost card can be stopped",
-        detail: "The QR is signed and versioned. The moment you report it, every card printed before then stops working.",
+        title: "A lost card can be cancelled",
+        detail: "The QR is signed and versioned. The moment you report it, every card printed before stops working.",
       },
       {
-        title: "Money is counted once",
-        detail: "Every payment has a numbered receipt and every lesson has a line. You can check both whenever you want.",
+        title: "Every payment has a receipt",
+        detail: "Every payment has a numbered receipt and every class has a line. Check them whenever you like.",
       },
     ],
     ctaTitle: "Start with your year and track.",
-    ctaBody: "One step, and your subjects assign themselves after it.",
+    ctaBody: "One step, and your subjects show up after it.",
     ctaPrimary: "Register as a student",
   },
 
-  assistant: {
-    label: "For assistants",
-    headline: "Everything the teacher does, except the money.",
-    question: "What exactly am I delegated?",
-    lede: "An assistant acts for exactly one teacher: their groups, attendance, grades, materials and collaborations. The money is closed, and every action is recorded under your name on their behalf — never under theirs.",
-    hero: "roleAssistant",
-    groups: [
-      {
-        label: "Teaching",
-        shot: "assistantDoor",
-        capabilities: [
-          { name: "My classes", detail: "The groups of the teacher you work for, on the same screen they see." },
-          { name: "Attendance", detail: "The register, the check-in, and closing the lesson." },
-          {
-            name: "Door check-in",
-            detail: "The job the role exists for: the second check-in at the hall door while the teacher is inside teaching.",
-          },
-          { name: "Gradebook", detail: "Entering marks, with the parent notified exactly as if the teacher had entered them." },
-          { name: "Materials", detail: "Uploading and managing a group's files." },
-        ],
-      },
-      {
-        label: "Managing",
-        shot: "teacherManage",
-        capabilities: [
-          { name: "My centers", detail: "Collaboration requests with centers — sent and answered on the teacher's behalf." },
-          { name: "Team notes", detail: "The to-do board between you, the teacher, and the other assistants." },
-        ],
-      },
-      {
-        label: "Communication",
-        shot: null,
-        capabilities: [
-          {
-            name: "Messages",
-            detail: "You message as YOURSELF, never as the teacher. Who you may reach is scoped by their relationships, but the name on the message is yours.",
-          },
-          { name: "Notifications", detail: "What needs you, as it happens." },
-        ],
-      },
-    ],
-    guarantees: [
-      {
-        title: "The money is not delegated",
-        detail: "The wallet, payouts, financial settings and managing other assistants are all closed to you. That is enforced in the system, not agreed between you and the teacher.",
-      },
-      {
-        title: "One assistant, one teacher",
-        detail: "You cannot assist two teachers at once. That is enforced by the database itself, not by a condition in the code.",
-      },
-      {
-        title: "Your name on every action",
-        detail: "Everything you do is recorded as \"you, on behalf of them\". That is not surveillance — it is what protects you: what you did is attributed to you, and what you did not do cannot be.",
-      },
-    ],
-    ctaTitle: "Been invited as an assistant?",
-    ctaBody: "The invitation arrives at your own email, and you set your own password — the teacher never sees it and never sets it.",
-    ctaPrimary: "Open your invitation",
-  },
 
-  staff: {
-    label: "For center staff",
-    headline: "Each hire sees only their own job.",
-    question: "Can I put someone on the desk without opening the whole center to them?",
-    lede: "Staff are hired into a preset — receptionist, manager or accountant — and the preset is the screen. A receptionist sees six things, an accountant five, and nobody sees the owner's console.",
-    hero: "roleStaff",
-    groups: [
-      {
-        label: "The front desk",
-        shot: null,
-        capabilities: [
-          { name: "Students", detail: "Register a walk-in, take payment, and check them in at the counter." },
-          { name: "Messages", detail: "Answer a parent or a student from the same screen, with no personal numbers involved." },
-        ],
-      },
-      {
-        label: "Managing",
-        shot: null,
-        capabilities: [
-          { name: "Collaboration requests", detail: "Teachers asking to work at the center — accept or decline." },
-          { name: "Rooms", detail: "Schedules, rates, and who has the hall." },
-          { name: "Reports", detail: "The owner's figures, read-only." },
-        ],
-      },
-      {
-        label: "Accounts",
-        shot: null,
-        capabilities: [
-          { name: "Finance", detail: "Collections, expenses and statements — the accountant preset alone reaches this." },
-        ],
-      },
-      {
-        label: "The team",
-        shot: null,
-        capabilities: [
-          { name: "Team notes", detail: "A shift's to-do board: what was done and what is still open." },
-        ],
-      },
-    ],
-    guarantees: [
-      {
-        title: "The preset is the ceiling",
-        detail: "A receptionist cannot reach finance, and an accountant cannot reach collaboration requests. That is enforced at the API, not by hiding a menu item.",
-      },
-      {
-        title: "Your name on every action",
-        detail: "Every payment taken and every check-in is recorded against whoever did it. If a figure is ever disputed, the line says who was at the desk.",
-      },
-      {
-        title: "Removed in a second",
-        detail: "Someone leaves, you stop their preset, and their sessions end in the same moment — not whenever a token happens to expire.",
-      },
-    ],
-    ctaTitle: "Running a center and staffing a desk?",
-    ctaBody: "The presets already exist — pick one and the hire gets their screen immediately.",
-    ctaPrimary: "Start with your center",
-  },
 };
 
 const ROLE_PAGES: Record<Locale, Record<RoleSlug, RolePage>> = { ar, en };
+
+// Labels shared by every role page.
+const ROLE_UI: Record<
+  Locale,
+  { brand: string; guaranteesTitle: string; question: string; others: string }
+> = {
+  ar: {
+    brand: "لينكتك",
+    guaranteesTitle: "مضمونة في النظام نفسه.",
+    question: "عندك سؤال؟",
+    others: "والحساب التاني",
+  },
+  en: {
+    brand: "Linktich",
+    guaranteesTitle: "Built into the system itself.",
+    question: "Got a question?",
+    others: "And the other account",
+  },
+};
+
+export function getRoleUi(locale: Locale) {
+  return ROLE_UI[locale];
+}
 
 export function getRolePage(locale: Locale, slug: RoleSlug): RolePage {
   return ROLE_PAGES[locale][slug];

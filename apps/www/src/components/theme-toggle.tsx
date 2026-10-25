@@ -1,13 +1,13 @@
 "use client";
 
-const STORAGE_KEY = "linktich-v2-theme";
+export const THEME_STORAGE_KEY = "linktich-v2-theme";
 
 export function ThemeToggle({ label }: { label: string }) {
   function toggle() {
     const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
     document.documentElement.dataset.theme = next;
     try {
-      window.localStorage.setItem(STORAGE_KEY, next);
+      window.localStorage.setItem(THEME_STORAGE_KEY, next);
     } catch {
     }
   }
@@ -17,7 +17,7 @@ export function ThemeToggle({ label }: { label: string }) {
       type="button"
       onClick={toggle}
       aria-label={label}
-      className="tap grid h-9 w-9 place-items-center rounded-(--radius-step-sm) border border-rule text-ink-2 transition-colors hover:border-gold hover:text-ink"
+      className="nav-icon-btn"
     >
       <svg
         viewBox="0 0 20 20"
@@ -46,6 +46,20 @@ export function ThemeToggle({ label }: { label: string }) {
   );
 }
 
-export const THEME_BOOTSTRAP = `(function(){var d=document.documentElement;var t=null;try{t=localStorage.getItem(${JSON.stringify(
-  STORAGE_KEY,
-)})}catch(e){}if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}d.dataset.theme=t})()`;
+// Runs before paint as an inline <head> script, and again from not-found.tsx:
+// Next serves a 404 as an empty shell rendered in the browser, where React
+// never executes the head script. Uses globals only, so it survives toString().
+export function applyStoredTheme(key: string) {
+  const root = document.documentElement;
+  let theme: string | null = null;
+  try {
+    theme = window.localStorage.getItem(key);
+  } catch {
+  }
+  if (theme !== "light" && theme !== "dark") {
+    theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  root.dataset.theme = theme;
+}
+
+export const THEME_BOOTSTRAP = `(${applyStoredTheme.toString()})(${JSON.stringify(THEME_STORAGE_KEY)})`;

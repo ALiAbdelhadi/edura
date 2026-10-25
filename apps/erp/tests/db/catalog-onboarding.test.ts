@@ -123,7 +123,7 @@ async function main() {
     console.log("\n2) Azhari sees shariah + stage subjects");
     const azhariSubjects = await getSubjectsForSelection(fx.azhari2Id, fx.azhariSciId);
     const shariahCount = azhariSubjects.filter((s) => s.isAzhari).length;
-    assert(shariahCount === 15, `all 15 shariah subjects offered (got ${shariahCount})`);
+    assert(shariahCount === 13, `all 13 shariah subjects offered (got ${shariahCount})`);
     assert(azhariSubjects.some((s) => !s.isAzhari), "…on top of regular stage subjects");
 
     console.log("\n3) Student completion validation");

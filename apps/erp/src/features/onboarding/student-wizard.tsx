@@ -81,6 +81,7 @@ export function StudentWizard({ initial }: { initial?: OnboardingInitial<Student
   const grade = useMemo(() => stage?.gradeLevels.find((g) => g.id === sel.gradeLevelId), [stage, sel.gradeLevelId]);
 
   const needsTrack = (grade?.trackOptions.length ?? 0) > 0;
+  const trackId = grade?.trackOptions.some((tr) => tr.id === sel.trackId) ? (sel.trackId ?? null) : null;
   const needsLang = !!stage?.hasSecondLanguage;
 
   const steps: StepId[] = useMemo(() => studentSteps({ needsTrack, needsLang }), [needsTrack, needsLang]);
@@ -92,6 +93,11 @@ export function StudentWizard({ initial }: { initial?: OnboardingInitial<Student
     setStepId(next);
     saveDraft({ step: next, selections: nextSel });
   };
+
+  useEffect(() => {
+    if (stepId === "track" && grade && !needsTrack) go(stepAfterTrack({ stageHasLang: needsLang }), { ...sel, trackId: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepId, grade, needsTrack]);
 
   const advanceAfterGrade = (nextSel: StudentSelections, gradeHasTracks: boolean, stageHasLang: boolean) =>
     go(stepAfterGrade({ gradeHasTracks, stageHasLang }), nextSel);
@@ -110,23 +116,27 @@ export function StudentWizard({ initial }: { initial?: OnboardingInitial<Student
     if (stepId !== "review" || !sel.gradeLevelId) return;
     setPreview(null);
     const q = new URLSearchParams({ gradeLevelId: sel.gradeLevelId });
-    if (sel.trackId) q.set("trackId", sel.trackId);
+    if (trackId) q.set("trackId", trackId);
     api
       .get(`catalog/subjects?${q}`)
       .json<{ data: unknown }>()
       .then((j) => setPreview(Array.isArray(j.data) ? (j.data as CatalogSubject[]) : []))
       .catch(() => setPreview([]));
-  }, [stepId, sel.gradeLevelId, sel.trackId]);
+  }, [stepId, sel.gradeLevelId, trackId]);
 
   async function confirm() {
     if (!sel.educationSystemId || !sel.stageId || !sel.gradeLevelId) return;
+    if (needsTrack && !trackId) {
+      go("track", { ...sel, trackId: null });
+      return;
+    }
     setSubmitting(true);
     try {
       await apiSend("/api/v1/me/onboarding", "POST", {
         educationSystemId: sel.educationSystemId,
         stageId: sel.stageId,
         gradeLevelId: sel.gradeLevelId,
-        trackId: sel.trackId ?? null,
+        trackId,
         secondLanguageSubjectId: sel.secondLanguageSubjectId ?? null,
       });
       toast.success(t("onboarding.completedToast"));
@@ -301,7 +311,7 @@ export function StudentWizard({ initial }: { initial?: OnboardingInitial<Student
   }
 
   const langName = langOptions?.find((l) => l.id === sel.secondLanguageSubjectId);
-  const trackName = grade?.trackOptions.find((tr) => tr.id === sel.trackId);
+  const trackName = grade?.trackOptions.find((tr) => tr.id === trackId);
   const rows: [string, string][] = [
     [t("onboarding.review.system"), system ? dn(system) : t("onboarding.review.none")],
     [t("onboarding.review.stage"), stage ? dn(stage) : t("onboarding.review.none")],

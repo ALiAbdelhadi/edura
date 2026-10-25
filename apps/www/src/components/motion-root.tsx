@@ -1,205 +1,81 @@
 "use client";
 
-import { useGSAP } from "@gsap/react";
-import gsap from "gsap";
-import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { usePathname } from "next/navigation";
+import { useEffect, useLayoutEffect } from "react";
 
-import { D, E, STAGGER, makeCounter } from "@/lib/motion";
+import { REDUCED_MOTION, RISE, riseFrames, riseOnLoad } from "@/lib/motion";
 
-gsap.registerPlugin(useGSAP, ScrollTrigger, DrawSVGPlugin);
+// Elements that have already revealed stay revealed across client navigations.
+const revealed = new WeakSet<Element>();
 
-const COUNTING = new Set<gsap.core.Timeline>();
-
+// The page is complete without JS: nothing is hidden in CSS. [data-rise] is
+// played by the inline bootstrap on first load (see page-frame) and here after a
+// client-side navigation; [data-reveal] is pre-set only when it starts below the
+// fold, and rises once when it enters the viewport.
 export function MotionRoot() {
-  useGSAP(() => {
-    const mm = gsap.matchMedia();
+  const pathname = usePathname();
 
-    mm.add(
-      {
-        motion: "(prefers-reduced-motion: no-preference)",
-        desktop: "(min-width: 1024px)",
+  useLayoutEffect(() => {
+    riseOnLoad(RISE.distance, RISE.duration, RISE.stagger, RISE.easing);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (window.matchMedia(REDUCED_MOTION).matches) return;
+    if (typeof IntersectionObserver === "undefined") return;
+
+    const pending = new Set<HTMLElement>();
+    for (const el of document.querySelectorAll<HTMLElement>("[data-reveal]")) {
+      if (revealed.has(el) || typeof el.animate !== "function") continue;
+      if (el.getBoundingClientRect().top <= window.innerHeight) {
+        revealed.add(el);
+        continue;
+      }
+      el.style.opacity = "0";
+      pending.add(el);
+    }
+    if (!pending.size) return;
+
+    const show = (el: HTMLElement) => {
+      el.style.removeProperty("opacity");
+      pending.delete(el);
+      revealed.add(el);
+    };
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        let order = 0;
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const el = entry.target as HTMLElement;
+          observer.unobserve(el);
+          show(el);
+          el.animate(riseFrames(RISE.distance), {
+            duration: RISE.duration,
+            delay: order++ * RISE.stagger,
+            easing: RISE.easing,
+            fill: "backwards",
+          });
+        }
       },
-      (context) => {
-        const { motion, desktop } = context.conditions as {
-          motion: boolean;
-          desktop: boolean;
-        };
-        if (!motion) return;
-
-        heroEntrance();
-        postOnScroll();
-        if (desktop) drawSpine();
-        pressSeal();
-
-        void document.fonts?.ready.then(() => ScrollTrigger.refresh());
-
-        const settleFigures = () => {
-          if (!document.hidden) return;
-          for (const timeline of COUNTING) timeline.progress(1);
-          for (const el of document.querySelectorAll<HTMLElement>("[data-count]")) {
-            if (el.dataset.count && el.textContent !== el.dataset.count) {
-              el.textContent = el.dataset.count;
-            }
-          }
-        };
-        if (document.hidden) settleFigures();
-
-        document.addEventListener("visibilitychange", settleFigures);
-        return () => document.removeEventListener("visibilitychange", settleFigures);
-      },
+      { rootMargin: "0px 0px -8% 0px" },
     );
+    for (const el of pending) observer.observe(el);
+
+    // A hidden tab never intersects; settle everything so nothing stays blank.
+    const settle = () => {
+      if (!document.hidden) return;
+      observer.disconnect();
+      for (const el of [...pending]) show(el);
+    };
+    document.addEventListener("visibilitychange", settle);
 
     return () => {
-      COUNTING.clear();
-      mm.revert();
+      document.removeEventListener("visibilitychange", settle);
+      observer.disconnect();
+      for (const el of pending) el.style.removeProperty("opacity");
+      pending.clear();
     };
-  });
+  }, [pathname]);
 
   return null;
-}
-
-function tweenCount(el: HTMLElement, timeline: gsap.core.Timeline, position?: number | string) {
-  const target = el.dataset.count ?? el.textContent ?? "";
-  const counter = makeCounter(target);
-  if (!counter) return;
-
-  const box = { value: 0 };
-
-  timeline.to(
-    box,
-    {
-      value: counter.value,
-      onStart: () => {
-        el.textContent = counter.render(0);
-      },
-      duration: el.hasAttribute("data-total") ? D.total : D.post,
-      ease: E.arrive,
-      onUpdate: () => {
-        el.textContent = counter.render(box.value);
-      },
-      onInterrupt: () => {
-        el.textContent = counter.render(counter.value);
-      },
-    },
-    position,
-  );
-}
-
-function heroEntrance() {
-  const register = document.querySelector<HTMLElement>(
-    "main > section:first-of-type [data-register]",
-  );
-  const words = gsap.utils.toArray<HTMLElement>("h1 [data-ink-word]");
-
-  const timeline = gsap.timeline({ defaults: { ease: E.arrive } });
-  COUNTING.add(timeline);
-
-  if (words.length) {
-    timeline.from(words, {
-      opacity: 0,
-      y: 16,
-      duration: D.ink,
-      stagger: { each: STAGGER, amount: Math.min(words.length * STAGGER, 0.45) },
-    });
-  }
-
-  if (!register) {
-    timeline.eventCallback("onComplete", () => {
-      document.documentElement.dataset.motionSettled = "";
-    });
-    return;
-  }
-
-  timeline.from(
-    register.querySelectorAll("[data-register-head] > *"),
-    { opacity: 0, y: 8, duration: D.ink, stagger: 0.06 },
-    0.25,
-  );
-
-  const rows = gsap.utils.toArray<HTMLElement>("[data-register] [data-row]");
-  rows.forEach((row, i) => {
-    const at = 0.42 + i * 0.13;
-    timeline.from(row.querySelector("[data-row-label]"), { opacity: 0, x: 10, duration: D.ink }, at);
-    const figure = row.querySelector<HTMLElement>("[data-figure]");
-    if (figure) tweenCount(figure, timeline, at + 0.05);
-  });
-
-  const strike = register.querySelector<HTMLElement>("[data-total-rule]");
-  if (strike) {
-    timeline.from(strike, { scaleX: 0, duration: 0.42, ease: E.strike }, 0.42 + rows.length * 0.13);
-  }
-
-  const total = register.querySelector<HTMLElement>("[data-total-figure]");
-  if (total) tweenCount(total, timeline, 0.42 + rows.length * 0.13 + 0.12);
-
-  timeline.eventCallback("onComplete", () => {
-    document.documentElement.dataset.motionSettled = "";
-  });
-}
-
-function postOnScroll() {
-  const hero = document.querySelector("main > section:first-of-type [data-register]");
-
-  gsap.utils
-    .toArray<HTMLElement>("[data-count]")
-    .filter((el) => !hero || !hero.contains(el))
-    .forEach((el) => {
-      const timeline = gsap.timeline({
-
-        scrollTrigger: { trigger: el, start: "top bottom", once: true },
-      });
-      COUNTING.add(timeline);
-      tweenCount(el, timeline);
-    });
-}
-
-function drawSpine() {
-  gsap.utils.toArray<HTMLElement>("[data-spine]").forEach((spine) => {
-    const section = spine.closest("section");
-    if (!section) return;
-
-    gsap.to(spine, {
-      scaleY: 1,
-      ease: "none",
-      scrollTrigger: {
-        trigger: section,
-        start: "top 72%",
-        end: "bottom 72%",
-        scrub: 0.4,
-      },
-    });
-  });
-
-  gsap.utils.toArray<HTMLElement>("[data-section-tick]").forEach((tick) => {
-    gsap.to(tick, {
-      scaleX: 1,
-      duration: 0.4,
-      ease: E.strike,
-      scrollTrigger: { trigger: tick.closest("section"), start: "top 72%", once: true },
-    });
-  });
-}
-
-function pressSeal() {
-  const seal = document.querySelector<HTMLElement>("[data-seal]");
-  if (!seal) return;
-
-  const box = seal.getBoundingClientRect();
-  if (box.top < window.innerHeight && box.bottom > 0) return;
-
-  const strokes = seal.querySelectorAll<SVGElement>("[data-seal-stroke]");
-  const timeline = gsap.timeline({
-    scrollTrigger: { trigger: seal, start: "top 85%", once: true },
-    defaults: { ease: E.press },
-  });
-
-  timeline
-    .from(strokes, { drawSVG: "0%", duration: D.draw, ease: "power1.inOut", stagger: 0.08 })
-    .from(seal.querySelectorAll("[data-seal-text]"), { opacity: 0, duration: D.state }, "-=0.35")
-    .from(
-      seal,
-      { scale: 1.06, rotate: -1, duration: 0.5, ease: "back.out(1.7)", immediateRender: false },
-      "-=0.5",
-    );
 }

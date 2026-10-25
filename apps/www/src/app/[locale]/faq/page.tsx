@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { Arrow } from "@/components/arrow";
+import { LineArt, type LineArtName } from "@/components/line-art";
 import { PageFrame, PageHero } from "@/components/page-frame";
+import { Section } from "@/components/section";
 import { LOCALES, isLocale } from "@/i18n/config";
 import { getMessages } from "@/i18n/messages";
 import { getPages } from "@/i18n/pages";
@@ -29,6 +32,9 @@ export async function generateMetadata({
   };
 }
 
+// The student group first, then the parent group.
+const GROUP_ART: LineArtName[] = ["student", "parent"];
+
 export default async function FaqPage({
   params,
 }: {
@@ -42,49 +48,75 @@ export default async function FaqPage({
 
   return (
     <PageFrame locale={locale} t={t} activePage="faq">
-      <PageHero locale={locale} label={f.label} headline={f.headline} lede={f.lede} />
+      <PageHero
+        headline={f.headline}
+        lede={f.lede}
+        art="question"
+        actions={f.groups.map((group, gi) => (
+          <a key={group.id} href={`#${group.id}`} className="chip-link">
+            <LineArt name={GROUP_ART[gi % GROUP_ART.length]!} className="h-5 w-5" />
+            {group.title}
+          </a>
+        ))}
+      />
 
-      <section className="border-t border-rule">
-        <div className="mx-auto w-full max-w-[87.5rem] px-6 py-10 md:px-10 md:py-14 lg:py-20">
-          <div className="max-w-[62rem]">
-            {f.items.map((item) => (
-              <details key={item.q} className="group border-b border-rule">
-                <summary className="flex cursor-pointer list-none items-baseline justify-between gap-6 py-5 text-[1.0625rem] leading-snug text-ink [&::-webkit-details-marker]:hidden">
-                  <span className="display">{item.q}</span>
-                  <span
-                    aria-hidden="true"
-                    className="figure text-[1.0625rem] text-ink-3 transition-transform group-open:rotate-45"
-                  >
-                    +
-                  </span>
-                </summary>
-                <p className="max-w-[58ch] pb-6 text-[0.9375rem] leading-[1.75] text-ink-2">
-                  {item.a}
-                </p>
-              </details>
-            ))}
+      {f.groups.map((group, gi) => (
+        <Section key={group.id} id={group.id}>
+          <div className="faq-column">
+            <div data-reveal="" className="flex items-center gap-4">
+              <span className="method-icon" data-ground={gi % 2 === 0 ? "pen" : "marker"}>
+                <LineArt name={GROUP_ART[gi % GROUP_ART.length]!} className="h-7 w-7" />
+              </span>
+              <h2 id={`${group.id}-title`} className="t-h2 text-ink">
+                {group.title}
+              </h2>
+            </div>
+
+            <div data-reveal="" className="faq-cards mt-8">
+              {group.items.map((item) => (
+                <details key={item.q} className="faq-item faq-card">
+                  <summary className="faq-q">
+                    <span className="min-w-0 flex-1">{item.q}</span>
+                    <span className="faq-toggle">
+                      <svg
+                        viewBox="0 0 16 16"
+                        aria-hidden="true"
+                        className="faq-icon h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                      >
+                        <path d="M8 2.5v11M2.5 8h11" />
+                      </svg>
+                    </span>
+                  </summary>
+                  <p className="faq-a">{item.a}</p>
+                </details>
+              ))}
+            </div>
           </div>
+        </Section>
+      ))}
 
-          <div className="mt-14 max-w-[62rem] border-t border-rule pt-8">
-            <h2 className="display text-[1.25rem] leading-snug text-ink">{f.more.title}</h2>
-            <p className="mt-3 max-w-[58ch] text-[0.9375rem] leading-[1.75] text-ink-2">
-              {f.more.body}
-            </p>
-            <ul className="mt-5 flex flex-wrap gap-x-8 gap-y-3">
-              <li>
-                <Link href={`/${locale}/pricing`} className="rule-link rule-link-row text-[1.0625rem]">
-                  {f.more.pricing}
-                </Link>
-              </li>
-              <li>
-                <Link href={`/${locale}/trust`} className="rule-link rule-link-row text-[1.0625rem]">
-                  {f.more.trust}
-                </Link>
-              </li>
-            </ul>
+      <Section id="more">
+        <div data-reveal="" className="cta-card">
+          <span className="method-icon mx-auto mb-5">
+            <LineArt name="mail" className="h-7 w-7" />
+          </span>
+          <h2 className="t-h2">{f.more.title}</h2>
+          <p className="t-lede mx-auto mt-3 max-w-[48ch]">{f.more.body}</p>
+          <div className="mt-7 flex flex-wrap justify-center gap-3">
+            <Link href={`/${locale}/contact`} className="btn btn-pen">
+              {f.more.contact}
+              <Arrow />
+            </Link>
+            <Link href={`/${locale}/trust`} className="btn btn-quiet">
+              {f.more.trust}
+            </Link>
           </div>
         </div>
-      </section>
+      </Section>
     </PageFrame>
   );
 }

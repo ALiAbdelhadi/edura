@@ -9,7 +9,6 @@ export type MediaSlot = {
 };
 
 const ASPECT_DESKTOP = 16 / 10;
-const ASPECT_STILL = 4 / 3;
 const ASPECT_PHONE = 390 / 844;
 
 export const MEDIA = {
@@ -34,7 +33,7 @@ export const MEDIA = {
   roleTeacher: {
     id: "role-teacher",
     kind: "image",
-    src: "/system/teacher-teaching.webp",
+    src: "/system/library/teacher-classes.webp",
     aspect: ASPECT_DESKTOP,
     frame: "plate",
     capture: { width: 1440, height: 900 },
@@ -73,16 +72,6 @@ export const MEDIA = {
     capture: { width: 1440, height: 900 },
   },
 
-  settlementConfirm: {
-    id: "settlement-confirm",
-    kind: "image",
-    src: "/system/settlement-confirm.webp",
-    aspect: ASPECT_STILL,
-    frame: "plate",
-    capture: { width: 1120, height: 840 },
-  },
-
-
   centerCounter: {
     id: "center-counter",
     kind: "image",
@@ -99,14 +88,6 @@ export const MEDIA = {
     frame: "plate",
     capture: { width: 1440, height: 900 },
   },
-  centerMoney: {
-    id: "center-money",
-    kind: "image",
-    src: "/system/center-money.webp",
-    aspect: ASPECT_DESKTOP,
-    frame: "plate",
-    capture: { width: 1440, height: 900 },
-  },
   centerTeam: {
     id: "center-team",
     kind: "image",
@@ -118,7 +99,7 @@ export const MEDIA = {
   teacherTeaching: {
     id: "teacher-teaching",
     kind: "image",
-    src: "/system/teacher-teaching.webp",
+    src: "/system/library/teacher-grades.webp",
     aspect: ASPECT_DESKTOP,
     frame: "plate",
     capture: { width: 1440, height: 900 },
@@ -126,7 +107,7 @@ export const MEDIA = {
   teacherManage: {
     id: "teacher-manage",
     kind: "image",
-    src: "/system/teacher-manage.webp",
+    src: "/system/library/teacher-team.webp",
     aspect: ASPECT_DESKTOP,
     frame: "plate",
     capture: { width: 1440, height: 900 },
@@ -163,15 +144,7 @@ export const MEDIA = {
     frame: "phone",
     capture: { width: 390, height: 844 },
   },
-  settlementLoop: {
-    id: "settlement",
-    kind: "video",
-    src: "/system/settlement.mp4",
-    poster: "/system/settlement-poster.webp",
-    aspect: ASPECT_DESKTOP,
-    frame: "plate",
-    capture: { width: 1440, height: 900 },
-  },
+
   walkInLoop: {
     id: "walk-in",
     kind: "video",

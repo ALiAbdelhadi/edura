@@ -1,0 +1,209 @@
+/* Site chrome: nav, footer, page hero, legal contents, skip link. Owned by the shell. */
+
+@layer components {
+  /* Skip link: hidden until focused. */
+  .skip-link {
+    position: absolute;
+    inset-block-start: 0.75rem;
+    inset-inline-start: 0.75rem;
+    z-index: 60;
+    padding: 0.625rem 1rem;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-step-sm);
+    background: var(--sheet);
+    color: var(--ink);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    translate: 0 -200%;
+  }
+
+  .skip-link:focus-visible {
+    translate: 0 0;
+  }
+
+  /* Theme toggle and menu button: a 40px circle with a 44px hit area. */
+  .nav-icon-btn {
+    position: relative;
+    display: grid;
+    place-items: center;
+    inline-size: 2.5rem;
+    block-size: 2.5rem;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    color: var(--ink-2);
+    transition:
+      border-color 160ms var(--ease-out),
+      color 160ms var(--ease-out),
+      transform 160ms var(--ease-out);
+  }
+
+  .nav-icon-btn::-webkit-details-marker {
+    display: none;
+  }
+
+  /* Locale switch: the other toggle pill. */
+  .nav-pill {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    block-size: 2.5rem;
+    padding-inline: 1rem;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    color: var(--ink-2);
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition:
+      border-color 160ms var(--ease-out),
+      color 160ms var(--ease-out),
+      transform 160ms var(--ease-out);
+  }
+
+  .nav-icon-btn::after,
+  .nav-pill::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    min-block-size: 44px;
+    min-inline-size: 44px;
+  }
+
+  .nav-icon-btn:active,
+  .nav-pill:active {
+    transform: scale(0.98);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .nav-icon-btn:hover,
+    .nav-pill:hover {
+      border-color: var(--ink-3);
+      color: var(--ink);
+    }
+  }
+
+  [data-mobile-nav][open] > .nav-icon-btn {
+    border-color: var(--ink-3);
+    color: var(--ink);
+  }
+
+  /* Mobile menu: ruled rows, each a 52px target. */
+  .nav-menu-rows > li + li {
+    border-block-start: 1px solid var(--rule);
+  }
+
+  .nav-menu-link {
+    display: flex;
+    align-items: center;
+    min-block-size: 3.25rem;
+    color: var(--ink-2);
+    font-size: 1.0625rem;
+    transition: color 160ms var(--ease-out);
+  }
+
+  .nav-menu-link[data-active] {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .nav-menu-link:hover {
+      color: var(--ink);
+    }
+  }
+
+  /* SectionBody inside the one board band. */
+  .band .section-body {
+    color: var(--band-ink-2);
+  }
+
+  /* Legal contents: a ruled list beside the text, a disclosure on narrow screens. */
+  .doc-toc {
+    position: sticky;
+    inset-block-start: 6rem;
+  }
+
+  .doc-toc-list {
+    display: grid;
+    margin-block-start: 0.75rem;
+    border-block-start: 1px solid var(--rule);
+    scroll-target-group: auto;
+  }
+
+  .doc-toc-link {
+    display: block;
+    padding-block: 0.625rem;
+    border-block-end: 1px solid var(--rule);
+    color: var(--ink-2);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    transition: color 160ms var(--ease-out);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .doc-toc-link:hover {
+      color: var(--ink);
+    }
+  }
+
+  .doc-toc-link:target-current {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  .doc-toc-fold {
+    margin-block-end: 2rem;
+    border-block: 1px solid var(--rule);
+  }
+
+  .doc-toc-fold .doc-toc-list {
+    margin-block-start: 0;
+  }
+
+  .doc-toc-fold .doc-toc-list > li:last-child .doc-toc-link {
+    border-block-end: 0;
+  }
+
+  .doc-toc-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-block-size: 3.25rem;
+    color: var(--ink);
+    font-weight: 500;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .doc-toc-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .doc-toc-chev {
+    color: var(--ink-3);
+  }
+
+  .doc-toc-fold[open] .doc-toc-chev {
+    rotate: 180deg;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .doc-toc-chev {
+    transition: rotate 200ms var(--ease-out);
+  }
+
+  .skip-link {
+    transition: translate 160ms var(--ease-out);
+  }
+}
+
+/* Printing never shows a block that was waiting to reveal. */
+@media print {
+  [data-reveal] {
+    opacity: 1 !important;
+  }
+
+  .site-nav {
+    position: static;
+  }
+}

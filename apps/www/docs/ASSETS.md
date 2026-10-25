@@ -1,6 +1,6 @@
 # Imagery of the system
 
-Nineteen assets — eight for the landing, eleven more for the five role pages. Every one of them is already reserved in the page: the layout is
+Eighteen assets — seven for the landing, eleven more for the five role pages. Every one of them is already reserved in the page: the layout is
 final, each plate is holding its exact aspect ratio, and dropping a file in
 changes pixels and never geometry.
 
@@ -57,15 +57,14 @@ anything in a sidebar badge counter that reveals a real figure.
 
 ---
 
-## The eight
+## The seven
 
 | Slot | App | Size (CSS) | The screen, and the state it must be in |
 |---|---|---|---|
 | `counter-board` | `apps/erp` | 1440×900, **clip** | The counter board mid-shift. A lesson running now already selected, a roster visible, and the sequence the section claims: find a student → take cash → check in, without the page changing. This is the only moving image on the site because SPEED is the only claim a still cannot make. End the loop back on the roster so it repeats cleanly. |
-| `settlement-confirm` | `apps/erp` | 1120×840 | The two-step confirm before a lesson closes, showing the quoted split — platform / center / teacher — with the amounts legible. This is the money section's evidence, so the figures must be readable at 22rem wide. Prefer a round example price. |
 | `student-card` | `apps/erp` | 390×844, phone | The student ID card screen on a phone viewport. The eight-character code and the QR both visible. Use a demo student; the QR encodes a signed URL, so a real one is a real credential. |
 | `role-center` | `apps/erp` | 1440×900 | The center's own board: today's takings and who still owes. The two numbers a center owner opens the app for. |
-| `role-teacher` | `apps/erp` | 1440×900 | A teacher closing a lesson with the split in front of them **before** confirming — the same claim as `settlement-confirm` but from the teacher's side of the desk. |
+| `role-teacher` | `apps/erp` | 1440×900 | A teacher's own classes for the week — subjects, years and the next session. **No close-lesson preview, wallet entry or any screen that shows how a lesson's price is divided.** |
 | `role-parent` | `apps/erp` | 1440×900 | A parent paying for one lesson or a month from their own wallet, with the child selector visible so it is obvious whose lesson it is. |
 | `role-student` | `apps/erp` | 1440×900 | A student's subjects — assigned from year and track, not chosen — beside their schedule. |
 | `role-assistant` | `apps/erp` | 1440×900 | An assistant recording attendance for a teacher, **with the on-behalf-of attribution visible on screen.** That attribution is the whole point of the role and the only thing that distinguishes this shot from the teacher's. |
@@ -91,11 +90,10 @@ hardest screen".
 |---|---|---|---|
 | `center-counter` | `apps/erp` | 1440×900 | `/dashboard/admin/counter` mid-shift — a lesson selected, a roster, and the cash step open. Different framing from the `counter-board` clip: this one is a still of the roster, the clip is the sequence. |
 | `center-ops` | `apps/erp` | 1440×900 | `/dashboard/admin/schedule` — the week across halls, with a conflict visibly refused if you can stage one. Falls back to `/rooms` showing a hall's per-student rate. |
-| `center-money` | `apps/erp` | 1440×900 | `/dashboard/admin/reports` — net profit with the on-platform vs off-system split visible. This is the center's whole argument in one screen. |
 | `center-team` | `apps/erp` | 1440×900 | **`/dashboard/staff/reports`, shot twice from the same URL** — once signed in as the center MANAGER, who sees the report, and once as the RECEPTIONIST, who is refused it. Composed as one plate. The permission tiers are the point, and this is the only framing that shows a tier doing something rather than being described. |
-| `teacher-teaching` | `apps/erp` | 1440×900 | `/dashboard/teacher/attendance` with the register open and the **close-lesson preview showing the split** — the page's central claim. |
-| `teacher-manage` | `apps/erp` | 1440×900 | `/dashboard/teacher/centers` — a collaboration request with subject, year, hall, schedule and share on it. |
-| `teacher-wallet` | `apps/erp` | 1440×900 | `/dashboard/teacher/wallet` — entries that each name their source lesson. Use a demo teacher with several settled lessons so it is not one row. |
+| `teacher-teaching` | `apps/erp` | 1440×900 | `/dashboard/teacher/grades` (or the attendance register **scrolled so the close-lesson preview is out of frame**). Never the close-lesson preview: it shows the split. (Wired today to `library/teacher-grades.webp`.) |
+| `teacher-manage` | `apps/erp` | 1440×900 | `/dashboard/teacher/team` — the teacher's assistants and their scope. Not `/centers`: a collaboration request carries the centre's share. (Wired today to `library/teacher-team.webp`.) |
+| `teacher-wallet` | `apps/erp` | 1440×900 | `/dashboard/teacher/wallet` — balance, available to withdraw and the withdraw button, **cropped above "آخر حركات المحفظة"**: its rows are typed `commission` with per-lesson amounts. |
 | `parent-children` | `apps/erp` | 1440×900 | `/dashboard/parent/attendance` or `/progress` with **two children** on the account, so the child selector is doing visible work. |
 | `parent-pay` | `apps/erp` | 390×844, phone | `/dashboard/parent/pay` mid-flow — child picked, lesson picked, paying from the parent wallet. Phone, because this is a phone task. |
 | `student-learn` | `apps/erp` | 390×844, phone | `/dashboard/student/subjects` — track subjects listed, with the "browse all" entry visible. Phone. |
@@ -116,6 +114,23 @@ of permissions. `/dashboard/staff/reports` returns four rows to a manager and a
 refusal to a receptionist, from the identical URL, which is the same claim with
 the mechanism visible. Full reasoning and the probe data behind it:
 ``apps/erp/tools/system-shots/INVENTORY.md``.
+
+---
+
+## Share cards and icons
+
+These are rendered rather than captured, so they never show an ERP screen.
+`bun run brand-assets` (Playwright; set `CAPTURE_CHANNEL=chrome` where the
+bundled Chromium is missing; needs network for Google Fonts) writes:
+
+| File | Size | From |
+|---|---|---|
+| `public/og/ar.png`, `public/og/en.png` | 1200×630 | The «لينكتك» / Linktich wordmark, the hero title and lede from `src/i18n/messages.ts`, and the hero's sample week (`hero.week`) as a timetable. Rendered by `tools/brand-assets.ts`. Every page shares its locale's card via `openGraph`/`twitter` in `[locale]/layout.tsx`. |
+| `src/app/apple-icon.png` | 180×180 | `src/app/icon.svg` with square corners (iOS rounds them itself). |
+| `src/app/favicon.ico` | 16/32/48 | `src/app/icon.svg`, PNG entries in one ICO. |
+
+Re-run it after changing the mark (`icon.svg` / `components/mark.tsx`) or the hero
+copy. `og:image` is absolute, so it is only right once `NEXT_PUBLIC_SITE_URL` is set.
 
 ---
 

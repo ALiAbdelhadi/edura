@@ -1,8 +1,8 @@
 import { chromium, type Page } from "playwright";
 
 import { LOCALES } from "@/i18n/config";
-import { ROLE_SLUGS } from "@/i18n/roles";
-import { NAV_PATHS, PUBLIC_ROUTES } from "@/lib/routes";
+import { getPages } from "@/i18n/pages";
+import { PUBLIC_ROUTES } from "@/lib/routes";
 
 const BASE = process.env.CAPTURE_BASE_URL ?? "http://localhost:3010";
 
@@ -41,8 +41,102 @@ async function rgbOf(page: Page, selector: string, prop: "color" | "backgroundCo
   );
 }
 
-const browser = await chromium.launch();
+async function scrollThrough(page: Page) {
+  await page.evaluate(async () => {
+    document.documentElement.style.scrollBehavior = "auto";
+    const step = window.innerHeight * 0.6;
+    for (let y = 0; y < document.body.scrollHeight; y += step) {
+      window.scrollTo(0, y);
+      await new Promise((resolve) => setTimeout(resolve, 90));
+    }
+    window.scrollTo(0, document.body.scrollHeight);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  });
+  await page.waitForTimeout(1500);
+}
 
+async function openHome(page: Page, locale: string, wait: "networkidle" | "domcontentloaded" = "networkidle") {
+  await page.goto(`${BASE}/${locale}`, { waitUntil: wait });
+  if (wait === "networkidle") {
+    await page
+      .waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"), null, {
+        timeout: 6000,
+      })
+      .catch(() => {});
+  }
+}
+
+const SECTION_IDS = ["subjects", "teachers", "how", "roles", "pay", "safety", "faq", "start"];
+const MARKER_RGB = "255,225,74";
+
+const browser = await chromium.launch(process.env.CAPTURE_CHANNEL ? { channel: process.env.CAPTURE_CHANNEL } : {});
+
+// 1 · no horizontal overflow, 2 · no console errors, 3 · landmarks present
+for (const locale of ["ar", "en"] as const) {
+  for (const width of [390, 1024, 1440]) {
+    const context = await browser.newContext({
+      viewport: { width, height: 900 },
+      locale: locale === "ar" ? "ar-EG" : "en-US",
+      hasTouch: width < 1024,
+      isMobile: width < 1024,
+    });
+    const page = await context.newPage();
+    const errors: string[] = [];
+    page.on("console", (m) => {
+      if (m.type() === "error") errors.push(m.text());
+    });
+    page.on("pageerror", (e) => errors.push(String(e)));
+
+    await openHome(page, locale);
+    await scrollThrough(page);
+
+    const overflow = await page.evaluate(() => ({
+      by: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      wide: [...document.querySelectorAll<HTMLElement>("main *")]
+        .filter((el) => {
+          const r = el.getBoundingClientRect();
+          return (
+            r.width > 0 &&
+            (r.right > window.innerWidth + 1 || r.left < -1) &&
+            !el.closest("[aria-hidden='true']") &&
+            !el.closest("[class*='overflow-hidden'], [class*='overflow-x']")
+          );
+        })
+        .slice(0, 3)
+        .map((el) => `${el.tagName.toLowerCase()}.${String(el.className).slice(0, 30)}`),
+    }));
+    check(
+      overflow.by <= 0,
+      `${locale} · no horizontal overflow at ${width}px`,
+      overflow.by > 0 ? `${overflow.by}px wider; sticking out: ${overflow.wide.join(", ")}` : "",
+    );
+    check(errors.length === 0, `${locale} · no console errors at ${width}px`, errors[0] ?? "");
+
+    if (width === 1440) {
+      const present = await page.evaluate(
+        ([ids]) => ({
+          missingIds: (ids as string[]).filter((id) => !document.getElementById(id)),
+          h1: document.querySelectorAll("main h1#hero-title").length,
+          weekClasses: document.querySelectorAll(".home-week .home-week-class").length,
+        }),
+        [SECTION_IDS] as const,
+      );
+      check(
+        present.missingIds.length === 0,
+        `${locale} · every homepage section present`,
+        present.missingIds.length ? `missing #${present.missingIds.join(", #")}` : SECTION_IDS.map((i) => `#${i}`).join(" "),
+      );
+      check(
+        present.h1 === 1 && present.weekClasses > 0,
+        `${locale} · one hero h1 and the sample week present`,
+        JSON.stringify(present),
+      );
+    }
+    await context.close();
+  }
+}
+
+// contrast on both themes
 for (const theme of ["light", "dark"] as const) {
   const context = await browser.newContext({
     viewport: { width: 1440, height: 900 },
@@ -50,125 +144,117 @@ for (const theme of ["light", "dark"] as const) {
     locale: "ar-EG",
   });
   const page = await context.newPage();
-  await page.goto(`${BASE}/ar`, { waitUntil: "networkidle" });
-  await page.waitForTimeout(900);
-
+  await openHome(page, "ar");
   const ground = (await rgbOf(page, "body", "backgroundColor"))!;
-  const sheet = (await rgbOf(page, ".bg-sheet", "backgroundColor"))!;
-  const pairs: [string, string, number[]][] = [
-    ["h1 (--ink) on page", "h1", ground],
-    ["lede (--ink-2) on page", "#main p.mt-6", ground],
-    ["eyebrow (--ink-3) on page", "span.inline-flex.items-center.text-ink-3", ground],
-    ["register label (--ink-2) on sheet", "figure .text-ink-2", sheet],
-  ];
-  for (const [name, selector, bg] of pairs) {
+  for (const [name, selector] of [
+    ["h1 (--ink) on page", "main h1"],
+    ["hero lede on page", "#hero-title + p"],
+  ] as const) {
     const fg = await rgbOf(page, selector, "color");
     if (!fg) {
       check(false, `${theme} · ${name}`, `selector not found: ${selector}`);
       continue;
     }
-    const r = ratio(fg, bg);
+    const r = ratio(fg, ground);
     check(r >= 4.5, `${theme} · ${name}`, `${r.toFixed(2)}:1`);
   }
 
-  const arabicInMono = await page.evaluate(() =>
-    [...document.querySelectorAll<HTMLElement>(".figure")]
-      .map((el) => el.textContent ?? "")
-      .filter((text) => /[؀-ۿ]/.test(text)),
-  );
-  check(
-    arabicInMono.length === 0,
-    `${theme} · no Arabic inside the mono figure face`,
-    arabicInMono.join(" | "),
-  );
-
-  const badFigures = await page.evaluate(() =>
-    [...document.querySelectorAll<HTMLElement>(".figure")].filter((el) => {
-      const cs = getComputedStyle(el);
-      return cs.direction !== "ltr" || !cs.unicodeBidi.includes("isolate");
-    }).length,
-  );
-  check(badFigures === 0, `${theme} · every figure isolated LTR`, `${badFigures} not isolated`);
-
-  const total = await page.evaluate(() => {
-    const el = document.querySelector(".total-rule")!;
-    const cs = getComputedStyle(el);
-    const ink = getComputedStyle(document.documentElement).getPropertyValue("--ink").trim();
-    const probe = document.createElement("div");
-    probe.style.color = ink;
-    document.body.appendChild(probe);
-    const inkResolved = getComputedStyle(probe).color;
-    probe.style.color = cs.borderTopColor;
-    const ruleResolved = getComputedStyle(probe).color;
-    probe.remove();
-    return { width: cs.borderTopWidth, style: cs.borderTopStyle, matchesInk: ruleResolved === inkResolved };
-  });
-  check(
-    total.width === "2px" && total.style === "double" && total.matchesInk,
-    `${theme} · total closed with 2px double --ink`,
-    `${total.width} ${total.style}, from --ink: ${total.matchesInk}`,
-  );
-
-  const sealTilt = await page.evaluate(() => {
-    const m = new DOMMatrixReadOnly(getComputedStyle(document.querySelector(".seal-mark")!).transform);
-    return Math.round((Math.atan2(m.b, m.a) * 180) / Math.PI);
-  });
-  check(sealTilt === -6, `${theme} · seal still tilted after settling`, `${sealTilt}deg`);
-
-  const goldText = await page.evaluate(() => {
-    const root = getComputedStyle(document.documentElement);
+  // highlighter yellow is a background only, never a text colour inside <main>
+  await scrollThrough(page);
+  const yellowText = await page.evaluate((marker) => {
     const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d")!;
-    ctx.fillStyle = root.getPropertyValue("--gold").trim();
-    const gold = ctx.fillStyle;
-
-    return [...document.querySelectorAll<HTMLElement>("body *")]
+    canvas.width = canvas.height = 1;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+    const cache = new Map<string, string>();
+    const rgb = (value: string) => {
+      let hit = cache.get(value);
+      if (hit === undefined) {
+        ctx.clearRect(0, 0, 1, 1);
+        ctx.fillStyle = value;
+        ctx.fillRect(0, 0, 1, 1);
+        const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+        hit = `${r},${g},${b}`;
+        cache.set(value, hit);
+      }
+      return hit;
+    };
+    return [...document.querySelectorAll<HTMLElement>("main *")]
       .filter((el) => {
-        const text = [...el.childNodes]
+        const own = [...el.childNodes]
           .filter((n) => n.nodeType === 3)
           .map((n) => n.textContent ?? "")
           .join("")
           .trim();
-        if (!text) return false;
-        ctx.fillStyle = getComputedStyle(el).color;
-        return ctx.fillStyle === gold;
+        return own && rgb(getComputedStyle(el).color) === marker;
       })
-      .map((el) => (el.textContent ?? "").trim().slice(0, 20));
-  });
-  check(goldText.length === 0, `${theme} · gold is a stroke, never text`, goldText.join(", "));
-
+      .map((el) => `${el.tagName.toLowerCase()}.${String(el.className).slice(0, 40)} "${(el.textContent ?? "").trim().slice(0, 24)}"`);
+  }, MARKER_RGB);
+  check(yellowText.length === 0, `${theme} · marker yellow is never a text colour in <main>`, yellowText.join(", "));
   await context.close();
 }
 
-{
+// the subject cards
+for (const locale of ["ar", "en"] as const) {
   const context = await browser.newContext({
     viewport: { width: 1440, height: 900 },
-    javaScriptEnabled: false,
-    locale: "ar-EG",
+    locale: locale === "ar" ? "ar-EG" : "en-US",
   });
   const page = await context.newPage();
-  await page.goto(`${BASE}/ar`, { waitUntil: "domcontentloaded" });
+  await openHome(page, locale);
+  await page.locator("#subjects").scrollIntoViewIfNeeded();
+  await page.waitForTimeout(400);
 
-  const state = await page.evaluate(() => {
-    const words = [...document.querySelectorAll<HTMLElement>("[data-ink-word]")];
-    const figures = [...document.querySelectorAll<HTMLElement>(".figure")];
-    return {
-      headline: document.querySelector("h1")?.textContent?.trim() ?? "",
-      hiddenWords: words.filter((w) => getComputedStyle(w).opacity !== "1").length,
-      total: document.querySelector("[data-total-figure]")?.textContent ?? "",
-      blankFigures: figures.filter((f) => !(f.textContent ?? "").trim()).length,
-      sections: document.querySelectorAll("main section[id]").length,
-    };
-  });
+  const cards = page.locator("#subjects .subject-card");
+  const names = () => cards.allTextContents().then((all) => all.join("|"));
+  const pills = page.locator("#subjects [role=group] button.chip");
 
-  check(state.headline.length > 0, "no-JS · headline present", state.headline);
-  check(state.hiddenWords === 0, "no-JS · no word hidden", `${state.hiddenWords} hidden`);
-  check(state.total === "84.00", "no-JS · figures hold their real values", state.total);
-  check(state.blankFigures === 0, "no-JS · no empty figure", `${state.blankFigures} blank`);
-  check(state.sections === 5, "no-JS · every section rendered", `${state.sections}`);
+  check((await pills.count()) === 5, `${locale} · cards · five stage pills`, `${await pills.count()}`);
+  const first = await cards.count();
+  check(first === 8, `${locale} · cards · a stage opens on eight cards`, `${first}`);
+  check(
+    (await page.locator("#subjects .subject-card svg").count()) === first,
+    `${locale} · cards · every card has its picture`,
+    "",
+  );
+
+  const toggle = page.locator("#subjects button[aria-expanded]");
+  await toggle.click();
+  await page.waitForTimeout(150);
+  const expanded = await cards.count();
+  check(expanded > first, `${locale} · cards · "show all" adds the rest`, `${first} → ${expanded}`);
+
+  const before = await names();
+  await pills.first().click();
+  await page.waitForTimeout(150);
+  const after = await names();
+  check(
+    after !== before && (await pills.first().getAttribute("aria-pressed")) === "true",
+    `${locale} · cards · another stage pill swaps the cards`,
+    "",
+  );
   await context.close();
 }
 
+// hidden tab: the hero still lands
+{
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "ar-EG" });
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    Object.defineProperty(document, "hidden", { value: true, configurable: true });
+    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+  });
+  await page.goto(`${BASE}/ar`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(1200);
+  const state = await page.evaluate(() => ({
+    faded: [...document.querySelectorAll<HTMLElement>("[data-rise]")].filter(
+      (el) => getComputedStyle(el).opacity !== "1",
+    ).length,
+  }));
+  check(state.faded === 0, "born hidden · hero visible", JSON.stringify(state));
+  await context.close();
+}
+
+// reduced motion
 {
   const context = await browser.newContext({
     viewport: { width: 1440, height: 900 },
@@ -176,28 +262,158 @@ for (const theme of ["light", "dark"] as const) {
     locale: "ar-EG",
   });
   const page = await context.newPage();
-  await page.goto(`${BASE}/ar`, { waitUntil: "networkidle" });
-  await page.waitForTimeout(600);
+  await openHome(page, "ar");
+  await page.waitForTimeout(300);
+  const calm = await page.evaluate(() => ({
+    faded: [...document.querySelectorAll<HTMLElement>("[data-reveal], [data-rise]")].filter(
+      (el) => getComputedStyle(el).opacity !== "1",
+    ).length,
+  }));
+  check(
+    calm.faded === 0,
+    "reduce · nothing hidden, nothing moves",
+    JSON.stringify(calm),
+  );
+  await context.close();
+}
 
-  const calm = await page.evaluate(() => {
-    const word = document.querySelector<HTMLElement>("[data-ink-word]")!;
-    const spine = document.querySelector<HTMLElement>("[data-spine]")!;
+// every link into the ERP is a register or login door
+for (const locale of ["ar", "en"] as const) {
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+    locale: locale === "ar" ? "ar-EG" : "en-US",
+  });
+  const page = await context.newPage();
+  await page.goto(`${BASE}/${locale}`, { waitUntil: "domcontentloaded" });
+  const links = await page.evaluate(() => {
+    const own = location.origin;
+    return [...document.querySelectorAll<HTMLAnchorElement>("a[href]")]
+      .map((a) => a.href)
+      .filter((h) => /^https?:/.test(h) && new URL(h).origin !== own);
+  });
+  const bad = links.filter((h) => !/\/(register|login)(\?|$|\/|#)/.test(new URL(h).pathname + new URL(h).search));
+  check(
+    links.length > 0 && bad.length === 0,
+    `${locale} · every outbound app link goes to /register or /login`,
+    bad.length ? bad.join(", ") : `${links.length} links`,
+  );
+  await context.close();
+}
+
+// no JavaScript
+for (const locale of ["ar", "en"] as const) {
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+    javaScriptEnabled: false,
+    locale: locale === "ar" ? "ar-EG" : "en-US",
+  });
+  const page = await context.newPage();
+  await page.goto(`${BASE}/${locale}`, { waitUntil: "domcontentloaded" });
+  const h1 = page.locator("main h1");
+  const picker = page.locator("#subjects");
+  const state = {
+    h1: await h1.isVisible(),
+    picker: await picker.isVisible(),
+    pickerTiles: await page.locator("#subjects .subject-card").count(),
+    sections: await page.locator(SECTION_IDS.map((id) => `#${id}`).join(", ")).count(),
+  };
+  check(
+    state.h1 && state.picker && state.pickerTiles > 0,
+    `${locale} · no-JS · h1 and the subject cards are visible`,
+    JSON.stringify(state),
+  );
+  check(
+    state.sections === SECTION_IDS.length,
+    `${locale} · no-JS · all sections rendered`,
+    `${state.sections}/${SECTION_IDS.length} sections`,
+  );
+  await context.close();
+}
+
+// header + chrome
+{
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "ar-EG" });
+  const page = await context.newPage();
+  const read = () =>
+    page.evaluate(() => {
+      const links = [...document.querySelectorAll<HTMLAnchorElement>("[data-nav-link]")];
+      return {
+        hrefs: links.map((a) => a.getAttribute("href") ?? ""),
+        active: links.filter((a) => a.hasAttribute("data-active")).map((a) => a.getAttribute("href")),
+      };
+    });
+
+  await page.goto(`${BASE}/ar`, { waitUntil: "networkidle" });
+  const nav = await read();
+  check(
+    nav.hrefs.length === 5 && nav.hrefs.every((h) => h.startsWith("/ar")) && nav.active.length === 0,
+    "nav · five destinations, none marked on the homepage",
+    nav.hrefs.join(" "),
+  );
+  const anchors = nav.hrefs.filter((h) => h.includes("#")).map((h) => h.split("#")[1]!);
+  const dead = await page.evaluate((ids) => ids.filter((id) => !document.getElementById(id)), anchors);
+  check(dead.length === 0, "nav · every in-page anchor has a target", dead.join(" "));
+
+  await page.goto(`${BASE}/ar/pricing`, { waitUntil: "networkidle" });
+  const onPricing = await read();
+  check(
+    onPricing.active.length === 1 && onPricing.active[0] === "/ar/pricing",
+    "nav · a marketing page marks its own link, once",
+    `active=${onPricing.active.join(",")}`,
+  );
+  await page.goto(`${BASE}/ar/privacy`, { waitUntil: "networkidle" });
+  const onPrivacy = await read();
+  check(onPrivacy.active.length === 0, "nav · nothing marked on a legal page", `${onPrivacy.active.length}`);
+  await context.close();
+}
+
+{
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+    javaScriptEnabled: false,
+    locale: "ar-EG",
+  });
+  const page = await context.newPage();
+  await page.goto(`${BASE}/ar/pricing`, { waitUntil: "domcontentloaded" });
+  const before = await page.evaluate(() => document.querySelector("[data-mobile-nav]")!.hasAttribute("open"));
+  await page.locator("[data-mobile-nav] > summary").click();
+  const after = await page.evaluate(() => {
+    const links = [...document.querySelectorAll<HTMLAnchorElement>("[data-mobile-nav-link]")];
     return {
-      total: document.querySelector("[data-total-figure]")?.textContent ?? "",
-      wordOpacity: getComputedStyle(word).opacity,
-      spineInline: spine.style.transform,
-      spineDrawn: getComputedStyle(spine).transform,
+      open: document.querySelector("[data-mobile-nav]")!.hasAttribute("open"),
+      visible: links.filter((l) => l.getClientRects().length > 0).length,
+      small: links.filter((l) => l.getBoundingClientRect().height < 44).length,
+      active: links.filter((l) => l.hasAttribute("data-active")).map((l) => l.getAttribute("href")),
     };
   });
-
-  check(calm.total === "84.00", "reduce · the total never counts", calm.total);
-  check(calm.wordOpacity === "1", "reduce · headline never hidden", calm.wordOpacity);
-  check(calm.spineInline === "", "reduce · no tween was constructed", `inline "${calm.spineInline}"`);
+  check(!before && after.open, "mobile · the menu opens with NO JavaScript", `${before} → ${after.open}`);
+  check(after.visible === 5, "mobile · all five destinations in the panel", `${after.visible}`);
+  check(after.small === 0, "mobile · every row reaches 44px", `${after.small} under`);
   check(
-    calm.spineDrawn !== "matrix(1, 0, 0, 0, 0, 0)",
-    "reduce · spine simply exists, fully drawn",
-    calm.spineDrawn,
+    after.active.length === 1 && after.active[0] === "/ar/pricing",
+    "mobile · the current page is marked, once",
+    after.active.join(","),
   );
+  await context.close();
+}
+
+{
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "ar-EG" });
+  const page = await context.newPage();
+  await page.goto(`${BASE}/ar/pricing`, { waitUntil: "networkidle" });
+  const footer = await page.evaluate(() => ({
+    hrefs: [...document.querySelectorAll<HTMLAnchorElement>("footer a[href]")].map((a) => a.getAttribute("href") ?? ""),
+    headings: [...document.querySelectorAll("footer nav")].map((n) => n.querySelector("p")?.textContent?.trim() ?? ""),
+    columns: document.querySelectorAll("footer nav").length,
+  }));
+  const shouldList = PUBLIC_ROUTES.filter((r) => r.path !== "").map((r) => `/ar${r.path}`);
+  const absent = shouldList.filter((h) => !footer.hrefs.includes(h));
+  check(absent.length === 0, "footer · lists every public route", absent.join(" "));
+  const dupes = footer.hrefs.filter((h, i) => h.startsWith("/ar") && footer.hrefs.indexOf(h) !== i);
+  check(dupes.length === 0, "footer · no route listed twice", dupes.join(" "));
+  check(footer.columns === 4 && footer.headings.every((h) => h.length > 0), "footer · four labelled columns", footer.headings.join(" | "));
   await context.close();
 }
 
@@ -309,164 +525,6 @@ for (const theme of ["light", "dark"] as const) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "ar-EG" });
   const page = await context.newPage();
 
-  const read = () =>
-    page.evaluate(() => {
-      const links = [...document.querySelectorAll<HTMLAnchorElement>("[data-nav-link]")];
-      return {
-        hrefs: links.map((a) => a.getAttribute("href") ?? ""),
-        active: links.filter((a) => a.hasAttribute("data-active")).map((a) => a.getAttribute("href")),
-        current: links
-          .filter((a) => a.getAttribute("aria-current") === "page")
-          .map((a) => a.getAttribute("href")),
-      };
-    });
-
-  await page.goto(`${BASE}/ar/for/teacher`, { waitUntil: "networkidle" });
-  const nav = await read();
-
-  check(
-    nav.hrefs.length === 8 && nav.hrefs.every((h) => h.startsWith("/ar/")),
-    "nav · eight real routes, no dead anchors",
-    nav.hrefs.join(" "),
-  );
-  check(
-    ["/ar/pricing", "/ar/faq", "/ar/trust"].every((h) => nav.hrefs.includes(h)),
-    "nav · carries pricing, FAQ and trust",
-    nav.hrefs.join(" "),
-  );
-  check(
-    !nav.hrefs.some((h) => h.includes("/privacy") || h.includes("/terms")),
-    "nav · legal stays in the footer",
-    nav.hrefs.join(" "),
-  );
-  check(
-    nav.active.length === 1 && nav.active[0] === "/ar/for/teacher" && nav.current[0] === "/ar/for/teacher",
-    "nav · a role page marks its own link, once",
-    `active=${nav.active.join(",")} aria-current=${nav.current.join(",")}`,
-  );
-
-  await page.goto(`${BASE}/ar/pricing`, { waitUntil: "networkidle" });
-  const onPricing = await read();
-  check(
-    onPricing.active.length === 1 && onPricing.active[0] === "/ar/pricing",
-    "nav · a marketing page marks its own link, once",
-    `active=${onPricing.active.join(",")}`,
-  );
-
-  await page.goto(`${BASE}/ar/privacy`, { waitUntil: "networkidle" });
-  const onPrivacy = await read();
-  check(onPrivacy.active.length === 0, "nav · nothing marked on a legal page", `${onPrivacy.active.length}`);
-
-  await context.close();
-}
-
-{
-  const context = await browser.newContext({
-    viewport: { width: 390, height: 844 },
-    hasTouch: true,
-    isMobile: true,
-    javaScriptEnabled: false,
-    locale: "ar-EG",
-  });
-  const page = await context.newPage();
-  await page.goto(`${BASE}/ar/pricing`, { waitUntil: "domcontentloaded" });
-
-  const before = await page.evaluate(
-    () => document.querySelector("[data-mobile-nav]")!.hasAttribute("open"),
-  );
-  await page.locator("[data-mobile-nav] > summary").click();
-  const after = await page.evaluate(() => {
-    const details = document.querySelector("[data-mobile-nav]")!;
-    const links = [...document.querySelectorAll<HTMLAnchorElement>("[data-mobile-nav-link]")];
-    return {
-      open: details.hasAttribute("open"),
-      visible: links.filter((l) => l.getClientRects().length > 0).length,
-      small: links.filter((l) => l.getBoundingClientRect().height < 44).length,
-      active: links.filter((l) => l.hasAttribute("data-active")).map((l) => l.getAttribute("href")),
-    };
-  });
-
-  check(!before && after.open, "mobile · the menu opens with NO JavaScript", `${before} → ${after.open}`);
-  check(after.visible === 8, "mobile · all eight destinations in the panel", `${after.visible}`);
-  check(after.small === 0, "mobile · every row reaches 44px", `${after.small} under`);
-  check(
-    after.active.length === 1 && after.active[0] === "/ar/pricing",
-    "mobile · the current page is marked, once",
-    after.active.join(","),
-  );
-  await context.close();
-}
-
-{
-  for (const width of [360, 768, 1023, 1024, 1279, 1280, 1440]) {
-    const context = await browser.newContext({
-      viewport: { width, height: 900 },
-      locale: "ar-EG",
-      hasTouch: width < 1024,
-      isMobile: width < 1024,
-    });
-    const page = await context.newPage();
-    await page.goto(`${BASE}/ar/pricing`, { waitUntil: "networkidle" });
-
-    const menu = page.locator("[data-mobile-nav] > summary");
-    if ((await menu.count()) && (await menu.isVisible())) await menu.click();
-
-    const reachable = await page.evaluate(() => {
-      const shown = (el: Element) => el.getClientRects().length > 0;
-      return [
-        ...new Set(
-          [...document.querySelectorAll<HTMLAnchorElement>("header [data-nav-link], header [data-mobile-nav-link]")]
-            .filter(shown)
-            .map((a) => a.getAttribute("href") ?? ""),
-        ),
-      ].sort();
-    });
-
-    const expected = [
-      ...ROLE_SLUGS.map((r) => `/ar/for/${r}`),
-      ...NAV_PATHS.map((p) => `/ar/${p}`),
-    ];
-    const missing = expected.filter((h) => !reachable.includes(h));
-    check(missing.length === 0, `header · every destination reachable at ${width}px`, missing.join(" "));
-    await context.close();
-  }
-}
-
-{
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "ar-EG" });
-  const page = await context.newPage();
-  await page.goto(`${BASE}/ar/pricing`, { waitUntil: "networkidle" });
-
-  const footer = await page.evaluate(() => ({
-    hrefs: [...document.querySelectorAll<HTMLAnchorElement>("footer a[href]")].map(
-      (a) => a.getAttribute("href") ?? "",
-    ),
-    headings: [...document.querySelectorAll("footer nav")].map(
-      (n) => n.querySelector("span,div")?.textContent?.trim() ?? "",
-    ),
-    columns: document.querySelectorAll("footer nav").length,
-  }));
-
-  const shouldList = PUBLIC_ROUTES.filter((r) => r.path !== "").map((r) => `/ar${r.path}`);
-  const absent = shouldList.filter((h) => !footer.hrefs.includes(h));
-  check(absent.length === 0, "footer · lists every public route", absent.join(" "));
-
-  const dupes = footer.hrefs.filter((h, i) => h.startsWith("/ar") && footer.hrefs.indexOf(h) !== i);
-  check(dupes.length === 0, "footer · no route listed twice", dupes.join(" "));
-
-  check(footer.columns === 4, "footer · four labelled columns", `${footer.columns}`);
-  check(
-    footer.headings.every((h) => h.length > 0),
-    "footer · every column is labelled",
-    footer.headings.join(" | "),
-  );
-  await context.close();
-}
-
-{
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "ar-EG" });
-  const page = await context.newPage();
-
   const xml = await (await page.request.get(`${BASE}/sitemap.xml`)).text();
   const urls = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]!);
   const paths = new Set(urls.map((u) => new URL(u).pathname.replace(/\/$/, "") || "/"));
@@ -501,7 +559,7 @@ for (const theme of ["light", "dark"] as const) {
     xDefault,
   );
 
-  for (const from of ["/ar", "/ar/pricing", "/ar/for/teacher"]) {
+  for (const from of ["/ar", "/ar/pricing", "/ar/for/student"]) {
     await page.goto(`${BASE}${from}`, { waitUntil: "networkidle" });
     const linked = await page.evaluate(() =>
       [...document.querySelectorAll<HTMLAnchorElement>("header a[href], footer a[href]")]
@@ -527,166 +585,44 @@ for (const theme of ["light", "dark"] as const) {
   await context.close();
 }
 
+// the 404 is rendered in the browser, so it has to find its own locale and theme
 {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "ar-EG" });
+  await context.addInitScript(() => localStorage.setItem("linktich-v2-theme", "dark"));
   const page = await context.newPage();
-  await page.goto(`${BASE}/ar/pricing`, { waitUntil: "networkidle" });
-  await page.evaluate(() => {
-    document.documentElement.style.scrollBehavior = "auto";
-    document.getElementById("example")?.scrollIntoView();
-  });
-  await page.waitForTimeout(120);
-  const mid = await page.evaluate(
-    () => document.querySelector("[data-total-figure]")?.textContent ?? "",
-  );
-  await page.evaluate(() => {
-    Object.defineProperty(document, "hidden", { value: true, configurable: true });
-    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
-    document.dispatchEvent(new Event("visibilitychange"));
-  });
-  await page.waitForTimeout(400);
-
-  const wrong = await page.evaluate(() =>
-    [...document.querySelectorAll<HTMLElement>("[data-count]")]
-      .filter((el) => el.textContent !== el.dataset.count)
-      .map((el) => `${el.dataset.count} → ${el.textContent}`),
-  );
-  check(mid !== "84.00", "hidden tab · the test caught a real mid-count", `mid was ${mid}`);
-  check(wrong.length === 0, "hidden tab · every figure lands on its true value", wrong.join(", "));
-  await context.close();
-}
-
-{
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "ar-EG" });
-  const page = await context.newPage();
-  await page.addInitScript(() => {
-    Object.defineProperty(document, "hidden", { value: true, configurable: true });
-    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
-  });
-  await page.goto(`${BASE}/ar`, { waitUntil: "networkidle" });
-  await page.waitForTimeout(1200);
-
-  const hiddenState = await page.evaluate(() => {
-    const words = [...document.querySelectorAll<HTMLElement>("h1 [data-ink-word]")];
-    return {
-      faded: words.filter((w) => getComputedStyle(w).opacity !== "1").length,
-      total: words.length,
-      wrong: [...document.querySelectorAll<HTMLElement>("[data-count]")].filter(
-        (el) => el.textContent !== el.dataset.count,
-      ).length,
-    };
-  });
-  check(
-    hiddenState.total > 0 && hiddenState.faded === 0,
-    "born hidden · the headline is fully visible",
-    `${hiddenState.faded}/${hiddenState.total} still faded`,
-  );
-  check(hiddenState.wrong === 0, "born hidden · figures hold their true values", `${hiddenState.wrong} wrong`);
-  await context.close();
-}
-
-{
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "en-US" });
-  const page = await context.newPage();
-  const wrapped: string[] = [];
-  for (const path of ["", "/for/center", "/pricing", "/faq", "/trust", "/contact"]) {
-    await page.goto(`${BASE}/en${path}`, { waitUntil: "networkidle" });
-    const found = await page.evaluate(() =>
-      [...document.querySelectorAll<HTMLElement>("span.inline-flex.items-center.text-ink-3")]
-        .map((el) => {
-          const cs = getComputedStyle(el);
-          const lineHeight = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2;
-          return {
-            text: (el.textContent ?? "").trim(),
-            lines: Math.round(el.getBoundingClientRect().height / lineHeight),
-          };
-        })
-        .filter((x) => x.lines >= 3),
-    );
-    for (const f of found) wrapped.push(`en${path} "${f.text}" ${f.lines} lines`);
+  for (const locale of ["ar", "en"] as const) {
+    const res = await page.goto(`${BASE}/${locale}/no-such-page`, { waitUntil: "networkidle" });
+    check(res?.status() === 404, `404 · /${locale} unknown path answers 404`, `${res?.status()}`);
+    const nf = await page.evaluate(() => ({
+      title: document.title,
+      lang: document.documentElement.lang,
+      theme: document.documentElement.dataset.theme,
+      home: document.querySelector("main a.btn-pen")?.getAttribute("href"),
+    }));
+    check(nf.title === getPages(locale).notFound.meta, `404 · /${locale} title is localized`, nf.title);
+    check(nf.lang === locale, `404 · /${locale} html lang`, nf.lang);
+    check(nf.theme === "dark", `404 · /${locale} applies the stored theme`, `${nf.theme}`);
+    check(nf.home === `/${locale}`, `404 · /${locale} links back into the site`, JSON.stringify(nf));
   }
-  check(wrapped.length === 0, "type · no section label wraps past two lines", wrapped.join(", "));
-  await context.close();
-}
 
-{
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "ar-EG" });
-  const page = await context.newPage();
-  await page.goto(`${BASE}/ar`, { waitUntil: "networkidle" });
+  for (const locale of ["ar", "en"] as const) {
+    await page.goto(`${BASE}/${locale}/pricing`, { waitUntil: "domcontentloaded" });
+    const meta = await page.evaluate(() => ({
+      og: document.querySelector('meta[property="og:image"]')?.getAttribute("content") ?? "",
+      card: document.querySelector('meta[name="twitter:card"]')?.getAttribute("content") ?? "",
+    }));
+    check(
+      /^https?:\/\/.+\/og\/(ar|en)\.png$/.test(meta.og) && meta.og.endsWith(`/og/${locale}.png`),
+      `share · /${locale} og:image is its locale's absolute card`,
+      meta.og,
+    );
+    check(meta.card === "summary_large_image", `share · /${locale} twitter:card`, meta.card);
+  }
 
-  const split = await page.evaluate(() => {
-    const heading = document.querySelector<HTMLElement>("h1")!;
-    const words = [...heading.querySelectorAll("[data-ink-word]")].map((w) => w.textContent ?? "");
-    const expected = (heading.textContent ?? "").trim().split(/\s+/).filter(Boolean);
-    return { words, expected, arabicSingles: words.filter((w) => /[؀-ۿ]/.test(w) && w.length === 1) };
-  });
-
-  check(
-    split.words.length === split.expected.length && split.words.join(" ") === split.expected.join(" "),
-    "split · one span per WORD",
-    `${split.words.length} spans vs ${split.expected.length} words`,
-  );
-  check(
-    split.arabicSingles.length === 0,
-    "split · no Arabic letter split from its word",
-    split.arabicSingles.join(","),
-  );
-  await context.close();
-}
-
-{
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "ar-EG" });
-  const page = await context.newPage();
-  await page.goto(`${BASE}/ar`, { waitUntil: "networkidle" });
-  await page.waitForTimeout(500);
-
-  const before = await page.evaluate(
-    () => getComputedStyle(document.querySelector("#money [data-spine]")!).transform,
-  );
-  await page.evaluate(() => {
-    document.documentElement.style.scrollBehavior = "auto";
-    const money = document.getElementById("money")!;
-    window.scrollTo(0, money.offsetTop + money.offsetHeight * 0.6);
-  });
-  await page.waitForTimeout(1200);
-  const after = await page.evaluate(
-    () => getComputedStyle(document.querySelector("#money [data-spine]")!).transform,
-  );
-
-  check(before !== after, "scroll · the spine is drawn by scrolling", `${before} → ${after}`);
-
-  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-  await page.waitForTimeout(2000);
-  const seal = await page.evaluate(() => {
-    const stroke = document.querySelector<SVGElement>("[data-seal-stroke]")!;
-    const mark = document.querySelector<HTMLElement>("[data-seal]")!;
-    const m = new DOMMatrixReadOnly(getComputedStyle(mark).transform);
-    return {
-      dash: getComputedStyle(stroke).strokeDashoffset,
-      tilt: Math.round((Math.atan2(m.b, m.a) * 180) / Math.PI),
-      scale: Math.round(Math.hypot(m.a, m.b) * 100) / 100,
-    };
-  });
-  check(seal.tilt === -6, "seal · settles into its tilt", `${seal.tilt}deg`);
-  check(seal.scale === 1, "seal · the press resolves to rest", `scale ${seal.scale}`);
-
-  await page.evaluate(() => document.getElementById("roles")!.scrollIntoView());
-  await page.waitForTimeout(300);
-  const first = page.locator("[role='radio']").first();
-  await first.focus();
-  const startLabel = await page.evaluate(
-    () => document.querySelector("[data-role-plate] figcaption")?.textContent ?? "",
-  );
-  await page.keyboard.press("ArrowDown");
-  await page.waitForTimeout(500);
-  const nextLabel = await page.evaluate(
-    () => document.querySelector("[data-role-plate] figcaption")?.textContent ?? "",
-  );
-  check(
-    startLabel !== "" && startLabel !== nextLabel,
-    "roles · arrow keys move the plate, not just the pointer",
-    `"${startLabel.slice(0, 24)}…" → "${nextLabel.slice(0, 24)}…"`,
-  );
+  for (const asset of [`/og/ar.png`, `/og/en.png`, "/favicon.ico", "/apple-icon.png", "/icon.svg"]) {
+    const res = await page.request.get(`${BASE}${asset}`);
+    check(res.status() === 200, `brand · ${asset} served`, `${res.status()}`);
+  }
 
   await context.close();
 }

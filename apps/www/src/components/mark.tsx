@@ -1,32 +1,49 @@
-function Mark({ className = "" }: { className?: string }) {
+import type { Locale } from "@/i18n/config";
+
+/*
+ * The Linktich mark: a 3x3 week, the middle class filled. On paper the base cells
+ * are ink and the filled one is the board green; on the board (variant "board")
+ * the base cells are chalk and the filled one is chalk yellow.
+ */
+const CELLS = [0, 1, 2].flatMap((r) => [0, 1, 2].map((c) => ({ r, c })));
+
+export function Mark({
+  className = "",
+  variant = "paper",
+}: {
+  className?: string;
+  variant?: "paper" | "board";
+}) {
+  const base = variant === "board" ? "var(--on-pen)" : "currentColor";
+  const hi = variant === "board" ? "var(--marker)" : "var(--pen)";
   return (
-    <svg
-      viewBox="0 0 32 24"
-      aria-hidden="true"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.25"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M16 5.4C13.4 3.5 10.1 2.6 6.2 2.9c-.7.1-1.2.6-1.2 1.3v13.6c0 .8.6 1.4 1.4 1.3 3.6-.3 6.8.5 9.6 2.4" />
-      <path d="M16 5.4c2.6-1.9 5.9-2.8 9.8-2.5.7.1 1.2.6 1.2 1.3v13.6c0 .8-.6 1.4-1.4 1.3-3.6-.3-6.8.5-9.6 2.4" />
-      <path d="M16 5.4v16.1" />
+    <svg viewBox="0 0 64 64" aria-hidden="true" className={className}>
+      {variant === "board" && <rect width="64" height="64" rx="14" fill="var(--pen)" />}
+      {CELLS.map(({ r, c }) => {
+        const on = r === 1 && c === 1;
+        return (
+          <rect
+            key={`${r}${c}`}
+            x={8 + c * 17}
+            y={8 + r * 17}
+            width="14"
+            height="14"
+            rx="4"
+            fill={on ? hi : base}
+            opacity={on ? 1 : 0.28}
+          />
+        );
+      })}
     </svg>
   );
 }
 
-export function Wordmark({ className = "" }: { className?: string }) {
+export function Wordmark({ locale, className = "" }: { locale: Locale; className?: string }) {
   return (
-    <span className={`inline-flex items-center gap-2 ${className}`}>
-      <Mark className="h-5 w-auto text-gold" />
-      <span
-        lang="en"
-        dir="ltr"
-        className="hidden font-lat-display text-[1.125rem] font-bold tracking-[0.01em] text-ink sm:inline"
-      >
-        Linktich
+    <span className={`inline-flex items-center gap-2.5 text-ink ${className}`}>
+      <Mark className="h-8 w-8 shrink-0" />
+      <span className="text-[1.25rem] font-medium leading-none">
+        {locale === "ar" ? "لينكتك" : "Linktich"}
       </span>
     </span>
   );

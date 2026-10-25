@@ -1,32 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 24" width="32" height="24" role="img" aria-label="Linktich">
-  <!-- The public site's favicon, from the App Router's file convention.
-       Same geometry as the header mark in src/components/mark.tsx, and the
-       same geometry the app favicons serve from packages/ui/src/lib/edura-mark
-       (there transposed onto a 200 square). Three copies of one drawing, and
-       they must stay one drawing.
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="32" height="32" role="img" aria-label="Linktich">
+  <!-- The public site's favicon, from the App Router's file convention. The
+       board variant of src/components/mark.tsx: a 3x3 week on the board green,
+       the middle class in chalk yellow. apple-icon.png and favicon.ico are
+       rendered from this file and must be re-rendered when it changes.
 
-       It used to be stroked #4C3A94, a violet the Ledger palette does not
-       contain and no other surface uses. That made the marketing tab a
-       different brand from the app tab beside it. It is now ink with the one
-       gold spine, matching the app favicons: at 16px, gold alone on paper is
-       about 3.4:1 and reads as a smudge.
-
-       Colours are LITERAL. A favicon renders outside any document carrying the
-       token sheet, so a CSS custom property would resolve to nothing, and the
-       media query below is what carries dark mode instead. (An XML comment may
-       not contain a double hyphen, which is why no property name is spelled
-       out here.) -->
-  <style>
-    .ink { stroke: #201f1d; }
-    .gold { stroke: #b68235; }
-    @media (prefers-color-scheme: dark) {
-      .ink { stroke: #f0eeea; }
-      .gold { stroke: #d9a95e; }
-    }
-  </style>
-  <g fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-    <path class="ink" d="M16 5.4C13.4 3.5 10.1 2.6 6.2 2.9c-.7.1-1.2.6-1.2 1.3v13.6c0 .8.6 1.4 1.4 1.3 3.6-.3 6.8.5 9.6 2.4"/>
-    <path class="ink" d="M16 5.4c2.6-1.9 5.9-2.8 9.8-2.5.7.1 1.2.6 1.2 1.3v13.6c0 .8-.6 1.4-1.4 1.3-3.6-.3-6.8.5-9.6 2.4"/>
-    <path class="gold" d="M16 5.4v16.1"/>
+       Colours are LITERAL (the light-theme pen, on-pen and marker values): a
+       favicon renders outside any document carrying the token sheet. -->
+  <rect width="64" height="64" rx="14" fill="#1e3a32"/>
+  <g fill="#f3f4f0" opacity=".28">
+    <rect x="8" y="8" width="14" height="14" rx="4"/>
+    <rect x="25" y="8" width="14" height="14" rx="4"/>
+    <rect x="42" y="8" width="14" height="14" rx="4"/>
+    <rect x="8" y="25" width="14" height="14" rx="4"/>
+    <rect x="42" y="25" width="14" height="14" rx="4"/>
+    <rect x="8" y="42" width="14" height="14" rx="4"/>
+    <rect x="25" y="42" width="14" height="14" rx="4"/>
+    <rect x="42" y="42" width="14" height="14" rx="4"/>
   </g>
+  <rect x="25" y="25" width="14" height="14" rx="4" fill="#f2e6b8"/>
 </svg>

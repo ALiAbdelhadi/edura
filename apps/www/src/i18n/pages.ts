@@ -5,76 +5,60 @@ const ar = {
     meta: {
       title: "الأسعار — لينكتك",
       description:
-        "نموذج العمولة في لينكتك: نسبة من الحصة اللي اتسلّمت بس — مفيش اشتراك شهري ولا رسوم إعداد ولا خصم على السحب.",
+        "بتدفع الحصة لوحدها أو الشهر كله، بسعر المدرّس من غير رسوم فوقه. والدفع بالكارت أو محفظة الموبايل أو كاش في السنتر أو من محفظة ولي الأمر.",
     },
-    label: "الأسعار",
-    headline: "مفيش اشتراك. عمولة على الحصة اللي اتسلّمت.",
-    lede: "كل جنيه في لينكتك له مسار معروف قبل ما يتحرك. الصفحة دي بتشرح النموذج بالأرقام مش بالكلام العام: نصيب المنصة بيتخصم من الحصة نفسها، بعد ما الفلوس تدخل، ومفيش حاجة بتتضاف على الطالب.",
-    note: "الأرقام في المثال توضيحية. النِّسَب الفعلية بتتقري من إعدادات المنصة جوّه النظام، وبتظهرلك قبل أي تأكيد.",
-    rules: {
-      label: "القواعد",
-      title: "ثلاث قواعد تحكم كل عملية.",
+    headline: "سعر الحصة بيحطه المدرّس. والتسجيل ببلاش.",
+    lede: "بتدفع الحصة لوحدها أو الشهر كله، بنفس السعر اللي المدرّس حاطه. مفيش رسوم بتتضاف عليك.",
+    plans: {
+      title: "اختار تدفع إزاي.",
       items: [
         {
-          title: "السعر اللي الطالب دافعه هو السعر",
-          body: "مفيش رسوم بتتضاف على الطالب فوق سعر الدرس أو الاشتراك. نصيب المنصة بيتخصم من الحصة نفسها، بعد ما الفلوس تدخل.",
+          id: "lesson",
+          name: "بالحصة",
+          price: "سعر المدرّس",
+          per: "للحصة الواحدة",
+          points: [
+            "بتدفع كل حصة لوحدها.",
+            "بتدفع على قد الحصص اللي بتاخدها.",
+            "مفيش رسوم فوق سعر الحصة.",
+          ],
         },
         {
-          title: "النِّسَب بتتجمّد وقت إنشاء المجموعة",
-          body: "لما المجموعة تتعمل، نسبتها بتتسجّل عليها وتفضل ثابتة. لو التسعير اتغيّر بعد كده، المجموعات الشغالة ما بتتسعّرش من جديد — التغيير على الجديدة بس.",
+          id: "month",
+          name: "بالشهر",
+          price: "سعر المدرّس",
+          per: "للشهر",
+          points: [
+            "اشتراك شهري في المجموعة.",
+            "بتجدّده بنفسك كل شهر.",
+            "مفيش رسوم فوق سعر الاشتراك.",
+          ],
+        },
+      ],
+      note: "كل مجموعة بتقولك قبل ما تشترك: بالحصة ولا بالشهر، وبكام.",
+      primary: "سجّل كطالب",
+    },
+    methods: {
+      title: "تدفع إزاي؟",
+      items: [
+        {
+          title: "كارت أو محفظة موبايل",
+          body: "أونلاين عن طريق Paymob. رقم الكارت مش بيتخزّن عندنا.",
         },
         {
-          title: "كل قرش له قيد لا يُعدَّل",
-          body: "كل تسوية بتكتب قيودها في دفتر مقفول ضد التعديل والحذف على مستوى قاعدة البيانات نفسها. حتى حساب الإدارة العليا ما يقدرش يغيّر قيد اتكتب.",
+          title: "كاش في السنتر",
+          body: "على الكاونتر، وبتاخد إيصال بمسلسل. الدفعة بتتسجّل في حسابك زي الأونلاين بالظبط.",
+        },
+        {
+          title: "محفظة ولي الأمر",
+          body: "ولي الأمر يدفع الحصة من محفظته، والاشتراك يفضل باسم الطالب.",
         },
       ],
     },
-    example: {
-      label: "مثال",
-      title: "حصة في قاعة سنتر، بالأرقام.",
-      body: "سعر الحصة بيتقسّم بنسب معلنة: المنصة والسنتر، والباقي كله للمدرّس — محسوب كباقي القسمة بالظبط زي ما المحرّك بيحسبه، فمفيش كسور ضايعة. الحسبة بتتم لكل طالب حاضر فعلًا.",
-      teacherDirect: {
-        title: "والمدرّس المستقل؟",
-        body: "مفيش سنتر في العملية، فمفيش نصيب سنتر: المنصة بتاخد نسبتها وقت الدفع، والباقي بيدخل محفظة المدرّس في نفس اللحظة.",
-      },
-      perStudent: {
-        title: "وقاعة بتتحاسب بالطالب؟",
-        body: "بعض القاعات بتتسعّر بمبلغ لكل طالب حاضر بدل نسبة من القاعة كلها. السنتر بيحدد سعر قاعته بحد أقصى معلن من المنصة، والمدرّس بيشوف الرقم على كارت القاعة قبل ما يحجز — مش بعد التسوية.",
-      },
-    },
-    timing: {
-      label: "التوقيت",
-      title: "إمتى بتوصلك فلوسك؟",
-      items: [
-        {
-          title: "التسوية",
-          body: "اشتراك المدرّس المستقل بيتسوّى لحظة نجاح الدفع. حصة السنتر بتتسوّى لما تتقفل، وللطلاب اللي اتسجّل حضورهم بس.",
-        },
-        {
-          title: "المحفظة",
-          body: "الصافي بيدخل محفظتك أول بأول، وكل قيد وراه أي حصة وأي طالب — تقدر ترجعله في أي وقت.",
-        },
-        {
-          title: "الصرف",
-          body: "بتطلب صرف من الرصيد المتاح، والمبلغ بيتحجز فورًا عشان ما يتطلبش مرتين، وبعدين بيتراجع ويتصرف. مفيش حد أدنى ومفيش خصم على السحب.",
-        },
-      ],
-    },
-    noHidden: {
-      label: "الوضوح",
-      title: "اللي مش بناخده.",
-      items: [
-        "مفيش رسوم اشتراك شهري على السنتر أو المدرّس.",
-        "مفيش رسوم تفعيل ولا رسوم إعداد.",
-        "مفيش عمولة على سحب رصيدك من المحفظة.",
-        "مفيش رسوم على الطالب فوق سعر الدرس أو الاشتراك.",
-        "مفيش عمولة على حصة ما حضرهاش حد — الحسبة بتبدأ من الحضور.",
-      ],
-    },
-    cta: {
-      title: "جرّب على أرقامك إنت.",
-      body: "التسجيل مجاني ومن غير بطاقة. نصيب المنصة بيبدأ من أول عملية دفع حقيقية — لو ما فيش فلوس اتحركت، مفيش عمولة.",
-      primary: "سجّل سنترك",
+    more: {
+      title: "لسه عندك سؤال؟",
+      faq: "الأسئلة الشائعة",
+      contact: "تواصل معنا",
     },
   },
 
@@ -82,58 +66,73 @@ const ar = {
     meta: {
       title: "أسئلة شائعة — لينكتك",
       description:
-        "إجابات مباشرة على أكتر الأسئلة تكرارًا عن لينكتك: الفلوس، الحضور، الصلاحيات، وأمان الطلاب.",
+        "إجابات قصيرة للطالب وولي الأمر: التسجيل، الدفع، الحضور، المراسلة، وأمان الطلاب.",
     },
-    label: "أسئلة شائعة",
     headline: "الأسئلة اللي بتتكرر.",
-    lede: "كل إجابة هنا مكتوبة من سلوك النظام الفعلي، مش من اللي كان نفسنا نوعد بيه.",
-    items: [
+    lede: "إجابات قصيرة، من اللي النظام بيعمله فعلًا.",
+    groups: [
       {
-        q: "لينكتك بتاخد كام؟",
-        a: "نسبة من قيمة الدرس أو الاشتراك، بتتخصم بعد ما الفلوس تدخل — مش رسوم شهرية ولا رسوم إعداد. صفحة الأسعار فيها المثال الرقمي بالكامل.",
+        id: "students",
+        title: "للطالب",
+        items: [
+          {
+            q: "التسجيل بفلوس؟",
+            a: "لا. التسجيل مجاني للطالب ولولي الأمر. بتدفع بس الحصة أو الشهر اللي بتشترك فيه، بسعر المدرّس.",
+          },
+          {
+            q: "لو عايز مادة مش في شعبتي؟",
+            a: "موادك بتظهر من سنتك وشعبتك، وفيه وضع «كل المواد» تدوّر فيه على أي مادة.",
+          },
+          {
+            q: "الاشتراك بالشهر ولا بالحصة؟",
+            a: "حسب المجموعة: اشتراك شهري بتجدّده بنفسك، أو حصة بحصة. السعر هو سعر المدرّس، ومفيش رسوم بتتضاف عليه.",
+          },
+          {
+            q: "ينفع أدفع كاش؟",
+            a: "أيوه، على كاونتر السنتر، والدفعة بتتسجّل في حسابك زي الأونلاين بالظبط. والأونلاين بالكارت أو محفظة الموبايل عن طريق Paymob.",
+          },
+          {
+            q: "الحصص أونلاين ولا في السنتر؟",
+            a: "حسب المجموعة: في السنتر، أونلاين لايف، أو الاتنين. بيبان قبل ما تشترك، وتقدر تفلتر بيه.",
+          },
+          {
+            q: "اتسجّلت في السنتر ومعييش حساب؟",
+            a: "موظف الاستقبال بيسجّلك، وبيوصلك على واتساب كود الطالب ورابط آمن تكمّل بيه حسابك.",
+          },
+          {
+            q: "كود الطالب فيه بياناتي؟",
+            a: "لا. الكود ٨ خانات ومعاه QR على الكارنيه، ومش مبني على اسمك ولا تاريخ ميلادك ولا تليفونك. وفيه خانة تحقق بتمسك أي غلطة في كتابته.",
+          },
+          {
+            q: "بيشتغل على الموبايل؟",
+            a: "أيوه، من المتصفح على طول من غير تثبيت، وممكن تضيفه على الشاشة الرئيسية كتطبيق. والحضور بيشتغل حتى لو النت فصل، ويتزامن لما يرجع.",
+          },
+        ],
       },
       {
-        q: "إمتى بتدخل الفلوس محفظتي؟",
-        a: "اشتراك المدرّس المستقل بيتسوّى لحظة نجاح الدفع. حصة السنتر بتتسوّى لما تتقفل، وللطلاب اللي اتسجّل حضورهم بس.",
-      },
-      {
-        q: "أقدر أسحب رصيدي إمتى؟",
-        a: "في أي وقت، من الرصيد المتاح. الطلب بيتحجز من رصيدك فورًا عشان ما ينطلبش مرتين، وبعدين بيتراجع ويتصرف. مفيش حد أدنى ولا خصم على السحب.",
-      },
-      {
-        q: "الكاش بيتسجّل إزاي؟",
-        a: "موظف السنتر بيسجّل الدفع على الكاونتر وبيطلع إيصال بمسلسل، والعملية بتتكتب في نفس الدفتر المالي بنفس القيود اللي بيتكتب بيها الدفع الأونلاين.",
-      },
-      {
-        q: "لو طالب سجّل حضور على الكاونتر وما دخلش القاعة؟",
-        a: "في وضع الدخولين، تسجيل الكاونتر لوحده بيتسجّل كحالة منفصلة ما بتتحسبش حضور، وبيظهر للمدرّس بوضوح. وبما إنه مش حضور، الحصة دي ما بتتسوّاش على الطالب ده.",
-      },
-      {
-        q: "المساعد بتاعي يقدر يعمل إيه؟",
-        a: "كل حاجة إنت بتعملها ما عدا المحفظة والصرف والإعدادات المالية وإدارة المساعدين نفسهم. وكل عملية بتتسجّل باسمه ومكتوب إنها تمت نيابة عنك.",
-      },
-      {
-        q: "ولي الأمر بيشوف محادثات ابنه؟",
-        a: "بيشوف محادثات ابنه القاصر مع البالغين، للقراءة فقط، ومن غير ما يأثر على علامات القراءة. الطرفين بيشوفوا تنبيه دائم إن الاطّلاع ده مفعّل — مفيش مراقبة خفية.",
-      },
-      {
-        q: "بيانات سنتري محمية إزاي من السناتر التانية؟",
-        a: "العزل بيتفرض على مستوى قاعدة البيانات نفسها، مش على مستوى الشاشات بس. طلب من سنتر ما يقدرش يقرأ صف بيخص سنتر تاني حتى لو حد جرّب.",
-      },
-      {
-        q: "لينكتك بتشتغل على الموبايل؟",
-        a: "أيوه، من المتصفح مباشرة من غير تثبيت، وممكن تتثبّت كتطبيق على الشاشة الرئيسية. الحضور بيشتغل حتى لو النت فصل ويتزامن لما يرجع.",
-      },
-      {
-        q: "أقدر أجرّب قبل ما أدفع؟",
-        a: "التسجيل مجاني ومن غير بطاقة. نصيب المنصة بيبدأ من أول عملية دفع حقيقية بس — لو ما فيش فلوس اتحركت، مفيش عمولة.",
+        id: "parents",
+        title: "لولي الأمر",
+        items: [
+          {
+            q: "ولي الأمر يقدر يدفع عن ابنه؟",
+            a: "أيوه، من محفظته هو. الاشتراك بيفضل باسم الطالب، وولي الأمر بيتابع حضوره ومدفوعاته من حسابه.",
+          },
+          {
+            q: "ليه ابني مش قادر يراسل المدرّس؟",
+            a: "أي طالب تحت ١٨، أو سنّه مش متوثّق، بيتعامل كقاصر. مراسلته مع الكبار بتفضل مقفولة لحد ما إيميل ولي أمره يتأكد — رقم التليفون لوحده مش كفاية. الحصص والحضور والدفع شغالين عادي في الوقت ده.",
+          },
+          {
+            q: "ولي الأمر بيشوف محادثات ابنه؟",
+            a: "بيشوف محادثات ابنه القاصر مع الكبار، للقراءة بس، ومن غير ما يأثر على علامات القراءة. والطرفين بيشوفوا تنبيه دايم إن ده مفعّل — مفيش مراقبة خفية.",
+          },
+        ],
       },
     ],
     more: {
       title: "لسه عندك سؤال؟",
-      body: "صفحة الضمانات بتشرح آليات الحماية نفسها، وصفحة الأسعار فيها الحسبة بالأرقام.",
-      pricing: "الأسعار",
-      trust: "الضمانات",
+      body: "ابعتلنا، وهنرد على إيميلك.",
+      contact: "تواصل معنا",
+      trust: "الثقة والأمان",
     },
   },
 
@@ -141,46 +140,72 @@ const ar = {
     meta: {
       title: "الثقة والأمان — لينكتك",
       description:
-        "كل جملة في الصفحة دي بتشاور على آلية في قاعدة البيانات أو في الكود، مش على وثيقة سياسات: دفتر لا يُمحى، عزل السناتر، حماية القُصّر، الجلسات، والتحليلات.",
+        "أمان الطلاب، الفلوس، والبيانات: كل سطر وراه حاجة في الكود أو في قاعدة البيانات، مش وعد في ورقة.",
     },
-    label: "الثقة والأمان",
-    headline: "الواجهة بتقول الحقيقة عن اللي النظام بيضمنه.",
-    lede: "كل جملة في الصفحة دي بتشاور على آلية في قاعدة البيانات أو في الكود، مش على وثيقة سياسات.",
-    sections: [
+    headline: "اللي مكتوب هنا، النظام بيعمله فعلًا.",
+    lede: "كل سطر في الصفحة دي وراه حاجة في الكود أو في قاعدة البيانات، مش وعد في ورقة.",
+    groups: [
       {
-        id: "append",
-        label: "ما بيتعدّلش",
-        title: "جداول التطبيق نفسه ما يقدرش يعيد كتابتها.",
-        body: "المعاملات والنقاط وسجل التدقيق والتسويات إدخال وقراءة بس — لا تُعدَّل ولا تُمحى. الفواتير والمسحوبات وسجل الحظر ما بيتمسحوش. وحتى الإدارة العليا مش مستثناة: التطبيقات كلها بتتصل بنفس دور قاعدة البيانات المحدود، والتصحيح بيتكتب كقيد جديد والقيد الغلط بيفضل ظاهر.",
+        id: "students",
+        title: "أمان الطلاب",
+        items: [
+          {
+            title: "أي طالب قاصر، لحد ما يثبت العكس",
+            body: "البلوغ شرط واحد: تاريخ ميلاد موجود ومتوثّق وسن ١٨ أو أكتر. أي حاجة ناقصة أو مش متوثّقة، يبقى قاصر.",
+          },
+          {
+            title: "مراسلة الكبار مقفولة لحد ما إيميل ولي الأمر يتأكد",
+            body: "رقم التليفون لوحده مش كفاية. والحصص والحضور والدفع شغالين عادي في الوقت ده.",
+          },
+          {
+            title: "ولي الأمر بيقرا، والطرفين عارفين",
+            body: "ولي الأمر المرتبط بيشوف محادثات ابنه مع الكبار للقراءة بس، وفيه تنبيه دايم للطرفين.",
+          },
+          {
+            title: "كود الطالب مافيهوش بيانات شخصية",
+            body: "متولّد من بصمة SHA-256 لمعرّف الحساب، مش من الاسم ولا الميلاد ولا التليفون. والـQR اللي على الكارنيه ما بيفتحش جلسة لحد.",
+          },
+        ],
       },
       {
-        id: "isolation",
-        label: "العزل",
-        title: "سنتر ما يقدرش يقرأ بيانات سنتر تاني.",
-        body: "مفروض بسياسات أمان على مستوى الصف جوّه PostgreSQL نفسها، مش بشرط في كود التطبيق. الاستعلام اللي ينسى الفلتر بيرجع لا شيء، مش كل حاجة.",
+        id: "money",
+        title: "الفلوس",
+        items: [
+          {
+            title: "كل جنيه له قيد ما بيتعدّلش",
+            body: "المعاملات والتسويات وسجل التدقيق إدخال وقراءة بس. التصحيح بيتكتب قيد جديد، والقيد الغلط بيفضل ظاهر — والإدارة نفسها مش مستثناة.",
+          },
+          {
+            title: "رقم الكارت مش عندنا",
+            body: "الدفع بالكارت والمحفظة بيتم على صفحات Paymob. إحنا بنحتفظ بسجل العملية بس: المبلغ والوقت والحالة.",
+          },
+          {
+            title: "الكاش ليه إيصال",
+            body: "دفع الكاونتر بيطلع إيصال بمسلسل، وبيتسجّل في نفس الدفتر زي الدفع الأونلاين.",
+          },
+        ],
       },
       {
-        id: "minors",
-        label: "القُصّر",
-        title: "القاصر هو الافتراض، في كل مكان بيفرق.",
-        body: "شرط إيجابي واحد بيحدد البلوغ: تاريخ ميلاد موجود ومُوثَّق وسن ١٨ فأكثر. فالحقل الناقص أو التاريخ غير الموثّق عمره ما يفتح حساب طفل بالغلط — ومراسلة الكبار بتفضل مقفولة لحد ما وصول ولي الأمر يتأكّد، من غير ما يتوقف درس ولا دفعة ولا دخول.",
-      },
-      {
-        id: "sessions",
-        label: "الجلسات",
-        title: "إيقاف الحساب بينهي الجلسة في نفس الأمر.",
-        body: "مُشغّل جوّه قاعدة البيانات بيمسح جلسات المستخدم أول ما حالته تتغيّر أو حسابه يتحذف — فبيشتغل حتى مع أوامر ما مرّتش على التطبيق أصلًا. وتغيير كلمة المرور بينهي الجلسات القديمة على كل الأجهزة.",
-      },
-      {
-        id: "analytics",
-        label: "التحليلات",
-        title: "معرّفات بس، والقُصّر ما بيتحددوش خالص.",
-        body: "مفيش اسم ولا إيميل ولا رقم ولا أي حاجة كتبها إنسان بتوصل لأي مزوّد تحليلات. تسجيل الجلسات والالتقاط التلقائي مقفولين، والرموز أحادية الاستخدام بتتشال قبل ما أي خطأ يخرج من المتصفح.",
+        id: "data",
+        title: "البيانات",
+        items: [
+          {
+            title: "سنتر ما يقدرش يقرا بيانات سنتر تاني",
+            body: "العزل جوّه PostgreSQL نفسها، بسياسات على مستوى الصف. الاستعلام اللي ينسى الفلتر بيرجع ولا حاجة، مش كل حاجة.",
+          },
+          {
+            title: "إيقاف الحساب بيقفل جلساته فورًا",
+            body: "مُشغّل في قاعدة البيانات بيمسح الجلسات أول ما حالة الحساب تتغيّر. وتغيير كلمة المرور بيقفل الجلسات القديمة على كل الأجهزة.",
+          },
+          {
+            title: "التحليلات بمعرّفات بس",
+            body: "مفيش اسم ولا إيميل ولا رقم بيوصل لأي مزوّد تحليلات، والقُصّر ما بيتحددوش خالص. تسجيل الجلسات مقفول.",
+          },
+        ],
       },
     ],
     links: {
-      title: "اقرأ الأصل.",
-      body: "الآليات دي هي اللي السياسات بتوصفها — والسياسات نفسها هنا.",
+      title: "اقرا السياسات نفسها.",
       privacy: "سياسة الخصوصية",
       terms: "شروط الاستخدام",
     },
@@ -190,46 +215,50 @@ const ar = {
     privacyTitle: "سياسة الخصوصية",
     termsTitle: "شروط الاستخدام",
     updated: "آخر تحديث",
+    contents: "المحتويات",
     privacyUpdated: "٢ أغسطس ٢٠٢٦",
     termsUpdated: "١ أغسطس ٢٠٢٦",
   },
+
   contact: {
     meta: {
       title: "تواصل معنا — لينكتك",
       description:
-        "اسأل عن عرض توضيحي، الأسعار، الدعم، أو شراكة. وللمسائل العاجلة الخاصة بحساب أو طالب، السنتر بتاعك أسرع منّا.",
+        "اسأل عن الأسعار أو الدعم أو أي حاجة تانية. ولو الموضوع عاجل ويخص طالب، السنتر بتاعه أسرع.",
     },
-    label: "تواصل",
-    headline: "قولنا انت مين، ونرد على قد سؤالك.",
-    lede: "الرسايل بتوصل لصندوق واحد جوّه النظام، وبتترد بالترتيب. اختار الموضوع الصح عشان توصل للشخص الصح من أول مرة.",
+    headline: "قولنا محتاج إيه، ونرد عليك.",
+    lede: "اختار الطريق الأقرب لسؤالك، أو ابعتلنا من الفورم.",
 
     routes: {
-      label: "أسرع طريق لسؤالك",
+      title: "توصلنا إزاي",
       items: [
         {
-          title: "عندك حساب ومحتاج حاجة دلوقتي؟",
-          body: "ادخل على حسابك واستخدم الرسائل جوّه النظام. هناك إحنا عارفين انت مين ومع أنهي سنتر، فالرد بيبقى أسرع وأدق — من غير ما تكتب بياناتك تاني في صفحة عامة.",
+          title: "عندك حساب؟",
+          body: "ادخل وابعت من الرسائل جوّه حسابك. أسرع، ومن غير ما تكتب بياناتك في صفحة عامة.",
           cta: "روح لحسابك",
-          kind: "app",
         },
         {
-          title: "سؤال عن طالب: حضور، دفعة، أو كارنيه؟",
-          body: "كلّم السنتر بتاعك على طول. البيانات دي عندهم هُم، وإحنا ما بنقدرش نناقش تفاصيل طالب مع حد مش مثبت إنه صاحب الحساب أو وليّ أمره.",
+          title: "سؤال عن طالب؟",
+          body: "كلّم السنتر بتاعه على طول. الحضور والدفع والكارنيه عندهم.",
           cta: null,
-          kind: "center",
         },
         {
           title: "أي حاجة تانية",
-          body: "الفورم تحت. اختار الموضوع وهنرد على الإيميل اللي هتكتبه.",
+          body: "ابعتلنا من الفورم، وهنرد على الإيميل اللي هتكتبه.",
           cta: null,
-          kind: "form",
         },
       ],
     },
 
+    safety: {
+      title: "متكتبش بيانات طالب هنا.",
+      body: "الصفحة دي عامة. متكتبش اسم طالب كامل ولا رقم قومي ولا عنوان ولا بيانات دفع.",
+    },
+
+    note: "الرد بيوصل على الإيميل اللي بتكتبه. لسه مفيش وعد بمدة رد محددة.",
+
     form: {
-      label: "الفورم",
-      title: "ابعتلنا رسالة.",
+      title: "ابعتلنا رسالة",
       name: "الاسم",
       email: "البريد الإلكتروني",
       phone: "رقم الموبايل (اختياري)",
@@ -238,38 +267,27 @@ const ar = {
       submit: "ابعت",
       sending: "بيتبعت…",
       subjects: {
-        demo: "عرض توضيحي",
         pricing: "سؤال عن الأسعار",
         support: "دعم فني",
-        partnership: "شراكة",
         other: "موضوع تاني",
       },
-      optionalHint: "اختياري",
-      minMessage: "اكتب 10 حروف على الأقل.",
+      badName: "اكتب اسمك.",
       badEmail: "دقّق البريد الإلكتروني.",
+      minMessage: "اكتب ١٠ حروف على الأقل.",
       ok: {
         title: "وصلت.",
-        body: "هنرد على البريد اللي كتبته. لو الموضوع عاجل ومرتبط بطالب، كلّم السنتر بتاعك — أسرع.",
+        body: "هنرد على الإيميل اللي كتبته. لو الموضوع عاجل ويخص طالب، كلّم السنتر بتاعه — أسرع.",
       },
       failed: "ما قدرناش نبعتها دلوقتي. جرّب تاني بعد شوية.",
       limited: "بعتّ رسايل كتير في وقت قصير. استنى دقيقة وجرّب تاني.",
     },
+  },
 
-    safety: {
-      title: "متبعتش بيانات طالب هنا.",
-      body: "الصفحة دي عامة ومش مربوطة بحسابك. متكتبش اسم طالب كامل، رقم قومي، عنوان، أو أي بيانات دفع. لو محتاج تناقش طالب بعينه، استخدم الرسائل جوّه النظام أو كلّم السنتر.",
-    },
-
-    note: "الرد بيتبعت على البريد اللي بتكتبه. لسه مفيش وعد بزمن رد محدد.",
-
-    reach: {
-      label: "بيانات التواصل",
-      phoneLabel: "تليفون",
-      phone: "+20 100 000 0000",
-      addressLabel: "العنوان",
-      address: "القاهرة، مصر",
-      placeholderNote: "بيانات مؤقتة لحد ما تتأكّد البيانات الرسمية.",
-    },
+  notFound: {
+    meta: "الصفحة مش موجودة — لينكتك",
+    title: "الصفحة دي مش هنا.",
+    body: "ممكن الرابط فيه غلطة، أو الصفحة اتنقلت.",
+    home: "ارجع للرئيسية",
   },
 };
 
@@ -280,76 +298,60 @@ const en: Pages = {
     meta: {
       title: "Pricing — Linktich",
       description:
-        "Linktich's commission model: a share of delivered lessons only — no monthly subscription, no setup fee, no withdrawal fee.",
+        "Pay per lesson or by the month, at the teacher's price with nothing on top. Pay by card or mobile wallet, in cash at the center, or from a parent's wallet.",
     },
-    label: "Pricing",
-    headline: "No subscription. Commission on delivered lessons.",
-    lede: "Every pound in Linktich has a known path before it moves. This page explains the model in numbers, not adjectives: the platform's share is deducted from the lesson itself, after the money has come in, and nothing is added on top of the student's price.",
-    note: "The figures in the example are illustrative. The actual rates are read from the platform's own settings inside the system, and are shown to you before any confirmation.",
-    rules: {
-      label: "The rules",
-      title: "Three rules govern every transaction.",
+    headline: "The teacher sets the price. Signing up is free.",
+    lede: "Pay for one lesson or the whole month, at the price the teacher set. Nothing is added on top.",
+    plans: {
+      title: "Choose how you pay.",
       items: [
         {
-          title: "What the student pays is the price",
-          body: "Nothing is added on top of a lesson or subscription price. The platform's share is deducted from the lesson itself, after the money has come in.",
+          id: "lesson",
+          name: "Per lesson",
+          price: "The teacher's price",
+          per: "for one lesson",
+          points: [
+            "You pay for each lesson on its own.",
+            "You pay only for the lessons you take.",
+            "Nothing on top of the lesson price.",
+          ],
         },
         {
-          title: "Rates freeze when the group is created",
-          body: "A group records its rates the moment it is created, and keeps them. If pricing changes later, running groups are never re-rated — the change applies to new ones only.",
+          id: "month",
+          name: "Monthly",
+          price: "The teacher's price",
+          per: "for the month",
+          points: [
+            "A monthly subscription to the group.",
+            "You renew it yourself each month.",
+            "Nothing on top of the subscription price.",
+          ],
+        },
+      ],
+      note: "Every group tells you before you subscribe: per lesson or monthly, and how much.",
+      primary: "Sign up as a student",
+    },
+    methods: {
+      title: "How do you pay?",
+      items: [
+        {
+          title: "Card or mobile wallet",
+          body: "Online through Paymob. Card numbers are never stored with us.",
         },
         {
-          title: "Every pound leaves an entry that cannot be edited",
-          body: "Each settlement writes its entries into a ledger closed against updates and deletes at the database level itself. Not even a back-office account can alter an entry once written.",
+          title: "Cash at the center",
+          body: "At the counter, with a numbered receipt. The payment lands on your account exactly like an online one.",
+        },
+        {
+          title: "Parent's wallet",
+          body: "A parent pays for the lesson from their own wallet, and the subscription stays in the student's name.",
         },
       ],
     },
-    example: {
-      label: "Example",
-      title: "A lesson in a center's hall, in numbers.",
-      body: "The lesson price splits at published rates: platform and center, with the whole remainder going to the teacher — derived exactly as the engine derives it, so no rounding leaks. The calculation runs per student who actually attended.",
-      teacherDirect: {
-        title: "And an independent teacher?",
-        body: "No center is involved, so there is no center share: the platform takes its commission at payment time, and the remainder lands in the teacher's wallet in the same moment.",
-      },
-      perStudent: {
-        title: "And a hall priced per student?",
-        body: "Some halls are priced as an amount per attending student instead of a share of the whole room. The center sets its own hall's rate, capped by the platform's published ceiling, and the teacher sees the number on the hall card before booking — not after settlement.",
-      },
-    },
-    timing: {
-      label: "Timing",
-      title: "When does the money reach you?",
-      items: [
-        {
-          title: "Settlement",
-          body: "An independent teacher's subscription settles the moment payment succeeds. A center lesson settles when it closes, and only for the students whose attendance was recorded.",
-        },
-        {
-          title: "Wallet",
-          body: "The net lands in your wallet as it is earned, and every entry names the session and the student behind it — you can trace it back at any time.",
-        },
-        {
-          title: "Payout",
-          body: "You request a payout from your available balance; the amount is reserved immediately so it cannot be requested twice, then reviewed and paid. No minimum, no withdrawal fee.",
-        },
-      ],
-    },
-    noHidden: {
-      label: "Plainly",
-      title: "What we don't charge.",
-      items: [
-        "No monthly platform subscription for a center or a teacher.",
-        "No activation or setup fee.",
-        "No fee for withdrawing your own wallet balance.",
-        "Nothing charged to the student on top of the lesson or subscription price.",
-        "No commission on a session nobody attended — the calculation starts at attendance.",
-      ],
-    },
-    cta: {
-      title: "Try it on your own numbers.",
-      body: "Signing up is free and needs no card. The platform's share only begins at the first real payment — if no money moved, there is no commission.",
-      primary: "Register your center",
+    more: {
+      title: "Still have a question?",
+      faq: "FAQ",
+      contact: "Contact us",
     },
   },
 
@@ -357,58 +359,73 @@ const en: Pages = {
     meta: {
       title: "FAQ — Linktich",
       description:
-        "Direct answers to the most common questions about Linktich: money, attendance, permissions and student safety.",
+        "Short answers for students and parents: sign-up, payment, attendance, messaging and student safety.",
     },
-    label: "FAQ",
     headline: "The questions we hear most.",
-    lede: "Every answer here is written from real system behaviour, not from what would have been nice to promise.",
-    items: [
+    lede: "Short answers, taken from what the system actually does.",
+    groups: [
       {
-        q: "How much does Linktich take?",
-        a: "A share of the lesson or subscription value, deducted after the money comes in — not a monthly fee and not a setup fee. The pricing page has the full worked example.",
+        id: "students",
+        title: "For students",
+        items: [
+          {
+            q: "Does signing up cost anything?",
+            a: "No. Sign-up is free for students and parents. You only pay for the lesson or month you subscribe to, at the teacher's price.",
+          },
+          {
+            q: "What if I want a subject outside my track?",
+            a: "Your subjects come from your year and track, and the “All subjects” mode lets you search for any subject.",
+          },
+          {
+            q: "Is it monthly or per lesson?",
+            a: "It depends on the group: a monthly subscription you renew yourself, or lesson by lesson. The price is the teacher's price, with nothing added on top.",
+          },
+          {
+            q: "Can I pay in cash?",
+            a: "Yes, at the center's counter, and the payment is recorded on your account exactly like an online one. Online means a card or a mobile wallet through Paymob.",
+          },
+          {
+            q: "Are classes online or at the center?",
+            a: "It depends on the group: at the center, live online, or both. You see it before you subscribe, and you can filter by it.",
+          },
+          {
+            q: "I registered at the center and have no account?",
+            a: "The front desk registers you and sends your student code on WhatsApp with a secure link to finish your account.",
+          },
+          {
+            q: "Does the student code contain my details?",
+            a: "No. The code is 8 characters with a QR on the card, and it is not built from your name, birth date or phone number. Its check character catches any typo.",
+          },
+          {
+            q: "Does it work on mobile?",
+            a: "Yes, straight from the browser with no install, and you can add it to your home screen as an app. Attendance keeps working when the connection drops and syncs when it returns.",
+          },
+        ],
       },
       {
-        q: "When does money reach my wallet?",
-        a: "An independent teacher's subscription settles the moment payment succeeds. A center lesson settles when it closes, and only for the students whose attendance was recorded.",
-      },
-      {
-        q: "When can I withdraw?",
-        a: "Any time, from your available balance. The request reserves the amount immediately so it cannot be requested twice, then it is reviewed and paid. No minimum, no withdrawal fee.",
-      },
-      {
-        q: "How is cash recorded?",
-        a: "Center staff record the payment at the counter and issue a numbered receipt, and it is written to the same ledger with the same entries as an online payment.",
-      },
-      {
-        q: "What if a student checks in at the counter but never enters the hall?",
-        a: "In two-stage mode a counter check-in on its own is recorded as a distinct state that does not count as attendance, and it is flagged plainly to the teacher. Because it is not attendance, that lesson does not settle for that student.",
-      },
-      {
-        q: "What can my assistant do?",
-        a: "Everything you can do except the wallet, payouts, financial settings, and managing assistants. Every action is recorded under their name and marked as done on your behalf.",
-      },
-      {
-        q: "Can a parent see their child's messages?",
-        a: "They can see their minor child's threads with adults, read-only, without touching read receipts. Both sides see a permanent notice that the oversight is active — there is no hidden monitoring.",
-      },
-      {
-        q: "How is my center's data protected from other centers?",
-        a: "Isolation is enforced in the database itself, not only in the screens. A request from one center cannot read a row belonging to another, even if someone tried.",
-      },
-      {
-        q: "Does Linktich work on mobile?",
-        a: "Yes, straight from the browser with no install, and it can be added to the home screen as an app. Attendance keeps working when the connection drops and syncs when it returns.",
-      },
-      {
-        q: "Can I try it before paying?",
-        a: "Signing up is free and needs no card. The platform's share only begins at the first real payment — if no money moved, there is no commission.",
+        id: "parents",
+        title: "For parents",
+        items: [
+          {
+            q: "Can a parent pay for their child?",
+            a: "Yes, from their own wallet. The subscription stays in the student's name, and the parent follows attendance and payments from their own account.",
+          },
+          {
+            q: "Why can't my child message the teacher?",
+            a: "Any student under 18, or whose age is not verified, is treated as a minor. Their messaging with adults stays locked until a parent's email is confirmed — a phone number alone is not enough. Lessons, check-ins and payments carry on as normal meanwhile.",
+          },
+          {
+            q: "Can a parent see their child's messages?",
+            a: "They can see their minor child's threads with adults, read-only, without touching read receipts. Both sides see a permanent notice that this is on — there is no hidden monitoring.",
+          },
+        ],
       },
     ],
     more: {
       title: "Still have a question?",
-      body: "The guarantees page explains the protection mechanisms themselves, and the pricing page has the arithmetic.",
-      pricing: "Pricing",
-      trust: "Guarantees",
+      body: "Send us a message and we'll reply by email.",
+      contact: "Contact us",
+      trust: "Trust & safety",
     },
   },
 
@@ -416,46 +433,72 @@ const en: Pages = {
     meta: {
       title: "Trust & safety — Linktich",
       description:
-        "Every claim on this page points at a mechanism in the database or the code, not at a policy document: an unerasable ledger, center isolation, protection of minors, sessions, and analytics.",
+        "Student safety, money and data: every line points at something in the code or the database, not at a promise on paper.",
     },
-    label: "Trust & safety",
-    headline: "The interface tells the truth about what the software guarantees.",
-    lede: "Every claim on this page points at a mechanism in the database or the code, not at a policy document.",
-    sections: [
+    headline: "What it says here is what the system does.",
+    lede: "Every line on this page points at something in the code or the database, not at a promise on paper.",
+    groups: [
       {
-        id: "append",
-        label: "Append-only",
-        title: "Tables the application itself cannot rewrite.",
-        body: "Transactions, points, the audit log and settlements are INSERT and SELECT only — never edited, never erased. Invoices, payouts and the blacklist journal cannot be deleted. Not even the back office is exempt: every app connects as the same restricted database role, a correction is written as a new entry, and the wrong one stays visible.",
+        id: "students",
+        title: "Student safety",
+        items: [
+          {
+            title: "Every student is a minor until shown otherwise",
+            body: "Adulthood is one condition: a date of birth that exists, is verified, and puts them at 18 or over. Anything missing or unverified means minor.",
+          },
+          {
+            title: "Messaging with adults stays locked until a parent's email is confirmed",
+            body: "A phone number alone is not enough. Lessons, check-ins and payments carry on as normal meanwhile.",
+          },
+          {
+            title: "Parents can read, and both sides know",
+            body: "A linked parent can read their child's threads with adults, read-only, with a permanent notice on both sides.",
+          },
+          {
+            title: "The student code carries no personal data",
+            body: "It is derived from a SHA-256 of the account's id — never from a name, birth date or phone number. The QR on the card opens no session for anyone.",
+          },
+        ],
       },
       {
-        id: "isolation",
-        label: "Isolation",
-        title: "One center cannot read another's rows.",
-        body: "Enforced by row-level security policies inside PostgreSQL itself, not by an if-statement in application code. A query that forgets its filter returns nothing rather than everything.",
+        id: "money",
+        title: "Money",
+        items: [
+          {
+            title: "Every pound leaves an entry that cannot be edited",
+            body: "Transactions, settlements and the audit log are insert and read only. A correction is written as a new entry and the wrong one stays visible — the back office is not exempt.",
+          },
+          {
+            title: "We never hold card numbers",
+            body: "Card and wallet payments happen on Paymob's pages. We keep only the record of the payment: amount, time and status.",
+          },
+          {
+            title: "Cash gets a receipt",
+            body: "A counter payment issues a numbered receipt and is written to the same ledger as an online payment.",
+          },
+        ],
       },
       {
-        id: "minors",
-        label: "Minors",
-        title: "Minor is the default, everywhere it matters.",
-        body: "One positive condition decides adulthood: a date of birth that exists, is verified, and puts them at 18 or over. A missing field or an unverified date can never silently unlock a child's account — and adult-facing messaging stays locked until a guardian channel is confirmed, without stopping a single lesson, payment or sign-in.",
-      },
-      {
-        id: "sessions",
-        label: "Sessions",
-        title: "Deactivation ends a session in the same statement.",
-        body: "A database trigger deletes a user's sessions the moment their status changes or their account is removed — so it holds even for statements that never went through the application. And changing a password ends old sessions on every device.",
-      },
-      {
-        id: "analytics",
-        label: "Analytics",
-        title: "IDs only, and minors are never identified at all.",
-        body: "No name, email, phone or anything a human typed reaches an analytics vendor. Session replay and autocapture are off, and single-use tokens are redacted before an error ever leaves the browser.",
+        id: "data",
+        title: "Data",
+        items: [
+          {
+            title: "One center cannot read another's data",
+            body: "Isolation lives inside PostgreSQL itself, as row-level policies. A query that forgets its filter returns nothing, not everything.",
+          },
+          {
+            title: "Deactivating an account ends its sessions at once",
+            body: "A database trigger deletes the sessions the moment the account's status changes. Changing a password ends old sessions on every device.",
+          },
+          {
+            title: "Analytics see IDs only",
+            body: "No name, email or phone number reaches an analytics vendor, and minors are never identified at all. Session replay is off.",
+          },
+        ],
       },
     ],
     links: {
-      title: "Read the real thing.",
-      body: "These mechanisms are what the policies describe — and the policies themselves are here.",
+      title: "Read the policies themselves.",
       privacy: "Privacy policy",
       terms: "Terms of service",
     },
@@ -465,46 +508,50 @@ const en: Pages = {
     privacyTitle: "Privacy Policy",
     termsTitle: "Terms of Service",
     updated: "Last updated",
+    contents: "Contents",
     privacyUpdated: "August 2, 2026",
     termsUpdated: "August 1, 2026",
   },
+
   contact: {
     meta: {
       title: "Contact — Linktich",
       description:
-        "Ask about a demo, pricing, support, or a partnership. For anything urgent about an account or a student, your center is faster than we are.",
+        "Ask about pricing, support or anything else. For anything urgent about a student, their center is faster.",
     },
-    label: "Contact",
-    headline: "Tell us who you are, and we'll answer the question you asked.",
-    lede: "Messages land in one inbox inside the system and are worked in order. Picking the right subject is what gets you to the right person first time.",
+    headline: "Tell us what you need, and we'll get back to you.",
+    lede: "Pick the route closest to your question, or send us a message with the form.",
 
     routes: {
-      label: "Fastest route",
+      title: "Ways to reach us",
       items: [
         {
-          title: "Have an account and need something now?",
-          body: "Sign in and use the messages inside the system. There we already know who you are and which center you are with, so the answer is faster and more accurate — and you do not retype your details into a public page.",
+          title: "Have an account?",
+          body: "Sign in and use the messages inside your account. It's faster, and you don't retype your details on a public page.",
           cta: "Go to your account",
-          kind: "app",
         },
         {
-          title: "A question about a student — attendance, a payment, a card?",
-          body: "Talk to your center directly. They hold that information, and we cannot discuss a student's details with anyone who is not verified as the account holder or their guardian.",
+          title: "A question about a student?",
+          body: "Talk to their center directly. Attendance, payments and the card are with them.",
           cta: null,
-          kind: "center",
         },
         {
           title: "Anything else",
-          body: "The form below. Pick a subject and we will reply to the address you give.",
+          body: "Use the form, and we'll reply to the email you give.",
           cta: null,
-          kind: "form",
         },
       ],
     },
 
+    safety: {
+      title: "Don't send a student's details here.",
+      body: "This page is public. Don't write a student's full name, national ID, address or any payment details.",
+    },
+
+    note: "We reply to the email you give. There is no committed response time yet.",
+
     form: {
-      label: "The form",
-      title: "Send us a message.",
+      title: "Send us a message",
       name: "Name",
       email: "Email",
       phone: "Mobile number (optional)",
@@ -513,38 +560,27 @@ const en: Pages = {
       submit: "Send",
       sending: "Sending…",
       subjects: {
-        demo: "A demo",
         pricing: "A pricing question",
         support: "Support",
-        partnership: "Partnership",
         other: "Something else",
       },
-      optionalHint: "optional",
-      minMessage: "Write at least 10 characters.",
+      badName: "Write your name.",
       badEmail: "Check the email address.",
+      minMessage: "Write at least 10 characters.",
       ok: {
         title: "Received.",
-        body: "We will reply to the address you gave. If it is urgent and about a student, your center is faster.",
+        body: "We'll reply to the email you gave. If it's urgent and about a student, their center is faster.",
       },
-      failed: "We could not send it just now. Try again in a moment.",
-      limited: "That is a lot of messages in a short time. Wait a minute and try again.",
+      failed: "We couldn't send it just now. Try again in a moment.",
+      limited: "That's a lot of messages in a short time. Wait a minute and try again.",
     },
+  },
 
-    safety: {
-      title: "Do not send a student's details here.",
-      body: "This page is public and not tied to your account. Do not write a student's full name, national ID, address, or any payment details. To discuss a specific student, use the messages inside the system or talk to the center.",
-    },
-
-    note: "We reply to the address you give. There is no committed response time yet.",
-
-    reach: {
-      label: "Reach us",
-      phoneLabel: "Phone",
-      phone: "+20 100 000 0000",
-      addressLabel: "Address",
-      address: "Cairo, Egypt",
-      placeholderNote: "Temporary details, pending the official ones.",
-    },
+  notFound: {
+    meta: "Page not found — Linktich",
+    title: "This page isn't here.",
+    body: "The link may have a typo, or the page has moved.",
+    home: "Back to home",
   },
 };
 

@@ -1,13 +1,15 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+
+import { Arrow } from "@/components/arrow";
 import { ContactForm } from "@/components/contact-form";
+import { LineArt, type LineArtName } from "@/components/line-art";
 import { PageFrame, PageHero } from "@/components/page-frame";
-import { Section, SectionTitle } from "@/components/section";
+import { Section } from "@/components/section";
 import { LOCALES, isLocale } from "@/i18n/config";
 import { getMessages } from "@/i18n/messages";
 import { getPages } from "@/i18n/pages";
 import { appUrl } from "@/lib/app-origin";
-import { Button } from "@repo/ui/components/button";
-import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 
 export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }));
@@ -31,6 +33,8 @@ export async function generateMetadata({
   };
 }
 
+const ROUTE_ART: LineArtName[] = ["register", "student", "mail"];
+
 export default async function ContactPage({
   params,
 }: {
@@ -44,64 +48,65 @@ export default async function ContactPage({
 
   return (
     <PageFrame locale={locale} t={t}>
-      <PageHero locale={locale} label={c.label} headline={c.headline} lede={c.lede} note={c.note} />
+      <PageHero headline={c.headline} lede={c.lede} art="mail" />
 
-      <Section id="routes" label={c.routes.label} locale={locale}>
-        <ol className="border-t border-rule">
-          {c.routes.items.map((route, index) => (
-            <li
-              key={route.title}
-              className="grid gap-3 border-b border-rule py-7 sm:grid-cols-[2.5rem_1fr] sm:gap-6"
-            >
-              <span aria-hidden="true" className="figure text-[0.8125rem] text-ink-3">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <div className="min-w-0">
-                <h2 className="display text-[1.0625rem] leading-snug text-ink">{route.title}</h2>
-                <p className="mt-3 max-w-[58ch] text-[0.9375rem] leading-[1.75] text-ink-2">
-                  {route.body}
-                </p>
-                {route.cta ? (
-                  <div className="mt-5">
-                    <Button asChild variant="gold" size="ledger" className="tap">
-                      <a href={appUrl(locale, "/login")}>{route.cta}</a>
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-            </li>
-          ))}
-        </ol>
+      <Section id="routes">
+        <h2 data-reveal="" className="t-h2 mx-auto text-center">
+          {c.routes.title}
+        </h2>
+        <ul role="list" data-reveal="" className="method-grid mt-10" data-cols="3">
+          {c.routes.items.map((route, i) => {
+            const body = (
+              <>
+                <span className="method-icon">
+                  <LineArt name={ROUTE_ART[i % ROUTE_ART.length]!} className="h-7 w-7" />
+                </span>
+                <span className="min-w-0">
+                  <span className="t-h3 block text-ink">{route.title}</span>
+                  <span className="mt-2 block text-[0.9375rem] leading-relaxed text-ink-2">{route.body}</span>
+                  {route.cta ? (
+                    <span className="tile-more">
+                      {route.cta}
+                      <Arrow />
+                    </span>
+                  ) : null}
+                </span>
+              </>
+            );
+            return route.cta ? (
+              <li key={route.title} className="flex">
+                <a href={appUrl(locale, "/login")} className="method-card method-card-stack method-card-link">
+                  {body}
+                </a>
+              </li>
+            ) : (
+              <li key={route.title} className="method-card method-card-stack">
+                {body}
+              </li>
+            );
+          })}
+        </ul>
       </Section>
 
-      <Section id="reach" label={c.reach.label} locale={locale}>
-        <dl className="grid max-w-[62rem] gap-px border border-rule bg-rule sm:grid-cols-2">
-          <div className="bg-sheet px-5 py-5 sm:px-6">
-            <dt className="text-[0.8125rem] font-semibold text-ink-3">{c.reach.phoneLabel}</dt>
-            <dd className="figure mt-2 text-[1.0625rem] text-ink">{c.reach.phone}</dd>
+      <Section id="form">
+        <div data-reveal="" className="card contact-card">
+          <h2 id="contact-form-title" className="t-h2 text-ink">
+            {c.form.title}
+          </h2>
+
+          <div className="contact-safety" data-ground="marker">
+            <LineArt name="guardian" className="h-6 w-6 shrink-0 text-pen" />
+            <span>
+              <span className="block font-medium text-ink">{c.safety.title}</span>
+              <span className="mt-1 block text-[0.9375rem] leading-relaxed text-ink-2">{c.safety.body}</span>
+            </span>
           </div>
-          <div className="bg-sheet px-5 py-5 sm:px-6">
-            <dt className="text-[0.8125rem] font-semibold text-ink-3">{c.reach.addressLabel}</dt>
-            <dd className="mt-2 text-[1.0625rem] text-ink">{c.reach.address}</dd>
+
+          <div className="mt-8">
+            <ContactForm locale={locale} copy={c.form} />
           </div>
-        </dl>
-        <p className="mt-4 max-w-[58ch] text-[0.8125rem] text-ink-3">
-          {c.reach.placeholderNote}
-        </p>
-      </Section>
 
-      <Section id="form" label={c.form.label} locale={locale}>
-        <SectionTitle>{c.form.title}</SectionTitle>
-
-        <div className="mt-8 max-w-[62rem] border border-rule bg-sheet p-6 sm:p-7">
-          <h3 className="display text-[1.0625rem] leading-snug text-ink">{c.safety.title}</h3>
-          <p className="mt-3 max-w-[58ch] text-[0.9375rem] leading-[1.75] text-ink-2">
-            {c.safety.body}
-          </p>
-        </div>
-
-        <div className="mt-10">
-          <ContactForm locale={locale} copy={c.form} />
+          <p className="t-meta mt-6">{c.note}</p>
         </div>
       </Section>
     </PageFrame>
