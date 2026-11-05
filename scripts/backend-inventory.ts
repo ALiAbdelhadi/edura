@@ -1,15 +1,3 @@
-/**
- * Backend-separation inventory (docs/decisions/backend-separation.md, phase 0).
- *
- * Read-only static scan of apps/erp and apps/superadmin. Writes Markdown tables to
- * docs/architecture/backend-separation/. Re-run after every phase:
- *
- *     bun scripts/backend-inventory.ts
- *
- * Every column is derived from the source text, not from running anything. The
- * side-effect column is a keyword heuristic over the route file and its import
- * specifiers; it can miss an effect reached only transitively through a service.
- */
 import { readFileSync, readdirSync, statSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
