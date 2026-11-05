@@ -1,6 +1,12 @@
 import DashboardShell from "@/components/refine/dashboard-shell";
+import { WALLET_ENABLED } from "@/lib/config/features";
 
-const navGroups = [
+// Wallet-off deployments hide the wallet and the Practice emulator (fake wallet screens).
+const WALLET_HREFS = new Set(["/dashboard/teacher/wallet", "/dashboard/teacher/tour"]);
+const shown = <T extends { href: string }>(items: T[]): T[] =>
+  WALLET_ENABLED ? items : items.filter((i) => !WALLET_HREFS.has(i.href));
+
+const allNavGroups = [
   {
     label: "",
     items: [{ href: "/dashboard/teacher", icon: "home", label: "Dashboard" }],
@@ -51,6 +57,11 @@ const navGroups = [
   },
 ];
 
+// The "@money" group holds only the wallet, so it disappears with it.
+const navGroups = allNavGroups
+  .map((g) => ({ ...g, items: shown(g.items) }))
+  .filter((g) => g.items.length > 0);
+
 const BAR_ORDER = [
   "/dashboard/teacher",
   "/dashboard/teacher/attendance",
@@ -67,7 +78,7 @@ const BAR_ORDER = [
   "/dashboard/teacher/notifications",
   "/dashboard/teacher/tour",
   "/dashboard/teacher/settings",
-];
+].filter((href) => WALLET_ENABLED || !WALLET_HREFS.has(href));
 
 export default function PortalChrome({
   children,

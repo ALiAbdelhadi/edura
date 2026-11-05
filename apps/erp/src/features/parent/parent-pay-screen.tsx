@@ -26,6 +26,7 @@ import { LoadError } from "@repo/ui/components/ledger";
 import { useQueryStrings } from "@repo/ui/components/query-section";
 import { toast } from "@repo/ui/components/sonner";
 import { PageHeader } from "@/components/kit/page-header";
+import { WALLET_ENABLED } from "@/lib/config/features";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageSpinner, Spinner } from "@/components/kit/spinner";
 import { useChildSelector } from "@/components/ui/child-selector";
@@ -281,7 +282,7 @@ export function ParentPayScreen() {
   const { query: walletQuery, result: walletRes } = useCustom({
     url: "me/parent-wallet",
     method: "get",
-    queryOptions: { enabled: Boolean(pending) },
+    queryOptions: { enabled: WALLET_ENABLED && Boolean(pending) },
   });
   const walletBalance: number | null = walletQuery.isError
     ? null
@@ -375,7 +376,7 @@ export function ParentPayScreen() {
       setBusy(false);
       setMockIntent(null);
       setPending(null);
-      walletQuery.refetch();
+      if (WALLET_ENABLED) walletQuery.refetch();
       subsQuery.refetch();
     }
   };
@@ -391,7 +392,7 @@ export function ParentPayScreen() {
   if (childrenFailed) {
     return (
       <div className="space-y-6">
-        <PageHeader title={t("nav.payForChild")} description={t("parentPay.subtitle")} />
+        <PageHeader title={t("nav.payForChild")} description={t(WALLET_ENABLED ? "parentPay.subtitle" : "parentPay.subtitleCardOnly")} />
         <EmptyState icon={Users} title={t("parentPay.childrenUnavailable")} />
       </div>
     );
@@ -400,7 +401,7 @@ export function ParentPayScreen() {
   if (!childId) {
     return (
       <div className="space-y-6">
-        <PageHeader title={t("nav.payForChild")} description={t("parentPay.subtitle")} />
+        <PageHeader title={t("nav.payForChild")} description={t(WALLET_ENABLED ? "parentPay.subtitle" : "parentPay.subtitleCardOnly")} />
         <EmptyState icon={Users} title={t("parentPay.noLinkedChildren")} />
       </div>
     );
@@ -461,7 +462,7 @@ export function ParentPayScreen() {
             ? t("parentPay.titleFor", { name: childName })
             : t("nav.payForChild")
         }
-        description={t("parentPay.subtitle")}
+        description={t(WALLET_ENABLED ? "parentPay.subtitle" : "parentPay.subtitleCardOnly")}
       />
 
       <Tabs value={tab} onValueChange={switchTab}>
@@ -550,25 +551,29 @@ export function ParentPayScreen() {
                     {t("parentPay.payByCard")}
                   </Button>
                 ) : null}
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  disabled={busy || insufficient || walletBalance === null}
-                  onClick={() => pay("parent_wallet")}
-                >
-                  <Wallet className="size-4" />
-                  {t("parentPay.payFromWallet")}
-                  {walletBalance !== null ? <> · {formatEGP(walletBalance)}</> : null}
-                </Button>
-                {insufficient && (
-                  <p className="text-xs text-destructive">{t("parentPay.insufficientWallet")}</p>
-                )}
-                {walletBalance === null && !walletQuery.isPending && (
-                  <LoadError
-                    message={queryStrings.unavailable}
-                    onRetry={() => walletQuery.refetch()}
-                    retryLabel={queryStrings.retry}
-                  />
+                {WALLET_ENABLED && (
+                  <>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start"
+                      disabled={busy || insufficient || walletBalance === null}
+                      onClick={() => pay("parent_wallet")}
+                    >
+                      <Wallet className="size-4" />
+                      {t("parentPay.payFromWallet")}
+                      {walletBalance !== null ? <> · {formatEGP(walletBalance)}</> : null}
+                    </Button>
+                    {insufficient && (
+                      <p className="text-xs text-destructive">{t("parentPay.insufficientWallet")}</p>
+                    )}
+                    {walletBalance === null && !walletQuery.isPending && (
+                      <LoadError
+                        message={queryStrings.unavailable}
+                        onRetry={() => walletQuery.refetch()}
+                        retryLabel={queryStrings.retry}
+                      />
+                    )}
+                  </>
                 )}
               </div>
             </div>

@@ -1,7 +1,13 @@
 import DashboardShell from "@/components/refine/dashboard-shell";
 import { ledgerMono, ledgerScope, ledgerShellScope } from "@/features/student/ledger";
+import { WALLET_ENABLED } from "@/lib/config/features";
 
-const navGroups = [
+const WALLET_HREFS = new Set([
+  "/dashboard/student/wallet",
+  "/dashboard/student/practice",
+]);
+
+const allNavGroups = [
   {
     label: "",
     items: [{ href: "/dashboard/student", icon: "home", label: "Student Home" }],
@@ -58,7 +64,14 @@ const navGroups = [
   },
 ];
 
-const BAR_ORDER = [
+const navGroups = allNavGroups
+  .map((g) => ({
+    ...g,
+    items: g.items.filter((i) => WALLET_ENABLED || !WALLET_HREFS.has(i.href)),
+  }))
+  .filter((g) => g.items.length > 0);
+
+const ALL_BAR_ORDER = [
   "/dashboard/student",
   "/dashboard/student/schedule",
   "/dashboard/student/id",
@@ -76,6 +89,10 @@ const BAR_ORDER = [
   "/dashboard/student/practice",
   "/dashboard/student/settings",
 ];
+
+const BAR_ORDER = ALL_BAR_ORDER.filter(
+  (h) => WALLET_ENABLED || !WALLET_HREFS.has(h),
+);
 
 const BAR_SLOTS = 6;
 

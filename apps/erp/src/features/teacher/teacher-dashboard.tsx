@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useCustom, useList } from "@refinedev/core";
+import { WALLET_ENABLED } from "@/lib/config/features";
 import { QUERY_FRESHNESS } from "@/lib/refine";
 import { Link } from "@/i18n/navigation";
 import {
@@ -81,7 +82,11 @@ export function TeacherDashboard() {
   const { query: walletQuery, result: walletResult } = useCustom<{
     balance: number;
     available: number;
-  }>({ url: "teacher/wallet", method: "get" });
+  }>({
+    url: "teacher/wallet",
+    method: "get",
+    queryOptions: { enabled: WALLET_ENABLED },
+  });
 
   const liveSessions = useMemo(
     () => sessions.filter((s) => s.status !== "cancelled"),
@@ -272,51 +277,53 @@ export function TeacherDashboard() {
         </Link>
       ) : null}
 
-      <Link href="/dashboard/teacher/wallet" className="block">
-        <Card>
-          <CardContent className="flex items-center gap-3">
-            <Wallet className="size-4 shrink-0 text-primary" />
-            <span className="min-w-0 flex-1">
-              <span className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t("teacher.yourMoney")}
-              </span>
-              {walletQuery.isError ? (
-                <span className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-                  <span className="text-lg font-bold text-foreground">—</span>
-                  <span className="text-xs text-muted-foreground">
-                    {queryStrings.unavailable}
-                  </span>
-                  <button
-                    type="button"
-                    className="text-xs font-medium text-primary underline"
-                    onClick={(e) => {
-                      // inside a Link — retry must not navigate
-                      e.preventDefault();
-                      e.stopPropagation();
-                      walletQuery.refetch();
-                    }}
-                  >
-                    {queryStrings.retry}
-                  </button>
+      {WALLET_ENABLED && (
+        <Link href="/dashboard/teacher/wallet" className="block">
+          <Card>
+            <CardContent className="flex items-center gap-3">
+              <Wallet className="size-4 shrink-0 text-primary" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t("teacher.yourMoney")}
                 </span>
-              ) : (
-                <span className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-                  <span className="text-lg font-bold text-foreground">
-                    {formatEGP(wallet?.balance ?? 0)}
+                {walletQuery.isError ? (
+                  <span className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                    <span className="text-lg font-bold text-foreground">—</span>
+                    <span className="text-xs text-muted-foreground">
+                      {queryStrings.unavailable}
+                    </span>
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-primary underline"
+                      onClick={(e) => {
+                        // inside a Link — retry must not navigate
+                        e.preventDefault();
+                        e.stopPropagation();
+                        walletQuery.refetch();
+                      }}
+                    >
+                      {queryStrings.retry}
+                    </button>
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    {t("teacher.teacherWallet.available")}:{" "}
-                    <span className="font-medium text-foreground">
-                      {formatEGP(wallet?.available ?? 0)}
+                ) : (
+                  <span className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                    <span className="text-lg font-bold text-foreground">
+                      {formatEGP(wallet?.balance ?? 0)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {t("teacher.teacherWallet.available")}:{" "}
+                      <span className="font-medium text-foreground">
+                        {formatEGP(wallet?.available ?? 0)}
+                      </span>
                     </span>
                   </span>
-                </span>
-              )}
-            </span>
-            <ChevronLeft className="size-5 shrink-0 rtl:rotate-180 text-muted-foreground" />
-          </CardContent>
-        </Card>
-      </Link>
+                )}
+              </span>
+              <ChevronLeft className="size-5 shrink-0 rtl:rotate-180 text-muted-foreground" />
+            </CardContent>
+          </Card>
+        </Link>
+      )}
 
       <div className="grid grid-cols-3 gap-2">
         <Link href="/dashboard/teacher/grades" className="block">

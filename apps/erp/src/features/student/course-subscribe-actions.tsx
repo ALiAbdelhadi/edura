@@ -17,6 +17,7 @@ import { newIdempotencyKey } from "@/features/student/idempotency";
 import { goToCheckout } from "@/lib/payments/checkout-redirect";
 import { useOnlineCheckout } from "@/lib/payments/use-online-checkout";
 import { Spinner } from "@/components/kit/spinner";
+import { WALLET_ENABLED } from "@/lib/config/features";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 
 export type SubscribableCourse = {
@@ -48,12 +49,16 @@ export function CourseSubscribeActions({
 
   // Deliberately NOT gated on useOnlineCheckout: wallet money is already on the
   // platform, so spending it needs no gateway.
-  const { query: walletQuery, result: walletRes } = useCustom({ url: "me/wallet", method: "get" });
+  const { query: walletQuery, result: walletRes } = useCustom({
+    url: "me/wallet",
+    method: "get",
+    queryOptions: { enabled: WALLET_ENABLED },
+  });
   const walletBalance =
     typeof (walletRes?.data as { balance?: number } | undefined)?.balance === "number"
       ? (walletRes!.data as { balance: number }).balance
       : null;
-  const canOfferWallet = walletBalance !== null && walletBalance > 0;
+  const canOfferWallet = WALLET_ENABLED && walletBalance !== null && walletBalance > 0;
   const affords = (price: number | null) =>
     walletBalance !== null && price !== null && walletBalance >= price;
 

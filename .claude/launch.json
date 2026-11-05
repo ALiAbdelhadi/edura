@@ -66,6 +66,9 @@
       "runtimeExecutable": "env",
       "runtimeArgs": [
         "NEXT_DIST_DIR=.next-review",
+        "NEXT_PUBLIC_WALLET_ENABLED=0",
+        "API_SERVICE_URL=http://localhost:3008",
+        "EDURA_PROXY_SECRET=local-hop-proof-only",
         "bun",
         "run",
         "--cwd",
@@ -313,6 +316,24 @@
         "/Users/ali/edura/apps/admin-api/src/server.ts"
       ],
       "port": 3007
+    },
+    {
+      "name": "edura-api-review",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "NODE_ENV=development",
+        "EDURA_DEV_COOKIE_PORT=3099",
+        "EDURA_PROXY_SECRET=local-hop-proof-only",
+        "EDURA_WALLET_ENABLED=0",
+        "PORT=3008",
+        "NEXTAUTH_URL=http://localhost:3099",
+        "APP_BASE_URL=http://localhost:3099",
+        "bun",
+        "--env-file",
+        "/Users/ali/edura/apps/erp/.env.local",
+        "/Users/ali/edura/apps/api/src/server.ts"
+      ],
+      "port": 3008
     }
   ]
 }

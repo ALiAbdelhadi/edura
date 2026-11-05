@@ -417,6 +417,10 @@
         "title": "Welcome to Edura 👋",
         "body": "Your account is ready. This tour shows you the things you'll actually do — and it won't just say “this is your wallet”, it will show you how, step by step. You can skip it at any point."
       },
+      "welcomeCard": {
+        "title": "Welcome to Edura 👋",
+        "body": "Your account is ready. This tour shows you the things you'll actually do — and it won't just point at a screen, it will show you how, step by step. You can skip it at any point."
+      },
       "upNext": {
         "title": "Your next class",
         "body": "The first thing on the page is your next session: the subject, the day and time, the hall, and the teacher.",
@@ -479,6 +483,16 @@
           "4": "On the receipt page tap “Print”, or choose “Save as PDF” to send it on WhatsApp"
         }
       },
+      "receiptsCard": {
+        "title": "How to get a receipt",
+        "body": "Every payment has a numbered receipt — your proof if anything goes wrong with the centre.",
+        "how": {
+          "1": "Tap “Subscriptions” in the menu",
+          "2": "Scroll down to the receipts list",
+          "3": "Tap “Download receipt” beside the payment",
+          "4": "On the receipt page tap “Print”, or choose “Save as PDF” to send it on WhatsApp"
+        }
+      },
       "card": {
         "title": "How to get your card and use it",
         "body": "It carries your eight-character code — what you give the counter staff every day to be checked in.",
@@ -532,6 +546,17 @@
         },
         "note": "A guardian phone number alone isn't enough. And everything else works normally while you're locked: your classes, grades and wallet."
       },
+      "unlockMessagingCard": {
+        "title": "If messaging is locked — how to unlock it",
+        "body": "If you're under 18 with no guardian email on file, messaging teachers and centre staff is locked. It isn't a punishment — it's so a parent can see how you communicate with adults.",
+        "how": {
+          "1": "Press “Settings” in the menu",
+          "2": "Find the notice asking for a guardian email",
+          "3": "Enter your guardian's email — it must be theirs, not yours",
+          "4": "Press “Save” and messaging unlocks immediately"
+        },
+        "note": "A guardian phone number alone isn't enough. And everything else works normally while you're locked: your classes, grades and payments."
+      },
       "pushNotifications": {
         "title": "How to turn on phone notifications",
         "body": "So you're told the moment a grade is recorded or a payment goes through, even with Edura closed.",
@@ -566,6 +591,10 @@
       "finish": {
         "title": "That's it — your turn 🎉",
         "body": "The tour is done. If you haven't subscribed to a teacher yet, start with “Subjects”. And if you'd rather practise first on a copy with no real money involved, open “Practice” in the menu."
+      },
+      "finishCard": {
+        "title": "That's it — your turn 🎉",
+        "body": "The tour is done. If you haven't subscribed to a teacher yet, start with “Subjects”."
       }
     },
     "moreHint": "On a phone: press “More” first — it's inside there."

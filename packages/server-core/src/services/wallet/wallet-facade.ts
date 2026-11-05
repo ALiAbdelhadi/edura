@@ -26,6 +26,7 @@ export {
   reconcileWallet,
   INSUFFICIENT_WALLET,
 } from "./wallet";
+import { assertWalletEnabled } from "./wallet-switch";
 
 const INTENT_TTL_MS = 60 * 60 * 1000; // 1h checkout window
 
@@ -60,6 +61,7 @@ export async function initiateWalletTopUpIntent(
   user: SessionUser,
 ) {
   if (user.role !== "student") throw new ForbiddenError("Students only");
+  assertWalletEnabled();
   // Availability first: in production with PAYMENTS_MODE=mock the driver
   // refuses to exist (M-07), and the caller deserves the 422 not the throw.
   if (!onlineCheckoutAvailable()) {

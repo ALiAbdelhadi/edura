@@ -19,6 +19,7 @@ export {
   approvedChildIds,
   INSUFFICIENT_PARENT_WALLET,
 } from "./parent-wallet";
+import { assertWalletEnabled } from "./wallet-switch";
 
 const INTENT_TTL_MS = 60 * 60 * 1000; // 1h checkout window — same as every other intent
 
@@ -53,6 +54,7 @@ export async function initiateParentWalletTopUpIntent(
   user: SessionUser,
 ) {
   if (user.role !== "parent") throw new ForbiddenError("Parents only");
+  assertWalletEnabled();
   // Availability first: in production with PAYMENTS_MODE=mock the driver
   // refuses to exist (M-07), and the caller deserves the 422 not the throw.
   if (!onlineCheckoutAvailable()) {

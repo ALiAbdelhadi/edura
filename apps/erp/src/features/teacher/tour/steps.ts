@@ -1,8 +1,14 @@
 import type { TourStep } from "@/features/tour/guided-tour";
+import { WALLET_ENABLED } from "@/lib/config/features";
 
 const at = (name: string): string[] => [`nav-${name}`, `bar-${name}`, "bar-more"];
 
-export const TEACHER_TOUR_STEPS: TourStep[] = [
+// Wallet-off deployments drop the wallet step and the Practice step (hidden nav item).
+const WALLET_STEPS = new Set(["wallet", "practice"]);
+// ...and swap steps whose copy mentions the wallet for card-only copy.
+const CARD_COPY: Record<string, string> = { welcome: "welcomeCard", closeLesson: "closeLessonCard" };
+
+const ALL_STEPS: TourStep[] = [
   { id: "welcome" },
 
   { id: "priceClass", anchor: at("classes") },
@@ -19,3 +25,9 @@ export const TEACHER_TOUR_STEPS: TourStep[] = [
 
   { id: "finish" },
 ];
+
+export const TEACHER_TOUR_STEPS: TourStep[] = WALLET_ENABLED
+  ? ALL_STEPS
+  : ALL_STEPS.filter((s) => !WALLET_STEPS.has(s.id)).map((s) =>
+      s.id in CARD_COPY ? { ...s, id: CARD_COPY[s.id]! } : s,
+    );

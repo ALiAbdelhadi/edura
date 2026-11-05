@@ -1,4 +1,5 @@
 import { LegalPage } from "@/features/legal/legal-page";
+import { WALLET_ENABLED } from "@/lib/config/features";
 import { routing } from "@/i18n/routing";
 import type { Locale } from "@/lib/i18n";
 import type { Metadata } from "next";
@@ -41,7 +42,7 @@ export default async function PrivacyPage({ params }: Props) {
             <h2>١. البيانات التي نجمعها</h2>
             <ul>
               <li>بيانات الحساب: الاسم، البريد الإلكتروني، رقم الهاتف، الدور، وكلمة مرور مشفّرة.</li>
-              <li>بيانات تشغيلية: الفصول، الحضور، الدرجات، الاشتراكات، وسجلات المدفوعات والمحافظ.</li>
+              <li>بيانات تشغيلية: الفصول، الحضور، الدرجات، الاشتراكات، وسجلات المدفوعات{WALLET_ENABLED && " والمحافظ"}.</li>
               <li>بيانات ولي الأمر/الوصي للطلاب القُصّر (بريد أو هاتف) لأغراض الإشراف والتواصل.</li>
               <li>سجلات فنية: توقيتات الدخول وسجلات تدقيق للعمليات الحساسة.</li>
             </ul>
@@ -152,7 +153,7 @@ export default async function PrivacyPage({ params }: Props) {
             <h2>1. Data we collect</h2>
             <ul>
               <li>Account data: name, email, phone number, role, and a hashed password.</li>
-              <li>Operational data: classes, attendance, grades, subscriptions, payment and wallet records.</li>
+              <li>Operational data: classes, attendance, grades, subscriptions, payment{WALLET_ENABLED && " and wallet"} records.</li>
               <li>Guardian contact details for minor students (email or phone) for oversight and communication.</li>
               <li>Technical records: sign-in timestamps and audit logs of sensitive operations.</li>
             </ul>

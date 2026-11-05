@@ -17,6 +17,7 @@ import { toast } from "@repo/ui/components/sonner";
 import type { Locale } from "@repo/ui/lib/format";
 import { cn } from "@repo/ui/lib/utils";
 import { useLocale, useTranslations } from "next-intl";
+import { WALLET_ENABLED } from "@/lib/config/features";
 
 type Preview = {
   courseTitle: string | null;
@@ -145,7 +146,7 @@ export function SettleLessonCard({ sessionId }: { sessionId: string }) {
     const fundingNote =
       (p.centerHeldGross ?? 0) > 0 ? (
         <p className="mt-2 mb-0 flex flex-wrap items-baseline gap-1 text-[12.5px] leading-relaxed text-ink-2">
-          <span>{t("teacher.settleCenterHeldNote")}</span>
+          <span>{t(WALLET_ENABLED ? "teacher.settleCenterHeldNote" : "teacher.settleCenterHeldNoteWalletOff")}</span>
           <Num.Money piasters={p.centerHeldGross ?? 0} locale={locale} sign={false} />
         </p>
       ) : null;
@@ -293,7 +294,7 @@ export function SettleLessonCard({ sessionId }: { sessionId: string }) {
             }),
             confirm: t("teacher.settleConfirm"),
             hint: t("teacher.settleHint"),
-            armedHint: t("teacher.settleArmedHint"),
+            armedHint: t(WALLET_ENABLED ? "teacher.settleArmedHint" : "teacher.settleArmedHintWalletOff"),
             armedAnnouncement: t("teacher.settleConfirm"),
           }}
         />

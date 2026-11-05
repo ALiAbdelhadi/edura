@@ -14,6 +14,7 @@ import { QuerySection } from "@repo/ui/components/query-section";
 import { DataTable, type ColumnDef } from "@/components/kit/data-table";
 import { EmptyState } from "@/components/kit/empty-state";
 import { PageHeader } from "@/components/kit/page-header";
+import { WALLET_ENABLED } from "@/lib/config/features";
 import { ReceiptLink } from "@/features/receipts/receipt-link";
 import {
   Figure,
@@ -201,7 +202,7 @@ export function ParentFeesScreen() {
           <div className="rounded-xl border border-rule bg-field p-4">
             <span className="eyebrow">{t("parentFees.payingEyebrow")}</span>
             <LimitNote className="mt-1.5">
-              {t("parentFees.payLimit")}
+              {t(WALLET_ENABLED ? "parentFees.payLimit" : "parentFees.payLimitCardOnly")}
             </LimitNote>
           </div>
 

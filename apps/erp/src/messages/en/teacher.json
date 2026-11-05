@@ -218,6 +218,7 @@
   "settleConfirm": "Final confirmation — press to distribute",
   "settleHint": "The distribution is written to the ledger once, and cannot be undone.",
   "settleArmedHint": "Written to the ledger in your name, and credited to the teacher's and the center's wallets immediately.",
+  "settleArmedHintWalletOff": "Written to the ledger in your name, and recorded to the teacher's and the center's accounts immediately.",
   "settleDone": "Lesson closed and its revenue distributed",
   "settleError": "Could not close the lesson",
   "settlePresent": "Present",
@@ -471,6 +472,10 @@
         "title": "Welcome to Edura 👋",
         "body": "This tour shows you the things you'll actually do — and it won't just say “this is your wallet”, it will show you how, step by step. It's ordered by what costs you money if you don't know it. You can skip at any point."
       },
+      "welcomeCard": {
+        "title": "Welcome to Edura 👋",
+        "body": "This tour shows you the things you'll actually do — not just a list of screens, but how to do each one, step by step. It's ordered by what costs you money if you don't know it. You can skip at any point."
+      },
       "priceClass": {
         "title": "First: make sure your group has a price",
         "body": "A group with no price cannot be subscribed to, and its lessons refuse to close — so you will not be paid a piastre for them.",
@@ -496,6 +501,17 @@
       "closeLesson": {
         "title": "Then close the lesson — this is what pays you",
         "body": "Distribution does not happen by itself. A lesson you never close puts nothing in your wallet.",
+        "how": {
+          "1": "After saving attendance, scroll to the \"Close the lesson\" card under the register",
+          "2": "The button names the amount and the number of students before you press it",
+          "3": "Check the teacher, centre and platform shares",
+          "4": "Press \"Final confirm — press to distribute\""
+        },
+        "note": "The distribution is written to the ledger once and cannot be undone. A closed lesson cannot be closed again."
+      },
+      "closeLessonCard": {
+        "title": "Then close the lesson — this is what pays you",
+        "body": "Distribution does not happen by itself. A lesson you never close never credits your share to your account.",
         "how": {
           "1": "After saving attendance, scroll to the \"Close the lesson\" card under the register",
           "2": "The button names the amount and the number of students before you press it",
@@ -626,5 +642,6 @@
   "fiveStarOfLast": "5 stars — in the last {n}",
   "reviewsTruncated": "Showing {shown} of {total} reviews — older ones are not listed here.",
   "settleCounterOnlyWarning": "{n} student(s) passed the counter but were never door-checked — they will NOT be counted in this lesson's money. Door-check them first if they actually attended.",
-  "settleCenterHeldNote": "Of which collected by the center (not added to the wallet; the teacher's share and platform fees on it are debited from platform credit):"
+  "settleCenterHeldNote": "Of which collected by the center (not added to the wallet; the teacher's share and platform fees on it are debited from platform credit):",
+  "settleCenterHeldNoteWalletOff": "Of which collected by the center (not recorded to your account statement; the teacher's share and platform fees on it are debited from platform credit):"
 }

@@ -21,6 +21,7 @@ import { lockSessionRow } from "../attendance/lesson-lock";
 import { openShiftIdFor } from "../center/shifts";
 import { fundingOfMethod } from "../finance/center-credit";
 import { walletDebit } from "../../services/wallet/wallet";
+import { assertWalletEnabled } from "../../services/wallet/wallet-switch";
 import { startOfPlatformDay, todayKey } from "../../lib/date-key";
 import {
   parentWalletDebit,
@@ -374,6 +375,7 @@ export async function createSubscriptionCheckout(
   }
 
   if (payFrom === "wallet" || payFrom === "parent_wallet") {
+    assertWalletEnabled();
     const course0 = await platformDb((tx) =>
       tx.course.findFirst({
         where: { id: input.courseId, status: "active" },

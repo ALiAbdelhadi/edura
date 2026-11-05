@@ -39,6 +39,7 @@
     "noPayments": "No payments recorded.",
     "payingEyebrow": "Paying",
     "payLimit": "You can pay for your child from the \"Pay for a lesson\" page — by card or from your wallet. Cash paid at the centre also appears here.",
+    "payLimitCardOnly": "You can pay for your child from the \"Pay for a lesson\" page — by card. Cash paid at the centre also appears here.",
     "periodEyebrow": "Period",
     "rangeStart": "From date",
     "paidReason": "across {count} entries",
@@ -107,6 +108,7 @@
   },
   "parentPay": {
     "subtitle": "Activate and pay for a lesson for your child — from your card or your wallet.",
+    "subtitleCardOnly": "Activate and pay for a lesson for your child by card.",
     "childSubjectsTab": "Child's subjects",
     "allSubjectsTab": "All subjects",
     "childSubjectsHint": "The subjects of {child}'s academic track. Switch to \"All subjects\" to search the full catalog.",
@@ -362,6 +364,10 @@
         "title": "Welcome to Edura 👋",
         "body": "This is where you follow your children and pay for them. The tour shows you the things you'll actually do — and it won't just say “this is your wallet”, it will show you how, step by step. You can skip it at any point."
       },
+      "welcomeCard": {
+        "title": "Welcome to Edura 👋",
+        "body": "This is where you follow your children and pay for them. The tour shows you the things you'll actually do — not just a list of screens, but how to do each one, step by step. You can skip it at any point."
+      },
       "linkChild": {
         "title": "First: link your child",
         "body": "Without a link, every screen in your account stays empty. There are two ways.",
@@ -424,6 +430,18 @@
           "5": "Choose “Pay by card” or “Pay from my wallet”"
         },
         "note": "Your wallet history records the child's name next to every payment — that's what lets you check your money when you have more than one."
+      },
+      "payCard": {
+        "title": "How to pay for your child's lesson",
+        "body": "This is usually why you opened the account.",
+        "how": {
+          "1": "Press “Pay for a Lesson” in the menu",
+          "2": "Pick the child",
+          "3": "Pick the subject, then the group",
+          "4": "Press “Pay for this lesson” — or “Pay monthly” for the whole month",
+          "5": "Press “Pay by card” and finish on the secure payment page"
+        },
+        "note": "Every payment is recorded under the child it was for, in your payment history — that's what lets you check your money when you have more than one."
       },
       "messages": {
         "title": "How to message the teacher or the centre",

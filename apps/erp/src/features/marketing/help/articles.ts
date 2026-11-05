@@ -1,3 +1,5 @@
+import { WALLET_ENABLED } from "@/lib/config/features";
+
 export const HELP_CATEGORIES = [
   "start",
   "student",
@@ -12,6 +14,8 @@ export type HelpArticle = {
   slug: string;
   category: HelpCategory;
 };
+
+const WALLET_ARTICLES = new Set(["teacher-wallet-payouts", "student-wallet"]);
 
 export const HELP_ARTICLES: readonly HelpArticle[] = [
   { slug: "create-center-account", category: "start" },
@@ -49,7 +53,7 @@ export const HELP_ARTICLES: readonly HelpArticle[] = [
   { slug: "student-settings-security", category: "student" },
   { slug: "student-troubleshooting", category: "student" },
   { slug: "student-glossary", category: "student" },
-] as const;
+].filter((a) => WALLET_ENABLED || !WALLET_ARTICLES.has(a.slug));
 
 export function articlesInCategory(category: HelpCategory) {
   return HELP_ARTICLES.filter((a) => a.category === category);

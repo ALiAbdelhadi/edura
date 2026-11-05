@@ -1,10 +1,16 @@
 import DashboardShell from "@/components/refine/dashboard-shell";
+import { WALLET_ENABLED } from "@/lib/config/features";
 import {
   ChildContextBar,
   ChildSelectorProvider,
 } from "@/components/ui/child-selector";
 
-const navGroups = [
+// Wallet-off deployments hide the wallet and the Practice emulator (fake wallet screens).
+const WALLET_HREFS = new Set(["/dashboard/parent/wallet", "/dashboard/parent/tour"]);
+const shown = <T extends { href: string }>(items: T[]): T[] =>
+  WALLET_ENABLED ? items : items.filter((i) => !WALLET_HREFS.has(i.href));
+
+const allNavGroups = [
   {
     label: "",
     items: [{ href: "/dashboard/parent", icon: "home", label: "Dashboard" }],
@@ -43,6 +49,8 @@ const navGroups = [
   },
 ];
 
+const navGroups = allNavGroups.map((g) => ({ ...g, items: shown(g.items) }));
+
 const BAR_ORDER = [
   "/dashboard/parent",
   "/dashboard/parent/attendance",
@@ -57,7 +65,7 @@ const BAR_ORDER = [
   "/dashboard/parent/notifications",
   "/dashboard/parent/tour",
   "/dashboard/parent/settings",
-];
+].filter((href) => WALLET_ENABLED || !WALLET_HREFS.has(href));
 
 export default function PortalChrome({
   children,

@@ -178,12 +178,23 @@ export function portalForRole(
   return portalSegmentForRole(role);
 }
 
+// A deployment built without the stored-value wallet (NEXT_PUBLIC_WALLET_ENABLED
+// in the ERP bundle, EDURA_WALLET_ENABLED on the server) has no /wallet page.
+function walletEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_WALLET_ENABLED !== "0" && process.env.EDURA_WALLET_ENABLED !== "0"
+  );
+}
+
 export function notificationPath(
   type: string,
   portal: NotificationPortal | null,
 ): string | null {
   if (!portal) return null;
-  const suffix = DESTINATIONS[type]?.[portal];
+  let suffix = DESTINATIONS[type]?.[portal];
+  if (suffix === "/wallet" && !walletEnabled()) {
+    suffix = portal === "student" ? "/subscriptions" : "/notifications";
+  }
   return suffix ? `/dashboard/${portal}${suffix}` : null;
 }
 

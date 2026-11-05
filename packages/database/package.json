@@ -103,6 +103,7 @@
     "seed:oversight-demo": "tsx prisma/center-oversight-demo-seed.ts",
     "seed:teamnotes-demo": "tsx --env-file=.env.local prisma/team-notes-demo-seed.ts",
     "seed:parentpay-demo": "tsx --env-file=.env.local prisma/parent-pay-demo-seed.ts",
+    "seed:paymobreview-demo": "tsx --env-file=.env.local prisma/paymob-review-demo-seed.ts",
     "seed:roomrate-demo": "tsx --env-file=.env.local prisma/room-rate-demo-seed.ts",
     "db:wipe": "tsx scripts/wipe-data.ts",
     "db:backup": "tsx scripts/backup-db.ts",

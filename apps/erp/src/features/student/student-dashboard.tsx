@@ -37,6 +37,7 @@ import { todayKey } from "@repo/shared/date-key";
 import { asRecord } from "@/lib/refine/as-record";
 import { useFormatters } from "@/lib/i18n/use-formatters";
 import { useVisibilityTrigger } from "@/lib/api/use-on-demand";
+import { WALLET_ENABLED } from "@/lib/config/features";
 import type { GradeBandId } from "@repo/shared/grading-scale";
 
 const UPCOMING_WINDOW = 50;
@@ -147,7 +148,7 @@ export function StudentDashboard() {
   const { result: walletRes } = useCustom({
     url: "me/wallet",
     method: "get",
-    queryOptions: { enabled: recordWanted },
+    queryOptions: { enabled: recordWanted && WALLET_ENABLED },
   });
   const { result: sessionsRes } = useList({
     resource: "sessions",
@@ -292,7 +293,11 @@ export function StudentDashboard() {
             })}
           />
 
-      <div ref={recordRef} className="grid grid-cols-3 gap-2 sm:gap-4" data-tour="student-record">
+      <div
+        ref={recordRef}
+        className={`grid gap-2 sm:gap-4 ${WALLET_ENABLED ? "grid-cols-3" : "grid-cols-2"}`}
+        data-tour="student-record"
+      >
         <RecordCard
           href="/dashboard/student/attendance"
           eyebrow={t("studentDashboard.recordEyebrow")}
@@ -325,23 +330,25 @@ export function StudentDashboard() {
           </Num>
         </RecordCard>
 
-        <RecordCard
-          href="/dashboard/student/wallet"
-          eyebrow={t("studentDashboard.moneyEyebrow")}
-          label={t("studentWallet.balance")}
-          hint={t("studentDashboard.balanceTraceHint")}
-          openLabel={t("studentDashboard.openRecord", {
-            record: t("studentWallet.balance"),
-          })}
-        >
-          <div className="text-[19px] sm:text-[30px]">
-            {hasBalance ? (
-              <Money piasters={wallet!.balance} tone="ink" weight={600} />
-            ) : (
-              <Num style={{ color: "var(--ink-3)" }}>—</Num>
-            )}
-          </div>
-        </RecordCard>
+        {WALLET_ENABLED ? (
+          <RecordCard
+            href="/dashboard/student/wallet"
+            eyebrow={t("studentDashboard.moneyEyebrow")}
+            label={t("studentWallet.balance")}
+            hint={t("studentDashboard.balanceTraceHint")}
+            openLabel={t("studentDashboard.openRecord", {
+              record: t("studentWallet.balance"),
+            })}
+          >
+            <div className="text-[19px] sm:text-[30px]">
+              {hasBalance ? (
+                <Money piasters={wallet!.balance} tone="ink" weight={600} />
+              ) : (
+                <Num style={{ color: "var(--ink-3)" }}>—</Num>
+              )}
+            </div>
+          </RecordCard>
+        ) : null}
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -359,7 +366,7 @@ export function StudentDashboard() {
         />
       </div>
 
-      <PracticeInvite show={!next && subjects.length === 0} />
+      <PracticeInvite show={WALLET_ENABLED && !next && subjects.length === 0} />
     </div>
   );
 }

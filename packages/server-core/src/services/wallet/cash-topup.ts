@@ -9,6 +9,7 @@ import { notify } from "../notifications/notify";
 import { studentAndParents } from "../notifications/fanout";
 import { nextTxnRef } from "../finance/ref-numbers";
 import { walletCredit, assertTopupAllowed } from "./wallet";
+import { assertWalletEnabled } from "./wallet-switch";
 
 export async function topUpWalletCash(
   input: { studentId: string; amount: number },
@@ -27,6 +28,7 @@ export async function topUpWalletCashTx(
   user: SessionUser,
 ): Promise<WithEffects<{ balanceAfter: number; receiptNumber: string }>> {
   if (user.role !== "center_admin" || !user.centerId) throw new ForbiddenError();
+  assertWalletEnabled();
   const centerId = user.centerId;
 
   const { balanceAfter, receiptNumber, studentId } = await (async () => {

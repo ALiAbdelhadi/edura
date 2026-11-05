@@ -1,4 +1,5 @@
 import { LegalPage } from "@/features/legal/legal-page";
+import { WALLET_ENABLED } from "@/lib/config/features";
 import { routing } from "@/i18n/routing";
 import type { Locale } from "@/lib/i18n";
 import type { Metadata } from "next";
@@ -41,7 +42,7 @@ export default async function TermsPage({ params }: Props) {
             <h2>١. عن المنصة</h2>
             <p>
               «إدورا» (Edura) منصة إلكترونية تربط السناتر التعليمية والمدرّسين بالطلاب وأولياء
-              الأمور في مصر: إدارة الفصول والحصص، تسجيل الحضور، الاشتراكات والمدفوعات، المحافظ،
+              الأمور في مصر: إدارة الفصول والحصص، تسجيل الحضور، الاشتراكات والمدفوعات،{WALLET_ENABLED && " المحافظ،"}
               والتواصل. باستخدامك للمنصة فأنت توافق على هذه الشروط.
             </p>
           </section>
@@ -67,7 +68,7 @@ export default async function TermsPage({ params }: Props) {
               <li>الدفع الإلكتروني يتم عبر مزوّد دفع مرخّص (Paymob) — المنصة لا تخزّن بيانات البطاقات.</li>
               <li>يمكن الدفع نقدًا في السنتر ويسجَّل على المنصة.</li>
               <li>تخصم المنصة عمولة و/أو رسوم خدمة معلنة من التسويات وفق الأسعار السارية وقت إنشاء الفصل.</li>
-              <li>أرصدة المحافظ (طالب/ولي أمر) أرصدة مدفوعة مقدمًا تُستخدم داخل المنصة، والاسترداد وفق سياسة الاسترداد المعلنة للحصة أو الاشتراك.</li>
+              {WALLET_ENABLED && <li>أرصدة المحافظ (طالب/ولي أمر) أرصدة مدفوعة مقدمًا تُستخدم داخل المنصة، والاسترداد وفق سياسة الاسترداد المعلنة للحصة أو الاشتراك.</li>}
               <li>سجلات الحضور والتسويات على المنصة هي المرجع في احتساب المستحقات.</li>
             </ul>
           </section>
@@ -113,7 +114,7 @@ export default async function TermsPage({ params }: Props) {
             <p>
               Edura is an online platform connecting teaching centers and teachers with students
               and parents in Egypt: class management, attendance, subscriptions and payments,
-              wallets, and messaging. By using it you agree to these terms.
+              {WALLET_ENABLED && "wallets, "}and messaging. By using it you agree to these terms.
             </p>
           </section>
           <section>
@@ -139,7 +140,7 @@ export default async function TermsPage({ params }: Props) {
               <li>Online payment runs through a licensed payment provider (Paymob) — the platform never stores card data.</li>
               <li>Cash payment at the center is supported and recorded on the platform.</li>
               <li>The platform deducts published commissions/service fees from settlements, at the rates in force when a class was created.</li>
-              <li>Wallet balances (student/parent) are prepaid balances used within the platform; refunds follow the published refund policy of the lesson or subscription.</li>
+              {WALLET_ENABLED && <li>Wallet balances (student/parent) are prepaid balances used within the platform; refunds follow the published refund policy of the lesson or subscription.</li>}
               <li>The platform’s attendance and settlement records are the reference for computing dues.</li>
             </ul>
           </section>
