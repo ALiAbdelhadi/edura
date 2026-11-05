@@ -17,7 +17,7 @@ export type HelpArticle = {
 
 const WALLET_ARTICLES = new Set(["teacher-wallet-payouts", "student-wallet"]);
 
-export const HELP_ARTICLES: readonly HelpArticle[] = [
+const ALL_HELP_ARTICLES: readonly HelpArticle[] = [
   { slug: "create-center-account", category: "start" },
   { slug: "invite-teacher", category: "start" },
   { slug: "create-group", category: "start" },
@@ -53,7 +53,11 @@ export const HELP_ARTICLES: readonly HelpArticle[] = [
   { slug: "student-settings-security", category: "student" },
   { slug: "student-troubleshooting", category: "student" },
   { slug: "student-glossary", category: "student" },
-].filter((a) => WALLET_ENABLED || !WALLET_ARTICLES.has(a.slug));
+];
+
+export const HELP_ARTICLES: readonly HelpArticle[] = ALL_HELP_ARTICLES.filter(
+  (a) => WALLET_ENABLED || !WALLET_ARTICLES.has(a.slug),
+);
 
 export function articlesInCategory(category: HelpCategory) {
   return HELP_ARTICLES.filter((a) => a.category === category);
